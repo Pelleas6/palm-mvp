@@ -45,7 +45,7 @@ export async function POST(req) {
       );
     }
 
-    const bucket = "hands"; // mets ici le nom exact de ton bucket
+    const bucket = "palm-uploads"; // mets ici le nom exact de ton bucket
     const runId = crypto.randomUUID();
     const now = new Date().toISOString().replace(/[:.]/g, "-");
 
