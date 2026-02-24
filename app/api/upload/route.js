@@ -24,11 +24,11 @@ export async function POST(req) {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const formData = await req.formData();
-    const left = formData.get("left");
-    const right = formData.get("right");
+    const left = formData.get("leftHand");
+    const right = formData.get("rightHand");
 
-    if (!left || !right) {
-      return NextResponse.json({ error: "Files missing" }, { status: 400 });
+  if (!(left instanceof File) || !(right instanceof File) {
+      return NextResponse.json({ error: "Files missing (not File objects)" }, { status: 400 });
     }
 
     const bucket = "palm-uploads";
