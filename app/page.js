@@ -8,9 +8,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); // IMPORTANT
-
+  const handleUpload = async () => {
     if (!leftHand || !rightHand) {
       setError("Veuillez télécharger les deux mains.");
       return;
@@ -60,59 +58,54 @@ export default function Home() {
         width: "100%",
         maxWidth: "500px"
       }}>
-        <h1 style={{ marginBottom: "10px" }}>
-          Lecture de Mains
-        </h1>
+        <h1>Lecture de Mains</h1>
 
         <p style={{ color: "#666", marginBottom: "30px" }}>
           Téléchargez une photo de votre main gauche et de votre main droite.
-          Analyse personnalisée envoyée sous 24h.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "20px" }}>
-            <label>Main gauche</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setLeftHand(e.target.files[0])}
-              style={{ display: "block", marginTop: "8px" }}
-            />
-          </div>
+        <div style={{ marginBottom: "20px" }}>
+          <label>Main gauche</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLeftHand(e.target.files[0])}
+            style={{ display: "block", marginTop: "8px" }}
+          />
+        </div>
 
-          <div style={{ marginBottom: "20px" }}>
-            <label>Main droite</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setRightHand(e.target.files[0])}
-              style={{ display: "block", marginTop: "8px" }}
-            />
-          </div>
+        <div style={{ marginBottom: "20px" }}>
+          <label>Main droite</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setRightHand(e.target.files[0])}
+            style={{ display: "block", marginTop: "8px" }}
+          />
+        </div>
 
-          {error && (
-            <p style={{ color: "red", marginBottom: "15px" }}>
-              {error}
-            </p>
-          )}
+        {error && (
+          <p style={{ color: "red", marginBottom: "15px" }}>
+            {error}
+          </p>
+        )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "12px",
-              background: loading ? "#999" : "#1f3c88",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontSize: "16px"
-            }}
-          >
-            {loading ? "Envoi..." : "Envoyer mon analyse"}
-          </button>
-        </form>
+        <button
+          onClick={handleUpload}
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "12px",
+            background: loading ? "#999" : "#1f3c88",
+            color: "white",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontSize: "16px"
+          }}
+        >
+          {loading ? "Envoi..." : "Envoyer mon analyse"}
+        </button>
       </div>
     </main>
   );
