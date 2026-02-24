@@ -6,8 +6,9 @@ export default function Home() {
   const [leftHand, setLeftHand] = useState(null);
   const [rightHand, setRightHand] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!leftHand || !rightHand) {
@@ -16,7 +17,27 @@ export default function Home() {
     }
 
     setError("");
-    alert("Analyse envoyée (simulation).");
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append("leftHand", leftHand);
+    formData.append("rightHand", rightHand);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    setLoading(false);
+
+    if (!response.ok) {
+      setError(result.error || "Erreur lors de l'upload.");
+      return;
+    }
+
+    alert("Analyse envoyée avec succès !");
   };
 
   return (
@@ -74,10 +95,11 @@ export default function Home() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: "100%",
               padding: "12px",
-              background: "#1f3c88",
+              background: loading ? "#999" : "#1f3c88",
               color: "white",
               border: "none",
               borderRadius: "8px",
@@ -85,7 +107,7 @@ export default function Home() {
               fontSize: "16px"
             }}
           >
-            Envoyer mon analyse
+            {loading ? "Envoi..." : "Envoyer mon analyse"}
           </button>
         </form>
       </div>
