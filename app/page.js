@@ -1,4 +1,24 @@
+"use client";
+
+import { useState } from "react";
+
 export default function Home() {
+  const [leftHand, setLeftHand] = useState(null);
+  const [rightHand, setRightHand] = useState(null);
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!leftHand || !rightHand) {
+      setError("Veuillez télécharger les deux mains.");
+      return;
+    }
+
+    setError("");
+    alert("Analyse envoyée (simulation).");
+  };
+
   return (
     <main style={{
       minHeight: "100vh",
@@ -25,12 +45,13 @@ export default function Home() {
           Analyse personnalisée envoyée sous 24h.
         </p>
 
-        <form>
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: "20px" }}>
             <label>Main gauche</label>
             <input
               type="file"
               accept="image/*"
+              onChange={(e) => setLeftHand(e.target.files[0])}
               style={{ display: "block", marginTop: "8px" }}
             />
           </div>
@@ -40,9 +61,16 @@ export default function Home() {
             <input
               type="file"
               accept="image/*"
+              onChange={(e) => setRightHand(e.target.files[0])}
               style={{ display: "block", marginTop: "8px" }}
             />
           </div>
+
+          {error && (
+            <p style={{ color: "red", marginBottom: "15px" }}>
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
