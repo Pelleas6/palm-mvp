@@ -9,7 +9,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // IMPORTANT
 
     if (!leftHand || !rightHand) {
       setError("Veuillez télécharger les deux mains.");
@@ -19,25 +19,28 @@ export default function Home() {
     setError("");
     setLoading(true);
 
-    const formData = new FormData();
-    formData.append("leftHand", leftHand);
-    formData.append("rightHand", rightHand);
+    try {
+      const formData = new FormData();
+      formData.append("leftHand", leftHand);
+      formData.append("rightHand", rightHand);
 
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    setLoading(false);
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur upload");
+      }
 
-    if (!response.ok) {
-      setError(result.error || "Erreur lors de l'upload.");
-      return;
+      alert("Analyse envoyée avec succès !");
+    } catch (err) {
+      setError(err.message);
     }
 
-    alert("Analyse envoyée avec succès !");
+    setLoading(false);
   };
 
   return (
