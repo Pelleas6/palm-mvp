@@ -1,94 +1,97 @@
 export const runtime = "nodejs";
-
-import { createClient } from "@supabase/supabase-js";
-
 export const dynamic = "force-dynamic";
 
-export async function POST(req) {
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
   try {
     console.log("API UPLOAD APPELÉ");
 
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // 🔎 On récupère les variables proprement
+    const supabaseUrl =
+      process.env.SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.log("ENV MANQUANTES", {
-        hasUrl: !!SUPABASE_URL,
-        hasServiceRole: !!SUPABASE_SERVICE_ROLE_KEY,
-      });
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          error: "Variables d'environnement manquantes (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).",
-        }),
-        { status: 500, headers: { "content-type": "application/json" } }
-      );
-    }
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
+    console.log("ENV CHECK:", {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey,
+      urlStartsWithHttps:
+        typeof supabaseUrl === "string" &&
+        supabaseUrl.startsWith("https://"),
     });
 
-    const formData = await req.formData();
-    const left = formData.get("leftHand");
-    const right = formData.get("rightHand");
-
-    if (!left || !right) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "Il faut 2 fichiers : main gauche + main droite." }),
-        { status: 400, headers: { "content-type": "application/json" } }
-      );
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Missing SUPABASE env vars in server");
     }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const formData = await req.formData();
+    const left = formData.get("left");
+    const right = formData.get("right");
 
     if (!(left instanceof File) || !(right instanceof File)) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "Fichiers invalides." }),
-        { status: 400, headers: { "content-type": "application/json" } }
+      return NextResponse.json(
+        { error: "Files missing" },
+        { status: 400 }
       );
     }
 
-    const bucket = "palm-uploads"; // mets ici le nom exact de ton bucket
-    const runId = crypto.randomUUID();
-    const now = new Date().toISOString().replace(/[:.]/g, "-");
+    const bucket = "palm-uploads";
+    const timestamp = Date.now();
 
-    async function uploadOne(file, label) {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${runId}/${label}-${now}.${ext}`;
+    const leftPath = `left-${timestamp}-${left.name}`;
+    const rightPath = `right-${timestamp}-${right.name}`;
 
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+    const leftBuffer = Buffer.from(await left.arrayBuffer());
+    const rightBuffer = Buffer.from(await right.arrayBuffer());
 
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(path, buffer, {
-          contentType: file.type || "application/octet-stream",
-          upsert: false,
-        });
+    const { error: leftError } = await supabase.storage
+      .from(bucket)
+      .upload(leftPath, leftBuffer, {
+        contentType: left.type,
+        upsert: true,
+      });
 
-      if (error) throw new Error(`Supabase upload error (${label}): ${error.message}`);
-
-      return { path: data.path };
+    if (leftError) {
+      console.error("LEFT UPLOAD ERROR:", leftError);
+      return NextResponse.json(
+        { error: leftError.message },
+        { status: 500 }
+      );
     }
 
-    const leftUp = await uploadOne(left, "left");
-    const rightUp = await uploadOne(right, "right");
+    const { error: rightError } = await supabase.storage
+      .from(bucket)
+      .upload(rightPath, rightBuffer, {
+        contentType: right.type,
+        upsert: true,
+      });
 
-    console.log("UPLOAD OK", { left: leftUp.path, right: rightUp.path });
+    if (rightError) {
+      console.error("RIGHT UPLOAD ERROR:", rightError);
+      return NextResponse.json(
+        { error: rightError.message },
+        { status: 500 }
+      );
+    }
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        runId,
-        leftPath: leftUp.path,
-        rightPath: rightUp.path,
-      }),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  } catch (e) {
-    console.log("UPLOAD FAIL", String(e?.message || e));
-    return new Response(
-      JSON.stringify({ ok: false, error: String(e?.message || e) }),
-      { status: 500, headers: { "content-type": "application/json" } }
+    return NextResponse.json({
+      success: true,
+      leftPath,
+      rightPath,
+    });
+  } catch (err: any) {
+    console.error("UPLOAD EXCEPTION:", err?.message || err);
+    return NextResponse.json(
+      { error: err?.message || "Unknown error" },
+      { status: 500 }
     );
   }
 }
