@@ -6,12 +6,28 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL?.trim();
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
     if (!supabaseUrl || !serviceRoleKey) {
       return NextResponse.json(
         { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
+    // Test connexion Supabase
+    try {
+      const health = await fetch(`${supabaseUrl}/auth/v1/health`);
+      if (!health.ok) {
+        return NextResponse.json(
+          { error: `Supabase health check failed (${health.status})` },
+          { status: 500 }
+        );
+      }
+    } catch (e) {
+      return NextResponse.json(
+        { error: "Cannot reach Supabase from Vercel (network error)" },
         { status: 500 }
       );
     }
@@ -42,6 +58,7 @@ export async function POST(req) {
       contentType: left.type || "image/jpeg",
       upsert: true,
     });
+
     if (upLeft.error) {
       return NextResponse.json(
         { error: `Supabase left upload: ${upLeft.error.message}` },
@@ -53,6 +70,7 @@ export async function POST(req) {
       contentType: right.type || "image/jpeg",
       upsert: true,
     });
+
     if (upRight.error) {
       return NextResponse.json(
         { error: `Supabase right upload: ${upRight.error.message}` },
@@ -67,9 +85,8 @@ export async function POST(req) {
       rightPath,
     });
   } catch (e) {
-    console.error("UPLOAD ERROR:", e);
     return NextResponse.json(
-      { error: "Upload failed" },
+      { error: "Upload failed (unexpected error)" },
       { status: 500 }
     );
   }
