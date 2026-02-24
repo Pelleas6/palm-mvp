@@ -1,134 +1,63 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const BUCKET = "palm-uploads";
-const MAX_BYTES = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-function sanitizeFilename(name) {
-  // garde seulement lettres/chiffres/.-_ et limite la longueur
-  const base = (name || "file")
-    .split("/")
-    .pop()
-    .split("\\")
-    .pop()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-zA-Z0-9._-]/g, "")
-    .slice(0, 80);
-
-  // évite le vide
-  return base.length ? base : "file";
-}
-
-function extFromMime(mime) {
-  if (mime === "image/jpeg") return "jpg";
-  if (mime === "image/png") return "png";
-  if (mime === "image/webp") return "webp";
-  return "bin";
-}
-
-function jsonError(message, status = 400, extra = undefined) {
-  return NextResponse.json({ ok: false, error: message, ...(extra || {}) }, { status });
-}
-
 export async function POST(req) {
-  const supabaseUrl = process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return jsonError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY", 500);
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  let leftPath = null;
-
   try {
-    const formData = await req.formData();
-    const left = formData.get("leftHand");
-    const right = formData.get("rightHand");
-
-    if (!(left instanceof File) || !(right instanceof File)) {
-      return jsonError("Files missing (expected leftHand and rightHand)", 400);
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Missing OPENAI_API_KEY" },
+        { status: 500 }
+      );
     }
 
-    // Taille max
-    if (left.size > MAX_BYTES || right.size > MAX_BYTES) {
-      return jsonError("File too large (max 5MB each)", 413, {
-        leftBytes: left.size,
-        rightBytes: right.size,
-        maxBytes: MAX_BYTES,
-      });
+    const { leftUrl, rightUrl } = await req.json();
+
+    if (!leftUrl || !rightUrl) {
+      return NextResponse.json(
+        { error: "Missing leftUrl or rightUrl" },
+        { status: 400 }
+      );
     }
 
-    // Type MIME
-    if (!ALLOWED_MIME.has(left.type) || !ALLOWED_MIME.has(right.type)) {
-      return jsonError("Unsupported file type (allowed: JPEG, PNG, WebP)", 415, {
-        leftType: left.type,
-        rightType: right.type,
-      });
-    }
+    const client = new OpenAI({ apiKey });
 
-    const ts = Date.now();
-    const leftName = sanitizeFilename(left.name);
-    const rightName = sanitizeFilename(right.name);
-
-    // Chemins clairs + extensions cohérentes
-    leftPath = `left/${ts}-${leftName}.${extFromMime(left.type)}`;
-    const rightPath = `right/${ts}-${rightName}.${extFromMime(right.type)}`;
-
-    const leftBuf = Buffer.from(await left.arrayBuffer());
-    const rightBuf = Buffer.from(await right.arrayBuffer());
-
-    // Upload gauche
-    const upLeft = await supabase.storage.from(BUCKET).upload(leftPath, leftBuf, {
-      contentType: left.type,
-      upsert: false,
-      cacheControl: "3600",
+    const r = await client.responses.create({
+      model: "gpt-5.1",
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text:
+                "Tu es un expert en chiromancie. Analyse ces deux photos (main gauche puis main droite). " +
+                "Réponds en français, structuré avec titres courts : " +
+                "1) Observations (forme de la main, doigts, lignes), " +
+                "2) Interprétation (personnalité, tendances), " +
+                "3) Conseils concrets, " +
+                "4) Résumé en 5 points. " +
+                "Sois bienveillant et interdiction complete pour les affirmations médicales.",
+            },
+            { type: "input_image", image_url: leftUrl },
+            { type: "input_image", image_url: rightUrl },
+          ],
+        },
+      ],
     });
-
-    if (upLeft.error) {
-      return jsonError(`Supabase left upload: ${upLeft.error.message}`, 500);
-    }
-
-    // Upload droite
-    const upRight = await supabase.storage.from(BUCKET).upload(rightPath, rightBuf, {
-      contentType: right.type,
-      upsert: false,
-      cacheControl: "3600",
-    });
-
-    if (upRight.error) {
-      // Rollback: supprimer la gauche si la droite échoue
-      try {
-        await supabase.storage.from(BUCKET).remove([leftPath]);
-      } catch (e) {
-        // on log côté serveur mais on renvoie l’erreur initiale
-        console.error("ROLLBACK REMOVE FAILED:", e);
-      }
-      return jsonError(`Supabase right upload: ${upRight.error.message}`, 500);
-    }
 
     return NextResponse.json({
       ok: true,
-      message: "Upload Supabase OK",
-      bucket: BUCKET,
-      leftPath,
-      rightPath,
+      analysis: r.output_text || "",
     });
   } catch (e) {
-    console.error("UPLOAD ERROR:", e);
-    // Rollback best-effort si on avait déjà upload la gauche
-    if (leftPath) {
-      try {
-        await supabase.storage.from(BUCKET).remove([leftPath]);
-      } catch {}
-    }
-    return jsonError("Upload failed", 500);
+    console.error("ANALYZE ERROR:", e);
+    return NextResponse.json(
+      { error: "AI analysis failed" },
+      { status: 500 }
+    );
   }
 }
