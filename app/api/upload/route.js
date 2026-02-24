@@ -16,22 +16,6 @@ export async function POST(req) {
       );
     }
 
-    // Test connexion Supabase
-    try {
-      const health = await fetch(`${supabaseUrl}/auth/v1/health`);
-      if (!health.ok) {
-        return NextResponse.json(
-          { error: `Supabase health check failed (${health.status})` },
-          { status: 500 }
-        );
-      }
-    } catch (e) {
-      return NextResponse.json(
-        { error: "Cannot reach Supabase from Vercel (network error)" },
-        { status: 500 }
-      );
-    }
-
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const formData = await req.formData();
@@ -39,10 +23,7 @@ export async function POST(req) {
     const right = formData.get("rightHand");
 
     if (!(left instanceof File) || !(right instanceof File)) {
-      return NextResponse.json(
-        { error: "Files missing" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Files missing" }, { status: 400 });
     }
 
     const bucket = "palm-uploads";
@@ -85,9 +66,7 @@ export async function POST(req) {
       rightPath,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: "Upload failed (unexpected error)" },
-      { status: 500 }
-    );
+    console.error("UPLOAD ERROR:", e);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
