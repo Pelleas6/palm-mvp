@@ -9,6 +9,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const handleUpload = async () => {
+    alert("CLICK OK"); // TEST DIRECT
+
     if (!leftHand || !rightHand) {
       setError("Veuillez télécharger les deux mains.");
       return;
@@ -96,7 +98,7 @@ export default function Home() {
           style={{
             width: "100%",
             padding: "12px",
-            background: loading ? "#999" : "#1f3c88",
+            background: "#1f3c88",
             color: "white",
             border: "none",
             borderRadius: "8px",
@@ -104,7 +106,7 @@ export default function Home() {
             fontSize: "16px"
           }}
         >
-          {loading ? "Envoi..." : "Envoyer mon analyse"}
+          Envoyer mon analyse
         </button>
       </div>
     </main>
