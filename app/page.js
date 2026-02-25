@@ -66,10 +66,13 @@ export default function Home() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
 
+  const [analysis, setAnalysis] = useState("");
+
   const handleUpload = async () => {
     try {
       setError("");
       setInfo("");
+      setAnalysis("");
 
       if (!leftHand || !rightHand) {
         setError("Veuillez télécharger la main gauche et la main droite.");
@@ -78,15 +81,17 @@ export default function Home() {
 
       setLoading(true);
 
+      // Compression côté navigateur (évite trop gros fichiers)
       const leftCompressed = await compressImageToJpeg(leftHand);
       const rightCompressed = await compressImageToJpeg(rightHand);
 
-      const maxPerFileBytes = 2.5 * 1024 * 1024; // 2.5MB
+      // garde-fou taille (tu peux ajuster)
+      const maxPerFileBytes = 5 * 1024 * 1024; // 5MB
       if (leftCompressed.size > maxPerFileBytes || rightCompressed.size > maxPerFileBytes) {
         setError(
-          `Photos encore trop lourdes après compression. ` +
+          `Photos trop lourdes. ` +
             `Gauche: ${formatBytes(leftCompressed.size)} / Droite: ${formatBytes(rightCompressed.size)}. ` +
-            `Essaye une photo moins proche ou baisse la qualité.`
+            `Objectif: <= 5MB par photo.`
         );
         setLoading(false);
         return;
@@ -96,26 +101,66 @@ export default function Home() {
       formData.append("leftHand", leftCompressed);
       formData.append("rightHand", rightCompressed);
 
-      const response = await fetch("/api/upload", {
+      // 1) Upload vers ton API
+      const uploadRes = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
 
-      const text = await response.text();
+      const uploadText = await uploadRes.text();
 
-      let json = null;
+      let uploadJson = null;
       try {
-        json = JSON.parse(text);
+        uploadJson = JSON.parse(uploadText);
       } catch {}
 
-      if (!response.ok) {
-        const msg = (json && (json.error || json.message)) || text || `Erreur serveur (status ${response.status})`;
+      if (!uploadRes.ok) {
+        const msg =
+          (uploadJson && (uploadJson.error || uploadJson.message)) ||
+          uploadText ||
+          `Erreur serveur (upload status ${uploadRes.status})`;
         setError(msg);
         setLoading(false);
         return;
       }
 
-      setInfo((json && (json.message || "OK")) || "OK");
+      const leftPath = uploadJson?.leftPath;
+      const rightPath = uploadJson?.rightPath;
+
+      if (!leftPath || !rightPath) {
+        setError("Upload OK mais paths manquants dans la réponse.");
+        setLoading(false);
+        return;
+      }
+
+      setInfo("Upload OK. Analyse IA en cours...");
+
+      // 2) Appel IA (avec leftPath/rightPath)
+      const analyzeRes = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leftPath, rightPath }),
+      });
+
+      const analyzeText = await analyzeRes.text();
+
+      let analyzeJson = null;
+      try {
+        analyzeJson = JSON.parse(analyzeText);
+      } catch {}
+
+      if (!analyzeRes.ok) {
+        const msg =
+          (analyzeJson && (analyzeJson.error || analyzeJson.details)) ||
+          analyzeText ||
+          `Erreur serveur (analyze status ${analyzeRes.status})`;
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      setInfo("Analyse IA OK ✅");
+      setAnalysis(analyzeJson?.analysis || "");
       setLoading(false);
     } catch (e) {
       setLoading(false);
@@ -137,7 +182,7 @@ export default function Home() {
       <div
         style={{
           width: "100%",
-          maxWidth: 640,
+          maxWidth: 760,
           background: "white",
           borderRadius: 14,
           padding: 28,
@@ -154,7 +199,11 @@ export default function Home() {
         <div style={{ marginTop: 18 }}>
           <div style={{ marginBottom: 12 }}>
             <div style={{ marginBottom: 6 }}>Main gauche</div>
-            <input type="file" accept="image/*" onChange={(e) => setLeftHand(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setLeftHand(e.target.files?.[0] || null)}
+            />
             {leftHand ? (
               <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                 {leftHand.name} • {formatBytes(leftHand.size)}
@@ -164,7 +213,11 @@ export default function Home() {
 
           <div style={{ marginBottom: 18 }}>
             <div style={{ marginBottom: 6 }}>Main droite</div>
-            <input type="file" accept="image/*" onChange={(e) => setRightHand(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setRightHand(e.target.files?.[0] || null)}
+            />
             {rightHand ? (
               <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                 {rightHand.name} • {formatBytes(rightHand.size)}
@@ -191,6 +244,25 @@ export default function Home() {
           >
             {loading ? "Envoi..." : "Envoyer mon analyse"}
           </button>
+
+          {analysis ? (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 18, marginBottom: 8 }}>Analyse</div>
+              <div
+                style={{
+                  whiteSpace: "pre-wrap",
+                  background: "#f7f8fb",
+                  border: "1px solid #e6e8f0",
+                  borderRadius: 10,
+                  padding: 14,
+                  color: "#111",
+                  lineHeight: 1.5,
+                }}
+              >
+                {analysis}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
