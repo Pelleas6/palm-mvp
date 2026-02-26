@@ -30,6 +30,22 @@ async function downloadFromSupabase(supabase, path) {
   return Buffer.from(ab);
 }
 
+function serializeError(e) {
+  // OpenAI SDK errors often include: status, error, message, headers
+  return {
+    name: e?.name,
+    message: e?.message,
+    status: e?.status,
+    code: e?.code,
+    type: e?.type,
+    // Sometimes SDK puts the API payload here:
+    error: e?.error,
+    // Sometimes it’s nested:
+    response: e?.response,
+    stack: (e?.stack || "").split("\n").slice(0, 6).join("\n"),
+  };
+}
+
 export async function POST(req) {
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -77,7 +93,7 @@ export async function POST(req) {
     const openaiKey = getEnv("OPENAI_API_KEY");
     if (!openaiKey) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY in env" },
+        { error: "Missing OPENAI_API_KEY in env (Vercel env + redeploy)" },
         { status: 500 }
       );
     }
@@ -97,29 +113,24 @@ export async function POST(req) {
 
     const prompt =
       "Tu es un expert en chiromancie. Analyse la main gauche et la main droite à partir des 2 photos. " +
-      "Rends un rapport structuré en français, clair et utile, sans parler de santé/maladie. " +
-      "Sections attendues : Synthèse, Main gauche, Main droite, Comparaison, Points forts, Points à travailler, Conclusion. " +
-      "Sois concret, pas ésotérique inutilement.";
+      "Rends un rapport structuré en français, clair, utile, sans parler de santé/maladie. " +
+      "Sections : Synthèse, Main gauche, Main droite, Comparaison, Points forts, Points à travailler, Conclusion.";
 
+    // Limite la taille de sortie pour éviter les réponses énormes/longues
     const resp = await client.responses.create({
       model: "gpt-4.1-mini",
+      max_output_tokens: 1200,
       input: [
         {
           role: "user",
           content: [
             { type: "input_text", text: prompt },
-            {
-              type: "input_text",
-              text: "Photo main gauche :",
-            },
+            { type: "input_text", text: "Photo main gauche :" },
             {
               type: "input_image",
               image_url: `data:${leftMime};base64,${leftB64}`,
             },
-            {
-              type: "input_text",
-              text: "Photo main droite :",
-            },
+            { type: "input_text", text: "Photo main droite :" },
             {
               type: "input_image",
               image_url: `data:${rightMime};base64,${rightB64}`,
@@ -132,18 +143,12 @@ export async function POST(req) {
     const report = resp.output_text || "Aucun texte généré.";
 
     return NextResponse.json(
-      {
-        report,
-        meta: {
-          leftPath,
-          rightPath,
-        },
-      },
+      { report, meta: { leftPath, rightPath } },
       { status: 200 }
     );
   } catch (e) {
     return NextResponse.json(
-      { error: "Analyze failed", details: String(e?.message || e) },
+      { error: "Analyze failed", details: serializeError(e) },
       { status: 500 }
     );
   }
