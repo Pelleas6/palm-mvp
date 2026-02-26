@@ -9,6 +9,14 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  async function safeJson(res) {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
@@ -22,99 +30,78 @@ export default function Home() {
     try {
       setLoading(true);
 
-      // -------------------------
-      // 1️⃣ Upload vers Supabase
-      // -------------------------
-      const formData = new FormData();
-      formData.append("left", leftFile);
-      formData.append("right", rightFile);
+      // 1) upload
+      const fd = new FormData();
+      fd.append("left", leftFile);
+      fd.append("right", rightFile);
 
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const uploadData = await uploadRes.json();
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const uploadData = await safeJson(uploadRes);
 
       if (!uploadRes.ok) {
-        throw new Error(uploadData.error || "Erreur upload");
+        throw new Error(
+          "UPLOAD ERROR\nstatus=" +
+            uploadRes.status +
+            "\nbody=" +
+            JSON.stringify(uploadData)
+        );
       }
 
-      const { leftPath, rightPath } = uploadData;
+      const leftPath = uploadData?.leftPath;
+      const rightPath = uploadData?.rightPath;
 
-      // -------------------------
-      // 2️⃣ Analyse OpenAI
-      // -------------------------
+      if (!leftPath || !rightPath) {
+        throw new Error("UPLOAD OK mais leftPath/rightPath manquants: " + JSON.stringify(uploadData));
+      }
+
+      // 2) analyze
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          leftPath,
-          rightPath,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leftPath, rightPath }),
       });
 
-      const analyzeData = await analyzeRes.json();
+      const analyzeData = await safeJson(analyzeRes);
 
       if (!analyzeRes.ok) {
-        throw new Error(analyzeData.error || "Erreur analyse");
+        throw new Error(
+          "ANALYZE ERROR\nstatus=" +
+            analyzeRes.status +
+            "\nbody=" +
+            JSON.stringify(analyzeData, null, 2)
+        );
       }
 
-      setResult(analyzeData.report);
-
+      setResult(analyzeData?.report || JSON.stringify(analyzeData, null, 2));
     } catch (err) {
-      setError(err.message);
+      setError(String(err?.message || err));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main style={{ padding: 40, fontFamily: "Arial" }}>
-      <h1>Analyse de vos lignes de main</h1>
+    <main style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
+      <h1>Analyse de vos mains</h1>
 
-      <form onSubmit={handleSubmit}>
-
-        <div style={{ marginBottom: 20 }}>
-          <label>Main gauche :</label><br />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setLeftFile(e.target.files[0])}
-          />
+      <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div>Main gauche</div>
+          <input type="file" accept="image/*" onChange={(e) => setLeftFile(e.target.files?.[0] || null)} />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label>Main droite :</label><br />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setRightFile(e.target.files[0])}
-          />
+        <div style={{ marginBottom: 12 }}>
+          <div>Main droite</div>
+          <input type="file" accept="image/*" onChange={(e) => setRightFile(e.target.files?.[0] || null)} />
         </div>
 
         <button type="submit" disabled={loading}>
           {loading ? "Analyse en cours..." : "Lancer l'analyse"}
         </button>
-
       </form>
 
-      {error && (
-        <p style={{ color: "red", marginTop: 20 }}>
-          {error}
-        </p>
-      )}
-
-      {result && (
-        <div style={{ marginTop: 30 }}>
-          <h2>Votre rapport :</h2>
-          <p style={{ whiteSpace: "pre-line" }}>
-            {result}
-          </p>
-        </div>
-      )}
+      {error ? <pre style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>{error}</pre> : null}
+      {result ? <pre style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>{result}</pre> : null}
     </main>
   );
 }
