@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export default function Home() {
   const [leftFile, setLeftFile] = useState(null);
@@ -8,6 +8,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const canSubmit = useMemo(() => {
+    return !!leftFile && !!rightFile && !loading;
+  }, [leftFile, rightFile, loading]);
 
   async function safeJson(res) {
     try {
@@ -23,14 +27,13 @@ export default function Home() {
     setResult(null);
 
     if (!leftFile || !rightFile) {
-      setError("Merci d'uploader la main gauche ET la main droite.");
+      setError("Il faut obligatoirement 2 photos : main gauche + main droite.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // 1) upload
       const fd = new FormData();
       fd.append("left", leftFile);
       fd.append("right", rightFile);
@@ -43,7 +46,7 @@ export default function Home() {
           "UPLOAD ERROR\nstatus=" +
             uploadRes.status +
             "\nbody=" +
-            JSON.stringify(uploadData)
+            JSON.stringify(uploadData, null, 2)
         );
       }
 
@@ -51,10 +54,12 @@ export default function Home() {
       const rightPath = uploadData?.rightPath;
 
       if (!leftPath || !rightPath) {
-        throw new Error("UPLOAD OK mais leftPath/rightPath manquants: " + JSON.stringify(uploadData));
+        throw new Error(
+          "UPLOAD OK mais leftPath/rightPath manquants: " +
+            JSON.stringify(uploadData, null, 2)
+        );
       }
 
-      // 2) analyze
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -86,18 +91,42 @@ export default function Home() {
 
       <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
         <div style={{ marginBottom: 12 }}>
-          <div>Main gauche</div>
-          <input type="file" accept="image/*" onChange={(e) => setLeftFile(e.target.files?.[0] || null)} />
+          <div>Main gauche (obligatoire)</div>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setLeftFile(e.target.files?.[0] || null)}
+          />
+          {leftFile ? (
+            <div style={{ fontSize: 12, marginTop: 4 }}>
+              Sélectionné : {leftFile.name}
+            </div>
+          ) : null}
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <div>Main droite</div>
-          <input type="file" accept="image/*" onChange={(e) => setRightFile(e.target.files?.[0] || null)} />
+          <div>Main droite (obligatoire)</div>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setRightFile(e.target.files?.[0] || null)}
+          />
+          {rightFile ? (
+            <div style={{ fontSize: 12, marginTop: 4 }}>
+              Sélectionné : {rightFile.name}
+            </div>
+          ) : null}
         </div>
 
-        <button type="submit" disabled={loading}>
+        <button type="submit" disabled={!canSubmit}>
           {loading ? "Analyse en cours..." : "Lancer l'analyse"}
         </button>
+
+        {!leftFile || !rightFile ? (
+          <div style={{ marginTop: 10, fontSize: 12 }}>
+            Le bouton s’active seulement quand les 2 photos sont ajoutées.
+          </div>
+        ) : null}
       </form>
 
       {error ? <pre style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>{error}</pre> : null}
