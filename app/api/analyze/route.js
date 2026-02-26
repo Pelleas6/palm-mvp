@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -13,6 +14,13 @@ function getEnv(name) {
 
 function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
+}
+
+function mimeFromPath(path) {
+  const p = (path || "").toLowerCase();
+  if (p.endsWith(".png")) return "image/png";
+  if (p.endsWith(".webp")) return "image/webp";
+  return "image/jpeg";
 }
 
 async function downloadFromSupabase(supabase, path) {
@@ -37,7 +45,7 @@ export async function POST(req) {
       body = await req.json();
     } catch {
       return NextResponse.json(
-        { error: "Expected JSON body: { leftPath, rightPath }" },
+        { error: "Invalid JSON. Expected body: { leftPath, rightPath }" },
         { status: 400 }
       );
     }
@@ -66,21 +74,73 @@ export async function POST(req) {
       );
     }
 
+    const openaiKey = getEnv("OPENAI_API_KEY");
+    if (!openaiKey) {
+      return NextResponse.json(
+        { error: "Missing OPENAI_API_KEY in env" },
+        { status: 500 }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const leftImg = await downloadFromSupabase(supabase, leftPath);
-    const rightImg = await downloadFromSupabase(supabase, rightPath);
+    const leftBuf = await downloadFromSupabase(supabase, leftPath);
+    const rightBuf = await downloadFromSupabase(supabase, rightPath);
 
-    // Ici tu brancheras OpenAI ensuite.
-    // Pour l’instant on renvoie un rapport simple pour valider la chaîne.
-    const report =
-      `Analyse OK.\n\n` +
-      `Main gauche: ${leftPath}\n` +
-      `Main droite: ${rightPath}\n` +
-      `Taille gauche: ${leftImg.length} bytes\n` +
-      `Taille droite: ${rightImg.length} bytes\n`;
+    const leftMime = mimeFromPath(leftPath);
+    const rightMime = mimeFromPath(rightPath);
 
-    return NextResponse.json({ report }, { status: 200 });
+    const leftB64 = leftBuf.toString("base64");
+    const rightB64 = rightBuf.toString("base64");
+
+    const client = new OpenAI({ apiKey: openaiKey });
+
+    const prompt =
+      "Tu es un expert en chiromancie. Analyse la main gauche et la main droite à partir des 2 photos. " +
+      "Rends un rapport structuré en français, clair et utile, sans parler de santé/maladie. " +
+      "Sections attendues : Synthèse, Main gauche, Main droite, Comparaison, Points forts, Points à travailler, Conclusion. " +
+      "Sois concret, pas ésotérique inutilement.";
+
+    const resp = await client.responses.create({
+      model: "gpt-4.1-mini",
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: prompt },
+            {
+              type: "input_text",
+              text: "Photo main gauche :",
+            },
+            {
+              type: "input_image",
+              image_url: `data:${leftMime};base64,${leftB64}`,
+            },
+            {
+              type: "input_text",
+              text: "Photo main droite :",
+            },
+            {
+              type: "input_image",
+              image_url: `data:${rightMime};base64,${rightB64}`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const report = resp.output_text || "Aucun texte généré.";
+
+    return NextResponse.json(
+      {
+        report,
+        meta: {
+          leftPath,
+          rightPath,
+        },
+      },
+      { status: 200 }
+    );
   } catch (e) {
     return NextResponse.json(
       { error: "Analyze failed", details: String(e?.message || e) },
