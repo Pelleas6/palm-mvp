@@ -30,7 +30,18 @@ async function downloadFromSupabase(supabase, path) {
   return Buffer.from(ab);
 }
 
+async function deleteFromSupabase(supabase, paths) {
+  const { error } = await supabase.storage.from(BUCKET).remove(paths);
+  if (error) {
+    console.warn(`Supabase delete warning: ${error.message}`);
+  }
+}
+
 export async function POST(req) {
+  let supabase = null;
+  let leftPath = null;
+  let rightPath = null;
+
   try {
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
@@ -50,8 +61,8 @@ export async function POST(req) {
       );
     }
 
-    const leftPath = body?.leftPath;
-    const rightPath = body?.rightPath;
+    leftPath = body?.leftPath;
+    rightPath = body?.rightPath;
 
     if (!isNonEmptyString(leftPath) || !isNonEmptyString(rightPath)) {
       return NextResponse.json(
@@ -81,7 +92,7 @@ export async function POST(req) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createClient(supabaseUrl, supabaseKey);
 
     const leftBuf = await downloadFromSupabase(supabase, leftPath);
     const rightBuf = await downloadFromSupabase(supabase, rightPath);
@@ -119,8 +130,15 @@ export async function POST(req) {
 
     const report = resp.output_text || "Aucun texte généré.";
 
+    // Suppression des images après analyse — RGPD
+    await deleteFromSupabase(supabase, [leftPath, rightPath]);
+
     return NextResponse.json({ report }, { status: 200 });
   } catch (e) {
+    // Suppression quand même en cas d'erreur
+    if (supabase && leftPath && rightPath) {
+      await deleteFromSupabase(supabase, [leftPath, rightPath]);
+    }
     return NextResponse.json(
       { error: "Analyze failed", details: String(e?.message || e) },
       { status: 500 }
