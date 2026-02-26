@@ -90,7 +90,11 @@ export default function Home() {
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setLeftFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              setLeftFile(e.target.files?.[0] || null);
+              setResult(null);
+              setError(null);
+            }}
           />
           {leftPreview && (
             <img
@@ -105,7 +109,11 @@ export default function Home() {
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => setRightFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              setRightFile(e.target.files?.[0] || null);
+              setResult(null);
+              setError(null);
+            }}
           />
           {rightPreview && (
             <img
