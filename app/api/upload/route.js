@@ -1,41 +1,34 @@
-// app/api/analyze/route.js
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import OpenAI from "openai";
+import { NextResponse } from "next/server";
 
 const BUCKET = "palm-uploads";
-const MAX_BYTES = 5 * 1024 * 1024; // sécurité côté serveur
+const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function getEnv(name) {
   const v = process.env[name];
-  return v && v.trim() ? v.trim() : "";
+  return v && v.trim() ? v.trim() : null;
 }
 
-function assertPath(p) {
-  if (!p || typeof p !== "string") return false;
-  // ultra simple + safe: on attend "left/..." et "right/..."
-  if (p.includes("..")) return false;
-  if (!(p.startsWith("left/") || p.startsWith("right/"))) return false;
-  return true;
+function safeName(name) {
+  return (name || "file")
+    .toString()
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 120);
 }
 
-async function blobToBase64DataUrl(blob) {
-  const ab = await blob.arrayBuffer();
-  const buf = Buffer.from(ab);
-  if (buf.length > MAX_BYTES) {
-    throw new Error("File too large after download (server-side)");
-  }
-  const contentType = blob.type || "image/jpeg";
-  const b64 = buf.toString("base64");
-  return `data:${contentType};base64,${b64}`;
+function extFromType(type) {
+  if (type === "image/png") return "png";
+  if (type === "image/webp") return "webp";
+  return "jpg";
 }
 
 export async function POST(req) {
   try {
-    // 1) Env
     const supabaseUrl =
       getEnv("SUPABASE_URL") || getEnv("NEXT_PUBLIC_SUPABASE_URL");
     const supabaseKey =
@@ -45,133 +38,82 @@ export async function POST(req) {
 
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
-        { error: "Missing Supabase env (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY...)" },
+        { error: "Missing SUPABASE_URL or SUPABASE_*_KEY in env" },
         { status: 500 }
       );
     }
 
-    const openaiKey = getEnv("OPENAI_API_KEY");
-    if (!openaiKey) {
-      return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY" },
-        { status: 500 }
-      );
-    }
-
-    // 2) Body
-    let body;
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Expected JSON body: { leftPath, rightPath }" },
-        { status: 400 }
-      );
-    }
-
-    const leftPath = body?.leftPath;
-    const rightPath = body?.rightPath;
-
-    if (!assertPath(leftPath) || !assertPath(rightPath)) {
-      return NextResponse.json(
-        { error: "Invalid leftPath/rightPath" },
-        { status: 400 }
-      );
-    }
-
-    // 3) Download from Supabase
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const [{ data: leftBlob, error: leftErr }, { data: rightBlob, error: rightErr }] =
-      await Promise.all([
-        supabase.storage.from(BUCKET).download(leftPath),
-        supabase.storage.from(BUCKET).download(rightPath),
-      ]);
+    const form = await req.formData();
+    const left = form.get("left");
+    const right = form.get("right");
 
-    if (leftErr || !leftBlob) {
+    if (!left || !right) {
       return NextResponse.json(
-        { error: `Supabase download failed (left): ${leftErr?.message || "unknown"}` },
-        { status: 500 }
-      );
-    }
-    if (rightErr || !rightBlob) {
-      return NextResponse.json(
-        { error: `Supabase download failed (right): ${rightErr?.message || "unknown"}` },
-        { status: 500 }
+        { error: "Expected form-data fields: left and right" },
+        { status: 400 }
       );
     }
 
-    const [leftDataUrl, rightDataUrl] = await Promise.all([
-      blobToBase64DataUrl(leftBlob),
-      blobToBase64DataUrl(rightBlob),
-    ]);
+    if (typeof left === "string" || typeof right === "string") {
+      return NextResponse.json(
+        { error: "Invalid files: left/right must be File objects" },
+        { status: 400 }
+      );
+    }
 
-    // 4) OpenAI call
-    const client = new OpenAI({ apiKey: openaiKey });
+    if (!ALLOWED_TYPES.has(left.type) || !ALLOWED_TYPES.has(right.type)) {
+      return NextResponse.json(
+        { error: "Only jpeg/png/webp are allowed" },
+        { status: 415 }
+      );
+    }
 
-    const model = getEnv("AI_VISION_MODEL") || "gpt-4.1-mini";
+    if (left.size > MAX_BYTES || right.size > MAX_BYTES) {
+      return NextResponse.json(
+        { error: `Max size is ${MAX_BYTES} bytes` },
+        { status: 413 }
+      );
+    }
 
-    const prompt = `
-Tu es un lecteur de mains. Tu reçois 2 photos:
-- main gauche = main de naissance
-- main droite = main de l’expression actuelle
+    const rnd = Math.random().toString(16).slice(2);
+    const stamp = Date.now();
 
-Rends un rapport en français EXACTEMENT dans ce format :
+    const leftPath = `uploads/${stamp}_${rnd}_left_${safeName(left.name)}.${extFromType(left.type)}`;
+    const rightPath = `uploads/${stamp}_${rnd}_right_${safeName(right.name)}.${extFromType(right.type)}`;
 
-Voilà ton analyse
+    const leftBuf = Buffer.from(await left.arrayBuffer());
+    const rightBuf = Buffer.from(await right.arrayBuffer());
 
-Analyse intuitive de la main gauche (main de naissance)
-
-1. Forme de la main :
-2. Ligne de vie :
-3. Ligne de tête :
-4. Ligne du cœur :
-5. Monts visibles :
-🔮 Lecture vibratoire :
-✋ Synthèse globale :
-
-Analyse intuitive de la main droite  (main de l’expression actuelle)
-
-1. Forme de la main :
-2. Ligne de vie :
-3. Ligne de tête :
-4. Ligne du cœur :
-5. Monts visibles :
-🔮 Lecture vibratoire :
-✋ Synthèse globale :
-
-Synthèse des deux mains ✋️ ✋️ :
-`.trim();
-
-    const resp = await client.responses.create({
-      model,
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            { type: "input_image", image_url: leftDataUrl },
-            { type: "input_image", image_url: rightDataUrl },
-          ],
-        },
-      ],
+    const up1 = await supabase.storage.from(BUCKET).upload(leftPath, leftBuf, {
+      contentType: left.type,
+      upsert: false,
     });
 
-    // 5) Extract text
-    const outText =
-      resp.output_text ||
-      "Analyse générée, mais aucun texte n’a été extrait (output_text vide).";
+    if (up1.error) {
+      return NextResponse.json(
+        { error: `Supabase upload error (left): ${up1.error.message}` },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json({
-      ok: true,
-      model,
-      leftPath,
-      rightPath,
-      analysis: outText,
+    const up2 = await supabase.storage.from(BUCKET).upload(rightPath, rightBuf, {
+      contentType: right.type,
+      upsert: false,
     });
+
+    if (up2.error) {
+      return NextResponse.json(
+        { error: `Supabase upload error (right): ${up2.error.message}` },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ leftPath, rightPath }, { status: 200 });
   } catch (e) {
     return NextResponse.json(
-      { error: `AI analysis failed: ${e?.message || "unknown"}` },
+      { error: "Upload failed", details: String(e?.message || e) },
       { status: 500 }
     );
   }
