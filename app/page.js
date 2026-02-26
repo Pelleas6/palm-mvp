@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
   const [leftFile, setLeftFile] = useState(null);
@@ -8,8 +8,22 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const leftPreview = useMemo(() => leftFile ? URL.createObjectURL(leftFile) : null, [leftFile]);
-  const rightPreview = useMemo(() => rightFile ? URL.createObjectURL(rightFile) : null, [rightFile]);
+  const [leftPreview, setLeftPreview] = useState(null);
+  const [rightPreview, setRightPreview] = useState(null);
+
+  useEffect(() => {
+    if (!leftFile) { setLeftPreview(null); return; }
+    const url = URL.createObjectURL(leftFile);
+    setLeftPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [leftFile]);
+
+  useEffect(() => {
+    if (!rightFile) { setRightPreview(null); return; }
+    const url = URL.createObjectURL(rightFile);
+    setRightPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [rightFile]);
 
   const canSubmit = useMemo(() => {
     return !!leftFile && !!rightFile && !loading;
