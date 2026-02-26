@@ -32,7 +32,9 @@ async function downloadFromSupabase(supabase, path) {
 }
 
 async function deleteFromSupabase(supabase, paths) {
-  const { error } = await supabase.storage.from(BUCKET).remove(paths);
+  const validPaths = paths.filter(p => typeof p === "string" && p.trim().length > 0);
+  if (validPaths.length === 0) return;
+  const { error } = await supabase.storage.from(BUCKET).remove(validPaths);
   if (error) {
     console.warn(`Supabase delete warning: ${error.message}`);
   }
@@ -104,7 +106,7 @@ export async function POST(req) {
     const leftB64 = leftBuf.toString("base64");
     const rightB64 = rightBuf.toString("base64");
 
-    const client = new OpenAI({ apiKey: openaiKey });
+    const client = new OpenAI({ apiKey: openaiKey, timeout: 45000 });
 
     const prompt = `Tu es un chiromancien professionnel avec 20 ans d'expérience, formé aux traditions occidentale et orientale. Tu analyses les mains avec rigueur, précision et bienveillance.
 Tu reçois deux photos : la main gauche et la main droite d'une même personne.
@@ -140,7 +142,7 @@ Synthèse chaleureuse et encourageante. Message personnalisé basé sur l'ensemb
 
     const resp = await client.responses.create({
       model: "gpt-4.1-mini",
-      max_output_tokens: 1000,
+      max_output_tokens: 4000,
       input: [
         {
           role: "user",
@@ -156,17 +158,17 @@ Synthèse chaleureuse et encourageante. Message personnalisé basé sur l'ensemb
     });
 
     const report = resp.output_text || "Aucun texte généré.";
-
-    await deleteFromSupabase(supabase, [leftPath, rightPath]);
-
     return NextResponse.json({ report }, { status: 200 });
+
   } catch (e) {
-    if (supabase && leftPath && rightPath) {
-      await deleteFromSupabase(supabase, [leftPath, rightPath]);
-    }
     return NextResponse.json(
       { error: "Analyze failed", details: String(e?.message || e) },
       { status: 500 }
     );
+
+  } finally {
+    if (supabase) {
+      await deleteFromSupabase(supabase, [leftPath, rightPath]);
+    }
   }
 }
