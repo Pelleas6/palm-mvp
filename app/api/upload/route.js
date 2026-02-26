@@ -51,7 +51,7 @@ export async function POST(req) {
 
     if (!left || !right) {
       return NextResponse.json(
-        { error: "Expected form-data fields: left and right" },
+        { error: "Il faut 2 fichiers: left et right (FormData)." },
         { status: 400 }
       );
     }
@@ -65,14 +65,14 @@ export async function POST(req) {
 
     if (!ALLOWED_TYPES.has(left.type) || !ALLOWED_TYPES.has(right.type)) {
       return NextResponse.json(
-        { error: "Only jpeg/png/webp are allowed" },
+        { error: "Types autorisés: jpeg, png, webp" },
         { status: 415 }
       );
     }
 
     if (left.size > MAX_BYTES || right.size > MAX_BYTES) {
       return NextResponse.json(
-        { error: `Max size is ${MAX_BYTES} bytes` },
+        { error: `Taille max: ${MAX_BYTES} bytes` },
         { status: 413 }
       );
     }
@@ -90,7 +90,6 @@ export async function POST(req) {
       contentType: left.type,
       upsert: false,
     });
-
     if (up1.error) {
       return NextResponse.json(
         { error: `Supabase upload error (left): ${up1.error.message}` },
@@ -102,7 +101,6 @@ export async function POST(req) {
       contentType: right.type,
       upsert: false,
     });
-
     if (up2.error) {
       return NextResponse.json(
         { error: `Supabase upload error (right): ${up2.error.message}` },
