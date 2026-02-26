@@ -140,7 +140,7 @@ Synthèse chaleureuse et encourageante. Message personnalisé basé sur l'ensemb
 
     const resp = await client.responses.create({
       model: "gpt-4.1-mini",
-      max_output_tokens: 4000,
+      max_output_tokens: 1000,
       input: [
         {
           role: "user",
