@@ -82,7 +82,7 @@ export default function Home() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
+    <main style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 600 }}>
       <h1>Analyse de vos mains</h1>
       <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
         <div style={{ marginBottom: 16 }}>
@@ -132,8 +132,38 @@ export default function Home() {
           </div>
         )}
       </form>
-      {error && <pre style={{ marginTop: 16, whiteSpace: "pre-wrap", color: "red" }}>{error}</pre>}
-      {result && <pre style={{ marginTop: 16, whiteSpace: "pre-wrap" }}>{result}</pre>}
+
+      {error && (
+        <pre style={{ marginTop: 16, whiteSpace: "pre-wrap", color: "red" }}>
+          {error}
+        </pre>
+      )}
+
+      {result && (
+        <>
+          <div style={{
+            marginTop: 24,
+            padding: "14px 18px",
+            backgroundColor: "#f0faf4",
+            border: "1px solid #6dbf8b",
+            borderRadius: 8,
+            color: "#2d6a4f",
+            fontSize: 14,
+            lineHeight: 1.6,
+          }}>
+            <strong>Merci pour votre envoi.</strong><br />
+            Votre analyse est en cours de préparation. Vous consultez actuellement une version de démonstration du rapport.<br /><br />
+            Dans la version finale du service, un expert étudiera vos deux mains et vous recevrez un rapport détaillé par email sous <strong>72 heures maximum</strong>.
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <h2 style={{ marginBottom: 12 }}>Votre rapport</h2>
+            <pre style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, fontSize: 14 }}>
+              {result}
+            </pre>
+          </div>
+        </>
+      )}
     </main>
   );
 }
