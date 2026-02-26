@@ -14,50 +14,6 @@ function formatBytes(bytes) {
   return `${v.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
-async function compressImageToJpeg(file, { maxWidth = 1600, quality = 0.82 } = {}) {
-  if (!file) return null;
-
-  const blobUrl = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.src = blobUrl;
-
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
-
-    const ratio = img.width / img.height;
-    let targetW = img.width;
-    let targetH = img.height;
-
-    if (img.width > maxWidth) {
-      targetW = maxWidth;
-      targetH = Math.round(maxWidth / ratio);
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = targetW;
-    canvas.height = targetH;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas non supporté");
-
-    ctx.drawImage(img, 0, 0, targetW, targetH);
-
-    const blob = await new Promise((resolve) => {
-      canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
-    });
-
-    if (!blob) throw new Error("Compression impossible");
-
-    const newName = file.name.replace(/\.[^.]+$/, "") + "_compressed.jpg";
-    return new File([blob], newName, { type: "image/jpeg" });
-  } finally {
-    URL.revokeObjectURL(blobUrl);
-  }
-}
-
 export default function Home() {
   const [leftHand, setLeftHand] = useState(null);
   const [rightHand, setRightHand] = useState(null);
@@ -65,10 +21,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-
   const [analysis, setAnalysis] = useState("");
 
-  const handleUpload = async () => {
+  const handleSend = async () => {
     try {
       setError("");
       setInfo("");
@@ -81,86 +36,60 @@ export default function Home() {
 
       setLoading(true);
 
-      // Compression côté navigateur (évite trop gros fichiers)
-      const leftCompressed = await compressImageToJpeg(leftHand);
-      const rightCompressed = await compressImageToJpeg(rightHand);
-
-      // garde-fou taille (tu peux ajuster)
-      const maxPerFileBytes = 5 * 1024 * 1024; // 5MB
-      if (leftCompressed.size > maxPerFileBytes || rightCompressed.size > maxPerFileBytes) {
-        setError(
-          `Photos trop lourdes. ` +
-            `Gauche: ${formatBytes(leftCompressed.size)} / Droite: ${formatBytes(rightCompressed.size)}. ` +
-            `Objectif: <= 5MB par photo.`
-        );
-        setLoading(false);
-        return;
-      }
-
+      // 1) upload
+      setInfo("Upload en cours...");
       const formData = new FormData();
-      formData.append("leftHand", leftCompressed);
-      formData.append("rightHand", rightCompressed);
+      formData.append("leftHand", leftHand);
+      formData.append("rightHand", rightHand);
 
-      // 1) Upload vers ton API
-      const uploadRes = await fetch("/api/upload", {
+      const upRes = await fetch("/api/upload", {
         method: "POST",
-        body: formData,
+        body: formData
       });
 
-      const uploadText = await uploadRes.text();
-
-      let uploadJson = null;
+      const upText = await upRes.text();
+      let upJson = null;
       try {
-        uploadJson = JSON.parse(uploadText);
+        upJson = JSON.parse(upText);
       } catch {}
 
-      if (!uploadRes.ok) {
-        const msg =
-          (uploadJson && (uploadJson.error || uploadJson.message)) ||
-          uploadText ||
-          `Erreur serveur (upload status ${uploadRes.status})`;
-        setError(msg);
+      if (!upRes.ok) {
+        setError((upJson && upJson.error) || upText || `Erreur upload (status ${upRes.status})`);
         setLoading(false);
         return;
       }
 
-      const leftPath = uploadJson?.leftPath;
-      const rightPath = uploadJson?.rightPath;
+      const leftPath = upJson?.leftPath;
+      const rightPath = upJson?.rightPath;
 
       if (!leftPath || !rightPath) {
-        setError("Upload OK mais paths manquants dans la réponse.");
+        setError("Upload OK mais paths manquants.");
         setLoading(false);
         return;
       }
 
-      setInfo("Upload OK. Analyse IA en cours...");
-
-      // 2) Appel IA (avec leftPath/rightPath)
-      const analyzeRes = await fetch("/api/analyze", {
+      // 2) analyze
+      setInfo("Analyse IA en cours...");
+      const anRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leftPath, rightPath }),
+        body: JSON.stringify({ leftPath, rightPath })
       });
 
-      const analyzeText = await analyzeRes.text();
-
-      let analyzeJson = null;
+      const anText = await anRes.text();
+      let anJson = null;
       try {
-        analyzeJson = JSON.parse(analyzeText);
+        anJson = JSON.parse(anText);
       } catch {}
 
-      if (!analyzeRes.ok) {
-        const msg =
-          (analyzeJson && (analyzeJson.error || analyzeJson.details)) ||
-          analyzeText ||
-          `Erreur serveur (analyze status ${analyzeRes.status})`;
-        setError(msg);
+      if (!anRes.ok) {
+        setError((anJson && anJson.error) || anText || `Erreur analyse (status ${anRes.status})`);
         setLoading(false);
         return;
       }
 
-      setInfo("Analyse IA OK ✅");
-      setAnalysis(analyzeJson?.analysis || "");
+      setInfo("Terminé.");
+      setAnalysis(anJson?.analysis || "OK");
       setLoading(false);
     } catch (e) {
       setLoading(false);
@@ -169,26 +98,8 @@ export default function Home() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f4f6fb",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 760,
-          background: "white",
-          borderRadius: 14,
-          padding: 28,
-          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-        }}
-      >
+    <div style={{ minHeight: "100vh", background: "#f4f6fb", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 760, background: "white", borderRadius: 14, padding: 28, boxShadow: "0 10px 30px rgba(0,0,0,0.08)" }}>
         <h1 style={{ margin: 0, fontSize: 40 }}>Lecture de Mains</h1>
         <p style={{ marginTop: 10, color: "#333" }}>
           Téléchargez une photo de votre main gauche et de votre main droite.
@@ -225,11 +136,16 @@ export default function Home() {
             ) : null}
           </div>
 
-          {error ? <div style={{ color: "#d11", marginBottom: 12 }}>{error}</div> : null}
-          {info ? <div style={{ color: "#0a7", marginBottom: 12 }}>{info}</div> : null}
+          {error ? (
+            <div style={{ color: "#d11", marginBottom: 12 }}>{error}</div>
+          ) : null}
+
+          {info ? (
+            <div style={{ color: "#0a7", marginBottom: 12 }}>{info}</div>
+          ) : null}
 
           <button
-            onClick={handleUpload}
+            onClick={handleSend}
             disabled={loading}
             style={{
               width: "100%",
@@ -239,28 +155,15 @@ export default function Home() {
               padding: "14px 16px",
               borderRadius: 10,
               fontSize: 18,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: loading ? "not-allowed" : "pointer"
             }}
           >
             {loading ? "Envoi..." : "Envoyer mon analyse"}
           </button>
 
           {analysis ? (
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontSize: 18, marginBottom: 8 }}>Analyse</div>
-              <div
-                style={{
-                  whiteSpace: "pre-wrap",
-                  background: "#f7f8fb",
-                  border: "1px solid #e6e8f0",
-                  borderRadius: 10,
-                  padding: 14,
-                  color: "#111",
-                  lineHeight: 1.5,
-                }}
-              >
-                {analysis}
-              </div>
+            <div style={{ marginTop: 18, whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.5, background: "#f7f7f7", padding: 14, borderRadius: 10 }}>
+              {analysis}
             </div>
           ) : null}
         </div>
