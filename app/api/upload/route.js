@@ -1,85 +1,119 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 const BUCKET = "palm-uploads";
+const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function getEnv(name) {
+  const v = process.env[name];
+  return v && v.trim() ? v.trim() : null;
+}
+
+function safeName(name) {
+  return (name || "file")
+    .toString()
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 120);
+}
+
+function extFromType(type) {
+  if (type === "image/png") return "png";
+  if (type === "image/webp") return "webp";
+  return "jpg";
+}
 
 export async function POST(req) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    const supabaseUrl = process.env.SUPABASE_URL?.trim();
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    const supabaseUrl =
+      getEnv("SUPABASE_URL") ||
+      getEnv("NEXT_PUBLIC_SUPABASE_URL");
 
-    if (!apiKey) {
-      return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
-    }
-    if (!supabaseUrl || !serviceRoleKey) {
+    const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey =
+      getEnv("SUPABASE_ANON_KEY") ||
+      getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+    const supabaseKey = serviceRoleKey || anonKey;
+
+    if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
-        { error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { error: "Missing Supabase env vars (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY)" },
         { status: 500 }
       );
     }
 
-    const { leftPath, rightPath } = await req.json();
-    if (!leftPath || !rightPath) {
-      return NextResponse.json({ error: "Missing leftPath or rightPath" }, { status: 400 });
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const formData = await req.formData();
+    const left = formData.get("leftHand");
+    const right = formData.get("rightHand");
+
+    if (!(left instanceof File) || !(right instanceof File)) {
+      return NextResponse.json({ error: "Files missing" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    // URLs signées (5 minutes)
-    const { data: leftSigned, error: leftSErr } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(leftPath, 300);
-
-    const { data: rightSigned, error: rightSErr } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(rightPath, 300);
-
-    if (leftSErr || rightSErr) {
+    // type check
+    if (!ALLOWED_TYPES.has(left.type) || !ALLOWED_TYPES.has(right.type)) {
       return NextResponse.json(
-        {
-          error: "Signed URL failed",
-          left: leftSErr?.message,
-          right: rightSErr?.message,
-        },
+        { error: "Type non supporté. Formats autorisés: JPG, PNG, WEBP." },
+        { status: 400 }
+      );
+    }
+
+    // size check
+    if (left.size > MAX_BYTES || right.size > MAX_BYTES) {
+      return NextResponse.json(
+        { error: "Fichier trop lourd. Limite: 5MB par image." },
+        { status: 400 }
+      );
+    }
+
+    const ts = Date.now();
+    const leftPath = `left/${ts}-${safeName(left.name)}.${extFromType(left.type)}`;
+    const rightPath = `right/${ts}-${safeName(right.name)}.${extFromType(right.type)}`;
+
+    // upload left
+    const leftBuf = Buffer.from(await left.arrayBuffer());
+    const upLeft = await supabase.storage
+      .from(BUCKET)
+      .upload(leftPath, leftBuf, { contentType: left.type, upsert: false });
+
+    if (upLeft.error) {
+      return NextResponse.json(
+        { error: `Supabase left upload failed: ${upLeft.error.message}` },
         { status: 500 }
       );
     }
 
-    const client = new OpenAI({ apiKey });
+    // upload right
+    const rightBuf = Buffer.from(await right.arrayBuffer());
+    const upRight = await supabase.storage
+      .from(BUCKET)
+      .upload(rightPath, rightBuf, { contentType: right.type, upsert: false });
 
-    const r = await client.responses.create({
-      model: "gpt-4.1", // vision input OK :contentReference[oaicite:2]{index=2}
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text:
-                "Tu es un expert en chiromancie. Analyse ces deux photos (main gauche puis main droite). " +
-                "Réponds en français avec titres courts : 1) Observations 2) Interprétation 3) Conseils 4) Résumé (5 points). " +
-                "Sois bienveillant et évite les affirmations médicales.",
-            },
-            { type: "input_image", image_url: leftSigned.signedUrl },
-            { type: "input_image", image_url: rightSigned.signedUrl },
-          ],
-        },
-      ],
+    if (upRight.error) {
+      // rollback left
+      await supabase.storage.from(BUCKET).remove([leftPath]);
+      return NextResponse.json(
+        { error: `Supabase right upload failed: ${upRight.error.message}` },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      message: "Upload Supabase OK",
+      bucket: BUCKET,
+      leftPath,
+      rightPath
     });
-
-    return NextResponse.json({ ok: true, analysis: r.output_text || "" });
   } catch (e) {
-    // IMPORTANT : on renvoie le message (sans secrets) pour debug
-    console.error("ANALYZE ERROR:", e);
     return NextResponse.json(
-      { error: "AI analysis failed", details: e?.message || String(e) },
+      { error: `Upload API error: ${e?.message || "unknown"}` },
       { status: 500 }
     );
   }
