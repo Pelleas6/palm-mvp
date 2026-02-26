@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
@@ -105,15 +106,41 @@ export async function POST(req) {
 
     const client = new OpenAI({ apiKey: openaiKey });
 
-    const prompt =
-      "Tu es un expert en chiromancie. Analyse la main gauche et la main droite à partir des 2 photos. " +
-      "Rends un rapport structuré en français, clair, utile, sans parler de santé/maladie. " +
-      "Sections : Synthèse, Main gauche, Main droite, Comparaison, Points forts, Points à travailler, Conclusion. " +
-      "Sois concret, évite les généralités.";
+    const prompt = `Tu es un chiromancien professionnel avec 20 ans d'expérience, formé aux traditions occidentale et orientale. Tu analyses les mains avec rigueur, précision et bienveillance.
+Tu reçois deux photos : la main gauche et la main droite d'une même personne.
+Rédige un rapport complet, structuré et personnalisé en français. Ton ton est sérieux, professionnel et légèrement chaleureux. Tu vouvoies toujours la personne.
+RÈGLES ABSOLUES :
+- Ne parle jamais de santé, maladie, diagnostic médical ou espérance de vie.
+- Interdiction d'inventer : si un détail n'est pas clairement visible sur la photo, vous devez l'écrire explicitement (ex : "non visible avec certitude") et ne pas l'interpréter.
+- Avant toute interprétation, commence chaque section par une courte description factuelle de ce que vous voyez (forme, profondeur, continuité, courbure, ruptures, bifurcations, etc.).
+- Chaque section doit faire minimum 5 phrases.
+- Zéro généralité vague : chaque affirmation doit être reliée à un indice visuel décrit dans le texte.
+- Le rapport doit faire au moins 600 mots.
+- Si la photo est trop floue, trop sombre, trop loin, ou si la paume n'est pas assez ouverte, ajoutez à la fin une section "Qualité des photos" avec 3 recommandations concrètes (angle, lumière, focus, distance).
+STRUCTURE OBLIGATOIRE (respecte exactement ces titres) :
+## Synthèse
+Vue d'ensemble des deux mains. Première impression globale. Caractère dominant qui se dégage. Décrivez au moins 3 indices visibles qui soutiennent cette synthèse.
+## Main gauche — Le potentiel inné
+Analyse détaillée : forme de la main, forme des doigts, ligne de cœur, ligne de tête, ligne de vie.
+Pour chaque élément :
+1) décrivez précisément ce que vous voyez,
+2) donnez l'interprétation,
+3) reliez l'interprétation à l'indice visuel.
+Objectif : au moins 2 à 3 observations concrètes par élément SI c'est visible. Si ce n'est pas visible, dites-le clairement et n'inventez pas.
+## Main droite — Le vécu et les choix
+Même niveau de détail que la main gauche. Mettez en évidence ce qui a évolué par rapport au potentiel inné. N'affirmez un changement que si vous pouvez décrire une différence visible entre les deux photos.
+## Comparaison — Ce que le temps a façonné
+Comparez les deux mains point par point. Qu'est-ce qui a changé ? Qu'est-ce qui est resté stable ? Qu'est-ce que cela révèle sur le parcours de vie ? Chaque comparaison doit mentionner l'indice sur chaque main.
+## Points forts
+3 à 5 points forts concrets, chacun expliqué en 2-3 phrases minimum. Basé uniquement sur ce que vous voyez.
+## Points à travailler
+3 à 5 axes de développement concrets, formulés de façon positive et constructive. Jamais négatif, jamais brutal. Basé uniquement sur ce que vous voyez.
+## Conclusion
+Synthèse chaleureuse et encourageante. Message personnalisé basé sur l'ensemble de l'analyse. Terminez sur une note d'ouverture et de confiance.`;
 
     const resp = await client.responses.create({
       model: "gpt-4.1-mini",
-      max_output_tokens: 1200,
+      max_output_tokens: 4000,
       input: [
         {
           role: "user",
@@ -130,12 +157,10 @@ export async function POST(req) {
 
     const report = resp.output_text || "Aucun texte généré.";
 
-    // Suppression des images après analyse — RGPD
     await deleteFromSupabase(supabase, [leftPath, rightPath]);
 
     return NextResponse.json({ report }, { status: 200 });
   } catch (e) {
-    // Suppression quand même en cas d'erreur
     if (supabase && leftPath && rightPath) {
       await deleteFromSupabase(supabase, [leftPath, rightPath]);
     }
