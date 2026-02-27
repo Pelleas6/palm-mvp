@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 export default function Home() {
   const [leftFile, setLeftFile] = useState(null);
   const [rightFile, setRightFile] = useState(null);
+  const [prenom, setPrenom] = useState("");
+  const [nom, setNom] = useState("");
+  const [email, setEmail] = useState("");
+  const [dateNaissance, setDateNaissance] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -26,8 +30,16 @@ export default function Home() {
   }, [rightFile]);
 
   const canSubmit = useMemo(() => {
-    return !!leftFile && !!rightFile && !loading;
-  }, [leftFile, rightFile, loading]);
+    return (
+      !!leftFile &&
+      !!rightFile &&
+      prenom.trim().length > 0 &&
+      nom.trim().length > 0 &&
+      email.trim().length > 0 &&
+      dateNaissance.trim().length > 0 &&
+      !loading
+    );
+  }, [leftFile, rightFile, prenom, nom, email, dateNaissance, loading]);
 
   async function safeJson(res) {
     try {
@@ -41,10 +53,6 @@ export default function Home() {
     e.preventDefault();
     setError(null);
     setResult(null);
-    if (!leftFile || !rightFile) {
-      setError("Il faut obligatoirement 2 photos : main gauche + main droite.");
-      return;
-    }
     try {
       setLoading(true);
       const fd = new FormData();
@@ -68,7 +76,7 @@ export default function Home() {
           "Content-Type": "application/json",
           "x-api-secret": process.env.NEXT_PUBLIC_API_SECRET || "",
         },
-        body: JSON.stringify({ leftPath, rightPath }),
+        body: JSON.stringify({ leftPath, rightPath, prenom, nom, email, dateNaissance }),
       });
       const analyzeData = await safeJson(analyzeRes);
       if (!analyzeRes.ok) {
@@ -88,6 +96,50 @@ export default function Home() {
     <main style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 600 }}>
       <h1>Analyse de vos mains</h1>
       <form onSubmit={handleSubmit} style={{ marginTop: 16 }}>
+
+        <div style={{ marginBottom: 12 }}>
+          <div>Prénom (obligatoire)</div>
+          <input
+            type="text"
+            value={prenom}
+            placeholder="Votre prénom"
+            onChange={(e) => { setPrenom(e.target.value); setResult(null); setError(null); }}
+            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid #ccc" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div>Nom (obligatoire)</div>
+          <input
+            type="text"
+            value={nom}
+            placeholder="Votre nom"
+            onChange={(e) => { setNom(e.target.value); setResult(null); setError(null); }}
+            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid #ccc" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div>Email (obligatoire)</div>
+          <input
+            type="email"
+            value={email}
+            placeholder="votre@email.com"
+            onChange={(e) => { setEmail(e.target.value); setResult(null); setError(null); }}
+            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid #ccc" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div>Date de naissance (obligatoire)</div>
+          <input
+            type="date"
+            value={dateNaissance}
+            onChange={(e) => { setDateNaissance(e.target.value); setResult(null); setError(null); }}
+            style={{ width: "100%", padding: 8, marginTop: 4, borderRadius: 6, border: "1px solid #ccc" }}
+          />
+        </div>
+
         <div style={{ marginBottom: 16 }}>
           <div>Main gauche (obligatoire)</div>
           <input
@@ -107,6 +159,7 @@ export default function Home() {
             />
           )}
         </div>
+
         <div style={{ marginBottom: 16 }}>
           <div>Main droite (obligatoire)</div>
           <input
@@ -126,12 +179,13 @@ export default function Home() {
             />
           )}
         </div>
+
         <button type="submit" disabled={!canSubmit}>
           {loading ? "Analyse en cours..." : "Lancer l'analyse"}
         </button>
-        {(!leftFile || !rightFile) && (
+        {!canSubmit && !loading && (
           <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>
-            Le bouton s'active seulement quand les 2 photos sont ajoutées.
+            Remplissez tous les champs et ajoutez vos 2 photos pour continuer.
           </div>
         )}
       </form>
