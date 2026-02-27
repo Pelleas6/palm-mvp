@@ -64,7 +64,10 @@ export default function Home() {
       }
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-secret": process.env.NEXT_PUBLIC_API_SECRET || "",
+        },
         body: JSON.stringify({ leftPath, rightPath }),
       });
       const analyzeData = await safeJson(analyzeRes);
@@ -155,7 +158,6 @@ export default function Home() {
             Votre analyse est en cours de préparation. Vous consultez actuellement une version de démonstration du rapport.<br /><br />
             Dans la version finale du service, un expert étudiera vos deux mains et vous recevrez un rapport détaillé par email sous <strong>72 heures maximum</strong>.
           </div>
-
           <div style={{ marginTop: 24 }}>
             <h2 style={{ marginBottom: 12 }}>Votre rapport</h2>
             <pre style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, fontSize: 14 }}>
