@@ -16,8 +16,50 @@ export default function ConfidentialitePage() {
   const wrap = {
     backgroundColor: theme.bg,
     minHeight: "100vh",
-    padding: "56px 22px",
     fontFamily: "Georgia, serif",
+  };
+
+  const topbar = {
+    position: "sticky",
+    top: 0,
+    zIndex: 50,
+    backgroundColor: "rgba(250,247,242,0.95)",
+    backdropFilter: "blur(8px)",
+    borderBottom: `1px solid ${theme.border}`,
+  };
+
+  const topbarInner = {
+    maxWidth: 900,
+    margin: "0 auto",
+    padding: "14px 18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  };
+
+  const brand = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    textDecoration: "none",
+  };
+
+  const brandTitle = {
+    fontWeight: 700,
+    fontSize: 18,
+    color: theme.text,
+    letterSpacing: "0.02em",
+  };
+
+  const backBtn = {
+    textDecoration: "none",
+    color: theme.sage,
+    fontSize: 13,
+    border: `1px solid ${theme.border}`,
+    backgroundColor: theme.card,
+    padding: "8px 12px",
+    borderRadius: 10,
   };
 
   const card = {
@@ -28,6 +70,10 @@ export default function ConfidentialitePage() {
     border: `1px solid ${theme.border}`,
     padding: "34px 28px",
     boxShadow: "0 10px 42px rgba(0,0,0,0.06)",
+  };
+
+  const contentPad = {
+    padding: "34px 22px 56px",
   };
 
   const k = { fontSize: 11, color: theme.gold, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10 };
@@ -46,70 +92,98 @@ export default function ConfidentialitePage() {
     marginTop: 14,
   };
 
+  const bottomBack = {
+    marginTop: 22,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    color: theme.sage,
+    textDecoration: "none",
+    fontSize: 13,
+  };
+
   return (
     <div style={wrap}>
-      <div style={card}>
-        <div style={k}>✦ Données & confidentialité</div>
-        <h1 style={h1}>Politique de confidentialité</h1>
-        <p style={p}>
-          Cette page explique comment les informations transmises via le formulaire sont utilisées, stockées et protégées.
-        </p>
-        <div style={badge}>Photos supprimées après analyse</div>
+      {/* Top bar + retour accueil */}
+      <div style={topbar}>
+        <div style={topbarInner}>
+          <a href="/" style={brand}>
+            <span style={{ fontSize: 22 }}>🌿</span>
+            <span style={brandTitle}>Ligne de Vie</span>
+          </a>
 
-        <h2 style={h2}>Données collectées</h2>
-        <p style={p}>
-          Lors d’une demande d’analyse, nous pouvons collecter :
-          <br />• Prénom et nom
-          <br />• Adresse email
-          <br />• Date de naissance
-          <br />• Thème de lecture choisi
-          <br />• Deux photographies (main gauche / main droite)
-        </p>
+          <a href="/" style={backBtn}>
+            ← Retour à l’accueil
+          </a>
+        </div>
+      </div>
 
-        <h2 style={h2}>Finalité</h2>
-        <p style={p}>
-          Ces données sont utilisées uniquement pour :
-          <br />• traiter la demande de lecture de mains,
-          <br />• produire et transmettre le rapport par email,
-          <br />• assurer le bon fonctionnement et la sécurité du service.
-        </p>
+      <div style={contentPad}>
+        <div style={card}>
+          <div style={k}>✦ Données & confidentialité</div>
+          <h1 style={h1}>Politique de confidentialité</h1>
+          <p style={p}>
+            Cette page explique comment les informations transmises via le formulaire sont utilisées, stockées et protégées.
+          </p>
+          <div style={badge}>Photos supprimées après analyse</div>
 
-        <h2 style={h2}>Stockage et suppression des photos</h2>
-        <p style={p}>
-          Les photographies sont stockées de manière temporaire le temps du traitement. Elles sont ensuite supprimées après analyse.
-        </p>
+          <h2 style={h2}>Données collectées</h2>
+          <p style={p}>
+            Lors d’une demande d’analyse, nous pouvons collecter :
+            <br />• Prénom et nom
+            <br />• Adresse email
+            <br />• Date de naissance
+            <br />• Thème de lecture choisi
+            <br />• Deux photographies (main gauche / main droite)
+          </p>
 
-        <h2 style={h2}>Durée de conservation</h2>
-        <p style={p}>
-          Les informations nécessaires au suivi de la demande (ex : email, date de demande, thème choisi) peuvent être conservées
-          pendant une durée limitée à des fins de support et de traçabilité, puis supprimées.
-          <br />
-          Durées exactes : à compléter selon ta politique finale.
-        </p>
+          <h2 style={h2}>Finalité</h2>
+          <p style={p}>
+            Ces données sont utilisées uniquement pour :
+            <br />• traiter la demande de lecture de mains,
+            <br />• produire et transmettre le rapport par email,
+            <br />• assurer le bon fonctionnement et la sécurité du service.
+          </p>
 
-        <h2 style={h2}>Sous-traitants techniques</h2>
-        <p style={p}>
-          Le service peut s’appuyer sur des prestataires techniques pour fonctionner (hébergement, stockage, traitement). Exemple :
-          hébergement via Vercel et stockage via Supabase. Ces prestataires n’accèdent aux données que dans la mesure nécessaire à
-          l’exécution du service.
-        </p>
+          <h2 style={h2}>Stockage et suppression des photos</h2>
+          <p style={p}>
+            Les photographies sont stockées de manière temporaire le temps du traitement. Elles sont ensuite supprimées après analyse.
+          </p>
 
-        <h2 style={h2}>Sécurité</h2>
-        <p style={p}>
-          Nous mettons en œuvre des mesures de sécurité adaptées (contrôles d’accès, limitation des requêtes, journaux techniques)
-          afin de protéger les données transmises.
-        </p>
+          <h2 style={h2}>Durée de conservation</h2>
+          <p style={p}>
+            Les informations nécessaires au suivi de la demande (ex : email, date de demande, thème choisi) peuvent être conservées
+            pendant une durée limitée à des fins de support et de traçabilité, puis supprimées.
+            <br />
+            Durées exactes : à compléter selon ta politique finale.
+          </p>
 
-        <h2 style={h2}>Vos droits</h2>
-        <p style={p}>
-          Vous pouvez demander l’accès, la rectification ou la suppression de vos données en nous contactant :
-          <br />
-          Contact : à compléter
-        </p>
+          <h2 style={h2}>Sous-traitants techniques</h2>
+          <p style={p}>
+            Le service peut s’appuyer sur des prestataires techniques pour fonctionner (hébergement, stockage, traitement). Exemple :
+            hébergement via Vercel et stockage via Supabase. Ces prestataires n’accèdent aux données que dans la mesure nécessaire à
+            l’exécution du service.
+          </p>
 
-        <p style={{ ...p, marginTop: 22 }}>
-          Dernière mise à jour : À compléter
-        </p>
+          <h2 style={h2}>Sécurité</h2>
+          <p style={p}>
+            Nous mettons en œuvre des mesures de sécurité adaptées (contrôles d’accès, limitation des requêtes, journaux techniques)
+            afin de protéger les données transmises.
+          </p>
+
+          <h2 style={h2}>Vos droits</h2>
+          <p style={p}>
+            Vous pouvez demander l’accès, la rectification ou la suppression de vos données en nous contactant :
+            <br />
+            Contact : à compléter
+          </p>
+
+          <p style={{ ...p, marginTop: 22 }}>Dernière mise à jour : À compléter</p>
+
+          <a href="/" style={bottomBack}>
+            ← Retour à la page principale
+          </a>
+        </div>
       </div>
     </div>
   );
