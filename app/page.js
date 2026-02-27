@@ -17,11 +17,11 @@ const theme = {
 };
 
 const THEMES = [
-  { id: "amour", label: "🌹 Amour & Relations", desc: "Vie sentimentale, liens affectifs, capacité à aimer" },
-  { id: "travail", label: "💼 Travail & Carrière", desc: "Ambitions, talents, réussite professionnelle" },
-  { id: "developpement", label: "🌱 Développement personnel", desc: "Évolution intérieure, potentiel, croissance" },
-  { id: "finances", label: "💰 Finances & Abondance", desc: "Rapport à l'argent, ressources, prospérité" },
-  { id: "famille", label: "👨‍👩‍👧 Famille & Liens", desc: "Liens familiaux, ancrage, transmission" },
+  { id: "amour", emoji: "🌹", label: "Amour & Relations", desc: "Vie sentimentale, liens affectifs, capacité à aimer" },
+  { id: "travail", emoji: "💼", label: "Travail & Carrière", desc: "Ambitions, talents, réussite professionnelle" },
+  { id: "developpement", emoji: "🌱", label: "Développement personnel", desc: "Évolution intérieure, potentiel, croissance" },
+  { id: "finances", emoji: "💰", label: "Finances & Abondance", desc: "Rapport à l'argent, ressources, prospérité" },
+  { id: "famille", emoji: "👨‍👩‍👧", label: "Famille & Liens", desc: "Liens familiaux, ancrage, transmission" },
 ];
 
 export default function Home() {
@@ -175,7 +175,6 @@ export default function Home() {
         gap: 56,
         alignItems: "start",
       }}>
-
         {/* Colonne gauche */}
         <div>
           <div style={{
@@ -196,7 +195,6 @@ export default function Home() {
             Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
           </p>
 
-          {/* Badges */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
             {["Analyse personnalisée", "Réponse sous 72h", "Confidentiel & sécurisé"].map((b) => (
               <span key={b} style={{
@@ -210,7 +208,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Comment ça marche */}
           <div id="comment">
             <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 20 }}>
               ✦ Comment ça marche
@@ -255,7 +252,6 @@ export default function Home() {
             Résultats transmis sous 72h par email
           </div>
 
-          {/* Infos carte */}
           <div style={{ backgroundColor: theme.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 20, fontSize: 13 }}>
             <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${theme.border}` }}>
               <span style={{ color: theme.textLight }}>Délai</span>
@@ -272,7 +268,6 @@ export default function Home() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Nom / Prénom */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div>
                 <div style={labelStyle}>Prénom</div>
@@ -286,33 +281,45 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Email */}
             <div style={{ marginBottom: 12 }}>
               <div style={labelStyle}>Email</div>
               <input type="email" value={email} placeholder="votre@email.com" style={inputStyle}
                 onChange={(e) => { setEmail(e.target.value); setResult(null); setError(null); }} />
             </div>
 
-            {/* Date */}
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 16 }}>
               <div style={labelStyle}>Date de naissance</div>
               <input type="date" value={dateNaissance} style={inputStyle}
                 onChange={(e) => { setDateNaissance(e.target.value); setResult(null); setError(null); }} />
             </div>
 
-            {/* Thème */}
-            <div style={{ marginBottom: 14 }}>
+            {/* THÈME — Cartes cliquables */}
+            <div style={{ marginBottom: 16 }}>
               <div style={labelStyle}>Thème de lecture</div>
-              <select
-                value={themeChoisi}
-                onChange={(e) => { setThemeChoisi(e.target.value); setResult(null); setError(null); }}
-                style={{ ...inputStyle, cursor: "pointer" }}
-              >
-                <option value="">— Choisissez un thème —</option>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
                 {THEMES.map((t) => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
+                  <div
+                    key={t.id}
+                    onClick={() => { setThemeChoisi(t.id); setResult(null); setError(null); }}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: `1.5px solid ${themeChoisi === t.id ? theme.sage : theme.border}`,
+                      backgroundColor: themeChoisi === t.id ? theme.sageLight : theme.bg,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <div style={{ fontSize: 18, marginBottom: 4 }}>{t.emoji}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: themeChoisi === t.id ? theme.sage : theme.text, lineHeight: 1.3 }}>
+                      {t.label}
+                    </div>
+                    <div style={{ fontSize: 10, color: theme.textLight, marginTop: 3, lineHeight: 1.4 }}>
+                      {t.desc}
+                    </div>
+                  </div>
                 ))}
-              </select>
+              </div>
             </div>
 
             {/* Photos */}
@@ -358,7 +365,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Bouton */}
             <button
               type="submit"
               disabled={!canSubmit}
@@ -387,44 +393,6 @@ export default function Home() {
               Vos photos sont supprimées après analyse. Données confidentielles.
             </p>
           </form>
-        </div>
-      </section>
-
-      {/* SECTION THÈMES */}
-      <section id="themes" style={{
-        backgroundColor: theme.goldLight,
-        borderTop: `1px solid ${theme.border}`,
-        borderBottom: `1px solid ${theme.border}`,
-        padding: "56px 32px",
-      }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
-            ✦ Thèmes disponibles
-          </div>
-          <h2 style={{ fontSize: 26, color: theme.text, fontWeight: 700, margin: "0 0 8px" }}>
-            Choisissez votre axe d'analyse
-          </h2>
-          <p style={{ fontSize: 14, color: theme.textLight, marginBottom: 32 }}>
-            Chaque analyse est entièrement orientée autour du thème que vous choisissez.
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-            {THEMES.map((t) => (
-              <div key={t.id} style={{
-                backgroundColor: theme.card,
-                borderRadius: 12,
-                border: `1px solid ${theme.border}`,
-                padding: "20px 16px",
-              }}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>{t.label.split(" ")[0]}</div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: theme.text, marginBottom: 6 }}>
-                  {t.label.split(" ").slice(1).join(" ")}
-                </div>
-                <div style={{ fontSize: 12, color: theme.textLight, lineHeight: 1.5 }}>
-                  {t.desc}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -485,8 +453,6 @@ export default function Home() {
           display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 40,
           paddingBottom: 40,
         }}>
-
-          {/* Colonne gauche */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
               <span style={{ fontSize: 18 }}>🌿</span>
@@ -496,20 +462,16 @@ export default function Home() {
               Analyse chiromantique personnalisée par un expert. Confidentiel, bienveillant et sérieux.
             </p>
           </div>
-
-          {/* Navigation */}
           <div>
             <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 16 }}>
               Navigation
             </div>
             <a href="#comment" style={footerLinkStyle}>Comment ça marche</a>
-            <a href="#themes" style={footerLinkStyle}>Thèmes</a>
+            <a href="#formulaire" style={footerLinkStyle}>Thèmes</a>
             <a href="#formulaire" style={footerLinkStyle}>Lancer mon analyse</a>
             <a href="#" style={footerLinkStyle}>Mentions légales</a>
             <a href="#" style={footerLinkStyle}>Confidentialité</a>
           </div>
-
-          {/* Mentions */}
           <div>
             <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 16 }}>
               Mentions
@@ -517,10 +479,7 @@ export default function Home() {
             <a href="#" style={footerLinkStyle}>Mentions légales (à compléter)</a>
             <a href="#" style={footerLinkStyle}>Confidentialité (à compléter)</a>
           </div>
-
         </div>
-
-        {/* Barre du bas */}
         <div style={{
           maxWidth: 1100, margin: "0 auto",
           borderTop: `1px solid ${theme.border}`,
