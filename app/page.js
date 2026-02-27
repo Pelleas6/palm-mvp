@@ -180,7 +180,7 @@ export default function Home() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 26 }}>🌿</span>
           <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>
-            Lecture de Vie
+            Ligne de Vie
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -826,7 +826,7 @@ export default function Home() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <span style={{ fontSize: 22 }}>🌿</span>
-              <span style={{ fontWeight: 700, fontSize: 17, color: theme.text }}>Lecture de Vie</span>
+              <span style={{ fontWeight: 700, fontSize: 17, color: theme.text }}>Ligne de Vie</span>
             </div>
             <p style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, margin: 0, maxWidth: 260 }}>
               Analyse chiromantique personnalisée par un expert. Confidentiel, bienveillant et sérieux.
@@ -915,7 +915,7 @@ export default function Home() {
             gap: 48,
           }}
         >
-          <span style={{ fontSize: 12, color: theme.textLight }}>© 2026 Lecture de Vie</span>
+          <span style={{ fontSize: 12, color: theme.textLight }}>© 2026 Ligne de Vie</span>
           <span style={{ fontSize: 12, color: theme.textLight }}>Expert en chiromancie · 20 ans d'expérience</span>
         </div>
       </footer>
