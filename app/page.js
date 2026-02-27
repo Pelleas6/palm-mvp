@@ -323,8 +323,6 @@ export default function Home() {
                 }}
               >
                 Chaque analyse est réalisée individuellement.
-                <br />
-                Aucune lecture automatisée, aucune interprétation générique.
               </div>
             </div>
 
