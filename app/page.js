@@ -153,7 +153,7 @@ export default function Home() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <a href="#comment" style={{ fontSize: 13, color: theme.textLight, textDecoration: "none", padding: "6px 12px" }}>Comment ça marche</a>
-          <a href="#themes" style={{ fontSize: 13, color: theme.textLight, textDecoration: "none", padding: "6px 12px" }}>Thèmes</a>
+          <a href="#formulaire" style={{ fontSize: 13, color: theme.textLight, textDecoration: "none", padding: "6px 12px" }}>Thèmes</a>
           <a href="#formulaire" style={{
             fontSize: 13, fontWeight: 600, color: "#fff",
             backgroundColor: theme.sage, textDecoration: "none",
@@ -175,6 +175,7 @@ export default function Home() {
         gap: 56,
         alignItems: "start",
       }}>
+
         {/* Colonne gauche */}
         <div>
           <div style={{
@@ -187,14 +188,29 @@ export default function Home() {
           </div>
           <h1 style={{
             fontSize: 38, fontWeight: 700, color: theme.text,
-            lineHeight: 1.25, margin: "0 0 20px",
+            lineHeight: 1.25, margin: "0 0 24px",
           }}>
             Découvrez ce que vos mains révèlent de vous
           </h1>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.7, margin: "0 0 32px" }}>
+
+          {/* Texte enrichi */}
+          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
             Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
           </p>
+          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+            Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles et ce que la vie vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel. C'est la main de ce que vous auriez pu devenir si rien n'avait interféré.
+          </p>
+          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+            La main droite, elle, reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte les traces de vos expériences, de vos décisions, de vos épreuves et de vos réussites. C'est la main de ce que vous êtes devenus.
+          </p>
+          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+            La comparaison des deux est au cœur de l'analyse : c'est là que se révèle votre véritable parcours de vie.
+          </p>
+          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 32px" }}>
+            Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir une lecture concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente l'intégralité de l'analyse : chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle vraiment.
+          </p>
 
+          {/* Badges */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
             {["Analyse personnalisée", "Réponse sous 72h", "Confidentiel & sécurisé"].map((b) => (
               <span key={b} style={{
@@ -208,6 +224,7 @@ export default function Home() {
             ))}
           </div>
 
+          {/* Comment ça marche */}
           <div id="comment">
             <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 20 }}>
               ✦ Comment ça marche
