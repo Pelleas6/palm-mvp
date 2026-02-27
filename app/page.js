@@ -1,6 +1,28 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 
+const theme = {
+  bg: "#FAF7F2",
+  card: "#FFFFFF",
+  border: "#E8E0D0",
+  sage: "#7A9E7E",
+  sageLight: "#EFF5F0",
+  sageBorder: "#B5CDB7",
+  gold: "#C9A84C",
+  goldLight: "#FBF6EC",
+  text: "#3A3228",
+  textLight: "#7A6F65",
+  error: "#B85C5C",
+};
+
+const THEMES = [
+  { id: "amour", label: "🌹 Amour & Relations" },
+  { id: "travail", label: "💼 Travail & Carrière" },
+  { id: "developpement", label: "🌱 Développement personnel" },
+  { id: "finances", label: "💰 Finances & Abondance" },
+  { id: "famille", label: "👨‍👩‍👧 Famille & Liens" },
+];
+
 export default function Home() {
   const [leftFile, setLeftFile] = useState(null);
   const [rightFile, setRightFile] = useState(null);
@@ -8,6 +30,7 @@ export default function Home() {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [dateNaissance, setDateNaissance] = useState("");
+  const [themeChoisi, setThemeChoisi] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -36,9 +59,10 @@ export default function Home() {
       nom.trim().length > 0 &&
       email.trim().length > 0 &&
       dateNaissance.trim().length > 0 &&
+      themeChoisi.length > 0 &&
       !loading
     );
-  }, [leftFile, rightFile, prenom, nom, email, dateNaissance, loading]);
+  }, [leftFile, rightFile, prenom, nom, email, dateNaissance, themeChoisi, loading]);
 
   async function safeJson(res) {
     try { return await res.json(); } catch { return null; }
@@ -58,14 +82,14 @@ export default function Home() {
       if (!uploadRes.ok) throw new Error("UPLOAD ERROR\nstatus=" + uploadRes.status + "\nbody=" + JSON.stringify(uploadData, null, 2));
       const leftPath = uploadData?.leftPath;
       const rightPath = uploadData?.rightPath;
-      if (!leftPath || !rightPath) throw new Error("UPLOAD OK mais leftPath/rightPath manquants: " + JSON.stringify(uploadData, null, 2));
+      if (!leftPath || !rightPath) throw new Error("UPLOAD OK mais chemins manquants: " + JSON.stringify(uploadData, null, 2));
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-secret": process.env.NEXT_PUBLIC_API_SECRET || "",
         },
-        body: JSON.stringify({ leftPath, rightPath, prenom, nom, email, dateNaissance }),
+        body: JSON.stringify({ leftPath, rightPath, prenom, nom, email, dateNaissance, themeChoisi }),
       });
       const analyzeData = await safeJson(analyzeRes);
       if (!analyzeRes.ok) throw new Error("ANALYZE ERROR\nstatus=" + analyzeRes.status + "\nbody=" + JSON.stringify(analyzeData, null, 2));
@@ -79,12 +103,12 @@ export default function Home() {
 
   const inputStyle = {
     width: "100%",
-    padding: "10px 14px",
+    padding: "10px 12px",
     marginTop: 6,
     borderRadius: 8,
-    border: "1px solid #2e3347",
-    backgroundColor: "#0f1117",
-    color: "#e8eaf0",
+    border: `1px solid ${theme.border}`,
+    backgroundColor: theme.bg,
+    color: theme.text,
     fontSize: 14,
     outline: "none",
     boxSizing: "border-box",
@@ -92,182 +116,239 @@ export default function Home() {
 
   const labelStyle = {
     fontSize: 13,
-    color: "#9aa0b8",
-    fontWeight: 500,
+    fontWeight: 600,
+    color: theme.textLight,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
   };
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0f1117", color: "#e8eaf0", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+    <main style={{ backgroundColor: theme.bg, minHeight: "100vh", padding: "40px 16px", fontFamily: "Georgia, serif" }}>
 
-      {/* HEADER */}
-      <div style={{ padding: "20px 32px", borderBottom: "1px solid #1e2235", display: "flex", alignItems: "center" }}>
-        <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#4ecdc4", marginRight: 10 }} />
-        <span style={{ fontSize: 15, fontWeight: 600, color: "#e8eaf0" }}>Lecture de Mains</span>
-      </div>
-
-      {/* HERO */}
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "60px 24px 40px" }}>
-        <p style={{ fontSize: 13, color: "#4ecdc4", marginBottom: 12, letterSpacing: 1 }}>
-          ANALYSE PERSONNALISÉE
-        </p>
-        <h1 style={{ fontSize: 38, fontWeight: 700, lineHeight: 1.2, margin: "0 0 16px", color: "#ffffff" }}>
-          Découvrez ce que vos mains<br />révèlent de vous
+      {/* En-tête */}
+      <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>🌿</div>
+        <h1 style={{ fontSize: 28, color: theme.text, margin: 0, fontWeight: 700, letterSpacing: "0.02em" }}>
+          Lecture de vos mains
         </h1>
-        <p style={{ fontSize: 16, color: "#9aa0b8", maxWidth: 520, lineHeight: 1.7, margin: 0 }}>
-          Une analyse sérieuse et bienveillante par un expert en chiromancie avec 20 ans d'expérience. Votre rapport personnalisé vous sera transmis sous 72 heures.
+        <p style={{ color: theme.textLight, marginTop: 10, fontSize: 15, lineHeight: 1.6 }}>
+          Une analyse personnalisée par notre expert en chiromancie
         </p>
-
-        <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
-          {["Analyse des deux mains", "Rapport détaillé", "Expertise de 20 ans"].map((tag) => (
-            <span key={tag} style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid #2e3347", fontSize: 13, color: "#9aa0b8" }}>
-              {tag}
-            </span>
-          ))}
-        </div>
+        <div style={{ width: 50, height: 2, backgroundColor: theme.gold, margin: "16px auto 0" }} />
       </div>
 
-      {/* FORMULAIRE */}
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 80px" }}>
-        <div style={{ backgroundColor: "#151929", border: "1px solid #1e2235", borderRadius: 16, padding: "32px" }}>
+      {/* Carte formulaire */}
+      <div style={{
+        maxWidth: 560,
+        margin: "0 auto",
+        backgroundColor: theme.card,
+        borderRadius: 16,
+        border: `1px solid ${theme.border}`,
+        padding: "32px 28px",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+      }}>
+        <form onSubmit={handleSubmit}>
 
-          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, color: "#ffffff" }}>
-            Soumettre votre analyse
-          </h2>
-          <p style={{ fontSize: 13, color: "#9aa0b8", marginBottom: 28 }}>
-            Remplissez tous les champs et ajoutez vos deux photos pour continuer.
-          </p>
-
-          <form onSubmit={handleSubmit}>
-
-            {/* Prénom + Nom */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+          {/* Infos personnelles */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
+              ✦ Vos informations
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
-                <label style={labelStyle}>Prénom</label>
-                <input type="text" value={prenom} placeholder="Votre prénom" style={inputStyle}
+                <div style={labelStyle}>Prénom</div>
+                <input type="text" value={prenom} placeholder="Marie" style={inputStyle}
                   onChange={(e) => { setPrenom(e.target.value); setResult(null); setError(null); }} />
               </div>
               <div>
-                <label style={labelStyle}>Nom</label>
-                <input type="text" value={nom} placeholder="Votre nom" style={inputStyle}
+                <div style={labelStyle}>Nom</div>
+                <input type="text" value={nom} placeholder="Dupont" style={inputStyle}
                   onChange={(e) => { setNom(e.target.value); setResult(null); setError(null); }} />
               </div>
             </div>
-
-            {/* Email + Date */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-              <div>
-                <label style={labelStyle}>Email</label>
-                <input type="email" value={email} placeholder="votre@email.com" style={inputStyle}
-                  onChange={(e) => { setEmail(e.target.value); setResult(null); setError(null); }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Date de naissance</label>
-                <input type="date" value={dateNaissance} style={{ ...inputStyle, colorScheme: "dark" }}
-                  onChange={(e) => { setDateNaissance(e.target.value); setResult(null); setError(null); }} />
-              </div>
+            <div style={{ marginTop: 12 }}>
+              <div style={labelStyle}>Email</div>
+              <input type="email" value={email} placeholder="votre@email.com" style={inputStyle}
+                onChange={(e) => { setEmail(e.target.value); setResult(null); setError(null); }} />
             </div>
+            <div style={{ marginTop: 12 }}>
+              <div style={labelStyle}>Date de naissance</div>
+              <input type="date" value={dateNaissance} style={inputStyle}
+                onChange={(e) => { setDateNaissance(e.target.value); setResult(null); setError(null); }} />
+            </div>
+          </div>
 
-            {/* Photos */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
-              {[
-                { label: "Main gauche", file: leftFile, preview: leftPreview, key: "left", setter: setLeftFile, previewSetter: setLeftPreview },
-                { label: "Main droite", file: rightFile, preview: rightPreview, key: "right", setter: setRightFile, previewSetter: setRightPreview },
-              ].map(({ label, file, preview, key, setter }) => (
-                <div key={key}>
-                  <label style={labelStyle}>{label}</label>
-                  <label style={{
+          {/* Thème */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
+              ✦ Votre thème de lecture
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {THEMES.map((t) => (
+                <label
+                  key={t.id}
+                  style={{
                     display: "flex",
-                    flexDirection: "column",
                     alignItems: "center",
-                    justifyContent: "center",
-                    marginTop: 6,
-                    padding: 16,
+                    gap: 12,
+                    padding: "10px 14px",
                     borderRadius: 10,
-                    border: "1px dashed #2e3347",
-                    backgroundColor: "#0f1117",
+                    border: `1px solid ${themeChoisi === t.id ? theme.sage : theme.border}`,
+                    backgroundColor: themeChoisi === t.id ? theme.sageLight : theme.bg,
                     cursor: "pointer",
-                    minHeight: 120,
-                    transition: "border-color 0.2s",
-                  }}>
-                    {preview ? (
-                      <img src={preview} alt={label} style={{ maxWidth: "100%", maxHeight: 150, borderRadius: 8 }} />
-                    ) : (
-                      <>
-                        <span style={{ fontSize: 28, marginBottom: 8 }}>🖐️</span>
-                        <span style={{ fontSize: 12, color: "#9aa0b8" }}>Cliquez pour ajouter</span>
-                      </>
-                    )}
-                    <input type="file" accept="image/*" style={{ display: "none" }}
-                      onChange={(e) => { setter(e.target.files?.[0] || null); setResult(null); setError(null); }} />
-                  </label>
-                  {file && <div style={{ fontSize: 11, color: "#4ecdc4", marginTop: 4 }}>✓ {file.name}</div>}
-                </div>
+                    fontSize: 14,
+                    color: theme.text,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={t.id}
+                    checked={themeChoisi === t.id}
+                    onChange={() => { setThemeChoisi(t.id); setResult(null); setError(null); }}
+                    style={{ accentColor: theme.sage }}
+                  />
+                  {t.label}
+                </label>
               ))}
             </div>
+          </div>
 
-            {/* Bouton */}
-            <button type="submit" disabled={!canSubmit} style={{
+          {/* Photos */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>
+              ✦ Vos photos
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <div style={labelStyle}>Main gauche</div>
+                <label style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  marginTop: 6, padding: 12, borderRadius: 10,
+                  border: `2px dashed ${leftFile ? theme.sage : theme.border}`,
+                  backgroundColor: leftFile ? theme.sageLight : theme.bg,
+                  cursor: "pointer", minHeight: 100,
+                }}>
+                  {leftPreview ? (
+                    <img src={leftPreview} alt="Main gauche" style={{ maxWidth: "100%", maxHeight: 120, borderRadius: 6 }} />
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 24 }}>🤚</span>
+                      <span style={{ fontSize: 11, color: theme.textLight, marginTop: 6 }}>Cliquez pour ajouter</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={(e) => { setLeftFile(e.target.files?.[0] || null); setResult(null); setError(null); }} />
+                </label>
+              </div>
+              <div>
+                <div style={labelStyle}>Main droite</div>
+                <label style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  marginTop: 6, padding: 12, borderRadius: 10,
+                  border: `2px dashed ${rightFile ? theme.sage : theme.border}`,
+                  backgroundColor: rightFile ? theme.sageLight : theme.bg,
+                  cursor: "pointer", minHeight: 100,
+                }}>
+                  {rightPreview ? (
+                    <img src={rightPreview} alt="Main droite" style={{ maxWidth: "100%", maxHeight: 120, borderRadius: 6 }} />
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 24 }}>🤚</span>
+                      <span style={{ fontSize: 11, color: theme.textLight, marginTop: 6 }}>Cliquez pour ajouter</span>
+                    </>
+                  )}
+                  <input type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={(e) => { setRightFile(e.target.files?.[0] || null); setResult(null); setError(null); }} />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Bouton */}
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            style={{
               width: "100%",
-              padding: "14px",
+              padding: "14px 0",
               borderRadius: 10,
               border: "none",
-              backgroundColor: canSubmit ? "#4ecdc4" : "#1e2235",
-              color: canSubmit ? "#0f1117" : "#4a5068",
+              backgroundColor: canSubmit ? theme.sage : theme.border,
+              color: canSubmit ? "#FFFFFF" : theme.textLight,
               fontSize: 15,
               fontWeight: 600,
+              fontFamily: "Georgia, serif",
               cursor: canSubmit ? "pointer" : "not-allowed",
+              letterSpacing: "0.04em",
               transition: "background-color 0.2s",
-            }}>
-              {loading ? "Analyse en cours..." : "Lancer l'analyse"}
-            </button>
+            }}
+          >
+            {loading ? "✨ Analyse en cours..." : "✦ Lancer l'analyse"}
+          </button>
 
-            {!canSubmit && !loading && (
-              <p style={{ textAlign: "center", fontSize: 12, color: "#4a5068", marginTop: 10 }}>
-                Remplissez tous les champs et ajoutez vos 2 photos pour continuer.
-              </p>
-            )}
-          </form>
-        </div>
+          {!canSubmit && !loading && (
+            <p style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: theme.textLight }}>
+              Remplissez tous les champs, choisissez un thème et ajoutez vos 2 photos.
+            </p>
+          )}
 
-        {/* Erreur */}
-        {error && (
-          <pre style={{ marginTop: 20, padding: 16, backgroundColor: "#1a0f0f", border: "1px solid #5a1f1f", borderRadius: 10, whiteSpace: "pre-wrap", color: "#ff6b6b", fontSize: 13 }}>
+        </form>
+      </div>
+
+      {/* Erreur */}
+      {error && (
+        <div style={{ maxWidth: 560, margin: "20px auto 0" }}>
+          <pre style={{ whiteSpace: "pre-wrap", color: theme.error, fontSize: 13, backgroundColor: "#FDF0F0", padding: 16, borderRadius: 10, border: "1px solid #E8C0C0" }}>
             {error}
           </pre>
-        )}
+        </div>
+      )}
 
-        {/* Résultat */}
-        {result && (
-          <>
-            <div style={{
-              marginTop: 24,
-              padding: "16px 20px",
-              backgroundColor: "#0d1f18",
-              border: "1px solid #1e5c42",
-              borderRadius: 10,
-              color: "#4ecdc4",
-              fontSize: 14,
-              lineHeight: 1.7,
-            }}>
-              <strong>Merci pour votre envoi.</strong><br />
-              Votre analyse est en cours de préparation. Vous consultez actuellement une version de démonstration.<br /><br />
-              Dans la version finale, un expert étudiera vos deux mains et vous recevrez votre analyse détaillée par email sous <strong>72 heures maximum</strong>.
+      {/* Résultat */}
+      {result && (
+        <div style={{ maxWidth: 560, margin: "32px auto 0" }}>
+          <div style={{
+            padding: "16px 20px",
+            backgroundColor: theme.sageLight,
+            border: `1px solid ${theme.sageBorder}`,
+            borderRadius: 12,
+            color: theme.sage,
+            fontSize: 14,
+            lineHeight: 1.7,
+            marginBottom: 24,
+          }}>
+            <strong style={{ color: theme.text }}>Merci pour votre confiance.</strong><br />
+            Vous consultez actuellement une version de démonstration de votre analyse.<br /><br />
+            Dans la version finale, un expert étudiera vos deux mains et vous recevrez votre analyse détaillée par email sous <strong>72 heures maximum</strong>.
+          </div>
+          <div style={{
+            backgroundColor: theme.card,
+            borderRadius: 16,
+            border: `1px solid ${theme.border}`,
+            padding: "28px 24px",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${theme.border}` }}>
+              <div style={{ width: 3, height: 24, backgroundColor: theme.gold, borderRadius: 2 }} />
+              <h2 style={{ margin: 0, fontSize: 18, color: theme.text, fontWeight: 700 }}>Votre analyse</h2>
             </div>
-            <div style={{
-              marginTop: 24,
-              backgroundColor: "#151929",
-              border: "1px solid #1e2235",
-              borderRadius: 16,
-              padding: 32,
-            }}>
-              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 20, color: "#ffffff" }}>Votre analyse</h2>
-              <pre style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: 14, color: "#c8ccd8", fontFamily: "inherit" }}>
-                {result}
-              </pre>
-            </div>
-          </>
-        )}
+            <pre style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: 14, color: theme.text, margin: 0, fontFamily: "Georgia, serif" }}>
+              {result}
+            </pre>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ textAlign: "center", marginTop: 48, paddingBottom: 24 }}>
+        <div style={{ width: 30, height: 1, backgroundColor: theme.border, margin: "0 auto 12px" }} />
+        <p style={{ fontSize: 12, color: theme.textLight }}>
+          Expert en chiromancie · 20 ans d'expérience
+        </p>
       </div>
-    </div>
+
+    </main>
   );
 }
