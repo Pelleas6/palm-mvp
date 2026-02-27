@@ -5,6 +5,8 @@ export const maxDuration = 60;
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
 const BUCKET = "palm-uploads";
 
@@ -46,6 +48,37 @@ export async function POST(req) {
   let rightPath = null;
 
   try {
+    // ✅ Vérification secret token
+    const apiSecret = getEnv("API_SECRET");
+    const headerSecret = req.headers.get("x-api-secret");
+    if (apiSecret && headerSecret !== apiSecret) {
+      return NextResponse.json(
+        { error: "Accès non autorisé." },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Rate limiting
+    const redisUrl = getEnv("UPSTASH_REDIS_REST_URL");
+    const redisToken = getEnv("UPSTASH_REDIS_REST_TOKEN");
+    if (redisUrl && redisToken) {
+      const redis = new Redis({ url: redisUrl, token: redisToken });
+      const ratelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(3, "1 h"),
+        analytics: false,
+      });
+      const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+      const { success } = await ratelimit.limit(ip);
+      if (!success) {
+        return NextResponse.json(
+          { error: "Trop de demandes. Réessayez dans une heure." },
+          { status: 429 }
+        );
+      }
+    }
+
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       return NextResponse.json(
