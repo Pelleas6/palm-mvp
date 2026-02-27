@@ -136,22 +136,20 @@ export default function Home() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         height: 68,
       }}>
-        {/* Logo agrandi */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 26 }}>🌿</span>
           <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>
             Lecture de Mains
           </span>
         </div>
-        {/* Nav links + bouton */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <a href="#comment" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
             Comment ça marche
           </a>
-          <a href="#formulaire" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
+          <a href="#form-card" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
             Thèmes
           </a>
-          <a href="#formulaire" style={{
+          <a href="#form-card" style={{
             fontSize: 14, fontWeight: 600, color: "#fff",
             backgroundColor: theme.sage, textDecoration: "none",
             padding: "10px 22px", borderRadius: 8,
@@ -173,8 +171,8 @@ export default function Home() {
         alignItems: "start",
       }}>
 
-        {/* Colonne gauche */}
-        <div>
+        {/* Colonne gauche — fix overflow */}
+        <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
           <div style={{
             display: "inline-block",
             fontSize: 11, fontWeight: 700, color: theme.gold,
@@ -184,7 +182,6 @@ export default function Home() {
             ✦ Expert en chiromancie · 20 ans d'expérience
           </div>
 
-          {/* Titre agrandi */}
           <h1 style={{
             fontSize: 44, fontWeight: 700, color: theme.text,
             lineHeight: 1.2, margin: "0 0 28px",
@@ -192,7 +189,6 @@ export default function Home() {
             Découvrez ce que vos mains révèlent de vous
           </h1>
 
-          {/* Texte enrichi — chaque paragraphe sur sa propre ligne */}
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
           </p>
@@ -209,7 +205,6 @@ export default function Home() {
             Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir une lecture concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente l'intégralité de l'analyse : chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle vraiment.
           </p>
 
-          {/* Badges */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
             {["Analyse personnalisée", "Réponse sous 24h", "Confidentiel & sécurisé"].map((b) => (
               <span key={b} style={{
@@ -223,7 +218,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Comment ça marche */}
           <div id="comment">
             <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 20 }}>
               ✦ Comment ça marche
@@ -252,7 +246,7 @@ export default function Home() {
         </div>
 
         {/* Colonne droite — Formulaire */}
-        <div id="formulaire" style={{
+        <div id="form-card" style={{
           backgroundColor: theme.card,
           borderRadius: 16,
           border: `1px solid ${theme.border}`,
@@ -268,7 +262,6 @@ export default function Home() {
             Résultats transmis sous 24h par email
           </div>
 
-          {/* Infos */}
           <div style={{ backgroundColor: theme.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 20, fontSize: 13 }}>
             <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${theme.border}` }}>
               <span style={{ color: theme.textLight }}>Délai</span>
@@ -310,7 +303,6 @@ export default function Home() {
                 onChange={(e) => { setDateNaissance(e.target.value); setResult(null); setError(null); }} />
             </div>
 
-            {/* THÈME — Cartes cliquables */}
             <div style={{ marginBottom: 16 }}>
               <div style={labelStyle}>Thème de lecture</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
@@ -339,7 +331,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Photos */}
             <div style={{ marginBottom: 16 }}>
               <div style={labelStyle}>Photos de vos mains</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
@@ -466,16 +457,11 @@ export default function Home() {
         padding: "56px 40px 0",
       }}>
         <div style={{
-          maxWidth: 900,
-          margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr 1fr",
-          gap: 48,
+          maxWidth: 900, margin: "0 auto",
+          display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 48,
           paddingBottom: 48,
-          textAlign: "center",
         }}>
-          {/* Logo */}
-          <div style={{ textAlign: "left" }}>
+          <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <span style={{ fontSize: 22 }}>🌿</span>
               <span style={{ fontWeight: 700, fontSize: 17, color: theme.text }}>Lecture de Mains</span>
@@ -484,16 +470,14 @@ export default function Home() {
               Analyse chiromantique personnalisée par un expert. Confidentiel, bienveillant et sérieux.
             </p>
           </div>
-
-          {/* Navigation */}
           <div>
             <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
               Navigation
             </div>
             {[
               { label: "Comment ça marche", href: "#comment" },
-              { label: "Thèmes", href: "#formulaire" },
-              { label: "Lancer mon analyse", href: "#formulaire" },
+              { label: "Thèmes", href: "#form-card" },
+              { label: "Lancer mon analyse", href: "#form-card" },
               { label: "Mentions légales", href: "#" },
               { label: "Confidentialité", href: "#" },
             ].map((l) => (
@@ -505,8 +489,6 @@ export default function Home() {
               </a>
             ))}
           </div>
-
-          {/* Mentions */}
           <div>
             <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
               Mentions
@@ -524,8 +506,6 @@ export default function Home() {
             ))}
           </div>
         </div>
-
-        {/* Barre du bas */}
         <div style={{
           maxWidth: 900, margin: "0 auto",
           borderTop: `1px solid ${theme.border}`,
