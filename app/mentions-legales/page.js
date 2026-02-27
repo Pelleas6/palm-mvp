@@ -8,13 +8,60 @@ export default function MentionsLegalesPage() {
     gold: "#C9A84C",
     text: "#3A3228",
     textLight: "#7A6F65",
+    sage: "#7A9E7E",
   };
 
   const wrap = {
     backgroundColor: theme.bg,
     minHeight: "100vh",
-    padding: "56px 22px",
     fontFamily: "Georgia, serif",
+  };
+
+  const topbar = {
+    position: "sticky",
+    top: 0,
+    zIndex: 50,
+    backgroundColor: "rgba(250,247,242,0.95)",
+    backdropFilter: "blur(8px)",
+    borderBottom: `1px solid ${theme.border}`,
+  };
+
+  const topbarInner = {
+    maxWidth: 900,
+    margin: "0 auto",
+    padding: "14px 18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  };
+
+  const brand = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    textDecoration: "none",
+  };
+
+  const brandTitle = {
+    fontWeight: 700,
+    fontSize: 18,
+    color: theme.text,
+    letterSpacing: "0.02em",
+  };
+
+  const backBtn = {
+    textDecoration: "none",
+    color: theme.sage,
+    fontSize: 13,
+    border: `1px solid ${theme.border}`,
+    backgroundColor: theme.card,
+    padding: "8px 12px",
+    borderRadius: 10,
+  };
+
+  const contentPad = {
+    padding: "34px 22px 56px",
   };
 
   const card = {
@@ -32,59 +79,90 @@ export default function MentionsLegalesPage() {
   const p = { fontSize: 14, lineHeight: 1.9, color: theme.textLight, margin: "10px 0" };
   const h2 = { fontSize: 16, color: theme.text, margin: "26px 0 8px" };
 
+  const bottomBack = {
+    marginTop: 22,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    color: theme.sage,
+    textDecoration: "none",
+    fontSize: 13,
+  };
+
   return (
     <div style={wrap}>
-      <div style={card}>
-        <div style={k}>✦ Informations légales</div>
-        <h1 style={h1}>Mentions légales</h1>
-        <p style={p}>
-          Les informations ci-dessous sont fournies afin de répondre aux obligations légales applicables aux services en ligne.
-          Elles peuvent être complétées ou ajustées selon votre situation (entreprise, micro-entreprise, association).
-        </p>
+      {/* Top bar */}
+      <div style={topbar}>
+        <div style={topbarInner}>
+          <a href="/" style={brand}>
+            <span style={{ fontSize: 22 }}>🌿</span>
+            <span style={brandTitle}>Ligne de Vie</span>
+          </a>
 
-        <h2 style={h2}>Éditeur du site</h2>
-        <p style={p}>
-          Nom / Raison sociale : À compléter<br />
-          Statut : À compléter<br />
-          Adresse : À compléter<br />
-          Email : À compléter<br />
-          Numéro SIRET : À compléter
-        </p>
+          <a href="/" style={backBtn}>
+            ← Retour à l’accueil
+          </a>
+        </div>
+      </div>
 
-        <h2 style={h2}>Directeur de la publication</h2>
-        <p style={p}>À compléter</p>
+      <div style={contentPad}>
+        <div style={card}>
+          <div style={k}>✦ Informations légales</div>
+          <h1 style={h1}>Mentions légales</h1>
 
-        <h2 style={h2}>Hébergement</h2>
-        <p style={p}>
-          Le site est hébergé par Vercel Inc.<br />
-          Adresse : 440 N Barranca Ave #4133, Covina, CA 91723, USA
-        </p>
+          <p style={p}>
+            Les informations ci-dessous sont fournies afin de répondre aux obligations légales applicables aux services en ligne.
+            Elles peuvent être complétées ou ajustées selon votre situation (entreprise, micro-entreprise, association).
+          </p>
 
-        <h2 style={h2}>Service proposé</h2>
-        <p style={p}>
-          Le site propose une lecture de mains (chiromancie) à partir de photographies transmises par l’utilisateur, afin de
-          produire une lecture personnalisée orientée selon un thème choisi.
-        </p>
+          <h2 style={h2}>Éditeur du site</h2>
+          <p style={p}>
+            Nom / Raison sociale : À compléter<br />
+            Statut : À compléter<br />
+            Adresse : À compléter<br />
+            Email : À compléter<br />
+            Numéro SIRET : À compléter
+          </p>
 
-        <h2 style={h2}>Responsabilité</h2>
-        <p style={p}>
-          L’éditeur s’efforce de fournir un service sérieux et soigné. L’utilisateur reste néanmoins responsable de l’usage qu’il
-          fait des contenus délivrés. Le service repose sur une démarche d’interprétation (chiromancie) et ne constitue pas une
-          expertise officielle.
-        </p>
+          <h2 style={h2}>Directeur de la publication</h2>
+          <p style={p}>À compléter</p>
 
-        <h2 style={h2}>Propriété intellectuelle</h2>
-        <p style={p}>
-          L’ensemble des contenus du site (textes, éléments visuels, mise en page, identité graphique) est protégé. Toute
-          reproduction non autorisée est interdite.
-        </p>
+          <h2 style={h2}>Hébergement</h2>
+          <p style={p}>
+            Le site est hébergé par Vercel Inc.<br />
+            Adresse : 440 N Barranca Ave #4133, Covina, CA 91723, USA
+          </p>
 
-        <h2 style={h2}>Contact</h2>
-        <p style={p}>Pour toute question : À compléter</p>
+          <h2 style={h2}>Service proposé</h2>
+          <p style={p}>
+            Le site propose une lecture de mains (chiromancie) à partir de photographies transmises par l’utilisateur,
+            afin de produire une lecture personnalisée orientée selon un thème choisi.
+          </p>
 
-        <p style={{ ...p, marginTop: 22 }}>
-          Dernière mise à jour : À compléter
-        </p>
+          <h2 style={h2}>Responsabilité</h2>
+          <p style={p}>
+            L’éditeur s’efforce de fournir un service sérieux et soigné. L’utilisateur reste néanmoins responsable
+            de l’usage qu’il fait des contenus délivrés. Le service repose sur une démarche d’interprétation
+            et ne constitue pas une expertise officielle.
+          </p>
+
+          <h2 style={h2}>Propriété intellectuelle</h2>
+          <p style={p}>
+            L’ensemble des contenus du site (textes, éléments visuels, mise en page, identité graphique)
+            est protégé. Toute reproduction non autorisée est interdite.
+          </p>
+
+          <h2 style={h2}>Contact</h2>
+          <p style={p}>Pour toute question : À compléter</p>
+
+          <p style={{ ...p, marginTop: 22 }}>
+            Dernière mise à jour : À compléter
+          </p>
+
+          <a href="/" style={bottomBack}>
+            ← Retour à la page principale
+          </a>
+        </div>
       </div>
     </div>
   );
