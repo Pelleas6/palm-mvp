@@ -127,10 +127,7 @@ export default function Home() {
         );
       }
 
-      // UI premium : on ne montre pas le rapport ici (mail plus tard)
       setResult("MAIL_CONFIRMATION");
-
-      // Option premium : on vide les photos après envoi
       setLeftFile(null);
       setRightFile(null);
     } catch (err) {
@@ -323,6 +320,8 @@ export default function Home() {
                 }}
               >
                 Chaque analyse est réalisée individuellement.
+                <br />
+                Aucune lecture automatisée, aucune interprétation générique.
               </div>
             </div>
 
@@ -851,8 +850,8 @@ export default function Home() {
               { label: "Comment ça marche", href: "#comment" },
               { label: "Thèmes", href: "#form-card" },
               { label: "Lancer mon analyse", href: "#form-card" },
-              { label: "Mentions légales", href: "#" },
-              { label: "Confidentialité", href: "#" },
+              { label: "Mentions légales", href: "/mentions-legales" },
+              { label: "Confidentialité", href: "/confidentialite" },
             ].map((l) => (
               <a
                 key={l.label}
@@ -884,8 +883,8 @@ export default function Home() {
               Mentions
             </div>
             {[
-              { label: "Mentions légales (à compléter)", href: "#" },
-              { label: "Confidentialité (à compléter)", href: "#" },
+              { label: "Mentions légales", href: "/mentions-legales" },
+              { label: "Confidentialité", href: "/confidentialite" },
             ].map((l) => (
               <a
                 key={l.label}
