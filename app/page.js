@@ -299,50 +299,186 @@ export default function Home() {
             ))}
           </div>
 
-          <div id="comment">
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: theme.gold,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                marginBottom: 20,
-              }}
-            >
-              ✦ Comment ça marche
+          {/* COMMENT ÇA MARCHE — VERSION PREMIUM */}
+          <div id="comment" style={{ marginTop: 40 }}>
+            <div style={{ textAlign: "left", marginBottom: 32 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: theme.gold,
+                  marginBottom: 10,
+                }}
+              >
+                ✦ Votre analyse en trois étapes
+              </div>
+
+              <div
+                style={{
+                  fontSize: 15,
+                  color: theme.textLight,
+                  lineHeight: 1.7,
+                  maxWidth: 520,
+                }}
+              >
+                Chaque analyse est réalisée individuellement.
+                <br />
+                Aucune lecture automatisée, aucune interprétation générique.
+              </div>
             </div>
 
-            {[
-              { num: "1", title: "Remplissez le formulaire", desc: "Vos informations personnelles et le thème de votre choix." },
-              { num: "2", title: "Uploadez vos photos", desc: "Une photo de chaque main, paume ouverte, bonne lumière." },
-              { num: "3", title: "Recevez votre analyse", desc: "Notre expert étudie vos mains et vous envoie votre rapport sous 24h." },
-            ].map((step) => (
-              <div key={step.num} style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+            <div
+              style={{
+                position: "relative",
+                paddingLeft: 36,
+                display: "flex",
+                flexDirection: "column",
+                gap: 36,
+              }}
+            >
+              {/* Ligne verticale dorée */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  top: 10,
+                  bottom: 10,
+                  width: 1,
+                  backgroundColor: theme.gold,
+                  opacity: 0.5,
+                }}
+              />
+
+              {/* Étape 1 */}
+              <div
+                style={{
+                  position: "relative",
+                  backgroundColor: theme.card,
+                  padding: "22px 24px",
+                  borderRadius: 14,
+                  border: `1px solid ${theme.border}`,
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
+                }}
+              >
                 <div
                   style={{
-                    minWidth: 32,
-                    height: 32,
+                    position: "absolute",
+                    left: -36,
+                    top: 24,
+                    width: 28,
+                    height: 28,
                     borderRadius: "50%",
-                    backgroundColor: theme.sageLight,
-                    border: `1px solid ${theme.sageBorder}`,
+                    border: `1.5px solid ${theme.gold}`,
+                    backgroundColor: theme.bg,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: theme.sage,
-                    flexShrink: 0,
+                    fontSize: 12,
+                    color: theme.gold,
+                    fontWeight: 600,
                   }}
                 >
-                  {step.num}
+                  1
                 </div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: theme.text }}>{step.title}</div>
-                  <div style={{ fontSize: 13, color: theme.textLight, marginTop: 2, lineHeight: 1.5 }}>{step.desc}</div>
+
+                <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>
+                  Renseignez vos informations personnelles
+                </div>
+
+                <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>
+                  Votre prénom, votre date de naissance et le thème qui vous guide.
+                  <br />
+                  Ces éléments permettent d’orienter la lecture avec justesse et précision.
                 </div>
               </div>
-            ))}
+
+              {/* Étape 2 */}
+              <div
+                style={{
+                  position: "relative",
+                  backgroundColor: theme.card,
+                  padding: "22px 24px",
+                  borderRadius: 14,
+                  border: `1px solid ${theme.border}`,
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: -36,
+                    top: 24,
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    border: `1.5px solid ${theme.gold}`,
+                    backgroundColor: theme.bg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    color: theme.gold,
+                    fontWeight: 600,
+                  }}
+                >
+                  2
+                </div>
+
+                <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>
+                  Transmettez les photos de vos deux mains
+                </div>
+
+                <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>
+                  Paume ouverte, lumière naturelle, lignes visibles.
+                  <br />
+                  Chaque détail compte : forme, monts, lignes, bifurcations.
+                </div>
+              </div>
+
+              {/* Étape 3 */}
+              <div
+                style={{
+                  position: "relative",
+                  backgroundColor: theme.card,
+                  padding: "22px 24px",
+                  borderRadius: 14,
+                  border: `1px solid ${theme.border}`,
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: -36,
+                    top: 24,
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    border: `1.5px solid ${theme.gold}`,
+                    backgroundColor: theme.bg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    color: theme.gold,
+                    fontWeight: 600,
+                  }}
+                >
+                  3
+                </div>
+
+                <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>
+                  Recevez votre lecture personnalisée
+                </div>
+
+                <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>
+                  Notre expert analyse vos deux mains avec attention.
+                  <br />
+                  Votre rapport détaillé vous est adressé sous 24h, par email.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
