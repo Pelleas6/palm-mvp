@@ -214,7 +214,10 @@ Comparez les deux mains point par point. Qu'est-ce qui a changé ? Qu'est-ce qui
 3 à 5 axes de développement concrets, formulés de façon positive et constructive. Jamais négatif, jamais brutal.
 
 ## Conclusion
-Synthèse chaleureuse et encourageante. Message personnalisé adressé à ${civilite}. Terminez sur une note d'ouverture et de confiance.`;
+Synthèse chaleureuse et encourageante. Message personnalisé adressé à ${civilite}. Terminez sur une note d'ouverture et de confiance.
+
+---
+*Préparé avec soin par notre expert en chiromancie, 20 ans d'expérience dans le domaine.*`;
 
     const resp = await client.responses.create({
       model: "gpt-4.1-mini",
