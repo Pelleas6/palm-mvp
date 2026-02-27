@@ -26,6 +26,23 @@ function mimeFromPath(path) {
   return "image/jpeg";
 }
 
+function calculerAge(dateNaissance) {
+  const naissance = new Date(dateNaissance);
+  const aujourd = new Date();
+  let age = aujourd.getFullYear() - naissance.getFullYear();
+  const m = aujourd.getMonth() - naissance.getMonth();
+  if (m < 0 || (m === 0 && aujourd.getDate() < naissance.getDate())) age--;
+  return age;
+}
+
+function trancheAge(age) {
+  if (age < 25) return "jeune adulte (moins de 25 ans), en pleine construction identitaire, les lignes sont encore en évolution";
+  if (age < 35) return "adulte jeune (25-35 ans), phase d'affirmation et de choix structurants";
+  if (age < 50) return "adulte accompli (35-50 ans), les lignes reflètent des expériences de vie marquantes";
+  if (age < 65) return "adulte mature (50-65 ans), grande richesse de vécu lisible dans les mains";
+  return "senior (plus de 65 ans), mains chargées d'histoire et de sagesse accumulée";
+}
+
 async function downloadFromSupabase(supabase, path) {
   const { data, error } = await supabase.storage.from(BUCKET).download(path);
   if (error) throw new Error(`Supabase download error: ${error.message}`);
@@ -48,14 +65,11 @@ export async function POST(req) {
   let rightPath = null;
 
   try {
-    // ✅ Vérification secret token
+    // ✅ Secret token
     const apiSecret = getEnv("API_SECRET");
     const headerSecret = req.headers.get("x-api-secret");
     if (apiSecret && headerSecret !== apiSecret) {
-      return NextResponse.json(
-        { error: "Accès non autorisé." },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Accès non autorisé." }, { status: 401 });
     }
 
     // ✅ Rate limiting
@@ -82,7 +96,7 @@ export async function POST(req) {
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       return NextResponse.json(
-        { error: "Expected JSON body: { leftPath, rightPath }" },
+        { error: "Expected JSON body" },
         { status: 415 }
       );
     }
@@ -92,23 +106,32 @@ export async function POST(req) {
       body = await req.json();
     } catch {
       return NextResponse.json(
-        { error: "Invalid JSON. Expected body: { leftPath, rightPath }" },
+        { error: "Invalid JSON." },
         { status: 400 }
       );
     }
 
     leftPath = body?.leftPath;
     rightPath = body?.rightPath;
+    const prenom = body?.prenom?.trim() || "";
+    const nom = body?.nom?.trim() || "";
+    const dateNaissance = body?.dateNaissance?.trim() || "";
 
     if (!isNonEmptyString(leftPath) || !isNonEmptyString(rightPath)) {
       return NextResponse.json(
-        { error: "Il faut 2 chemins: leftPath et rightPath.", received: body },
+        { error: "Il faut 2 chemins: leftPath et rightPath." },
         { status: 400 }
       );
     }
 
-    const supabaseUrl =
-      getEnv("SUPABASE_URL") || getEnv("NEXT_PUBLIC_SUPABASE_URL");
+    if (!prenom || !nom || !dateNaissance) {
+      return NextResponse.json(
+        { error: "Il faut prénom, nom et date de naissance." },
+        { status: 400 }
+      );
+    }
+
+    const supabaseUrl = getEnv("SUPABASE_URL") || getEnv("NEXT_PUBLIC_SUPABASE_URL");
     const supabaseKey =
       getEnv("SUPABASE_SERVICE_ROLE_KEY") ||
       getEnv("SUPABASE_ANON_KEY") ||
@@ -141,37 +164,57 @@ export async function POST(req) {
 
     const client = new OpenAI({ apiKey: openaiKey, timeout: 45000 });
 
+    const age = calculerAge(dateNaissance);
+    const tranche = trancheAge(age);
+    const civilite = `${prenom} ${nom}`;
+
     const prompt = `Tu es un chiromancien professionnel avec 20 ans d'expérience, formé aux traditions occidentale et orientale. Tu analyses les mains avec rigueur, précision et bienveillance.
-Tu reçois deux photos : la main gauche et la main droite d'une même personne.
-Rédige un rapport complet, structuré et personnalisé en français. Ton ton est sérieux, professionnel et légèrement chaleureux. Tu vouvoies toujours la personne.
+
+Tu reçois deux photos : la main gauche et la main droite de ${civilite}.
+
+CONTEXTE CONFIDENTIEL (n'utilise jamais ces données brutes dans le rapport) :
+- La personne est ${tranche}.
+- Calibre toute ton analyse en fonction de cette phase de vie. Les lignes d'une main jeune sont en évolution, celles d'une main mature sont plus définies et révélatrices du vécu réel.
+- Ne mentionne jamais l'âge, la date de naissance ou ces informations brutes dans le rapport.
+
+Rédige un rapport complet, structuré et personnalisé en français. Ton ton est sérieux, professionnel et légèrement chaleureux. Tu vouvoies toujours la personne et tu l'appelles "Madame/Monsieur ${nom}" quand c'est naturel.
+
 RÈGLES ABSOLUES :
 - Ne parle jamais de santé, maladie, diagnostic médical ou espérance de vie.
-- Interdiction d'inventer : si un détail n'est pas clairement visible sur la photo, vous devez l'écrire explicitement (ex : "non visible avec certitude") et ne pas l'interpréter.
+- Interdiction d'inventer : si un détail n'est pas clairement visible sur la photo, écrivez-le explicitement (ex : "non visible avec certitude") et ne l'interprétez pas.
 - Avant toute interprétation, commence chaque section par une courte description factuelle de ce que vous voyez (forme, profondeur, continuité, courbure, ruptures, bifurcations, etc.).
 - Chaque section doit faire minimum 5 phrases.
 - Zéro généralité vague : chaque affirmation doit être reliée à un indice visuel décrit dans le texte.
 - Le rapport doit faire au moins 600 mots.
-- Si la photo est trop floue, trop sombre, trop loin, ou si la paume n'est pas assez ouverte, ajoutez à la fin une section "Qualité des photos" avec 3 recommandations concrètes (angle, lumière, focus, distance).
+- Si la photo est trop floue, trop sombre, trop loin, ou si la paume n'est pas assez ouverte, ajoutez à la fin une section "Qualité des photos" avec 3 recommandations concrètes.
+
 STRUCTURE OBLIGATOIRE (respecte exactement ces titres) :
+
 ## Synthèse
 Vue d'ensemble des deux mains. Première impression globale. Caractère dominant qui se dégage. Décrivez au moins 3 indices visibles qui soutiennent cette synthèse.
+
 ## Main gauche — Le potentiel inné
 Analyse détaillée : forme de la main, forme des doigts, ligne de cœur, ligne de tête, ligne de vie.
 Pour chaque élément :
 1) décrivez précisément ce que vous voyez,
 2) donnez l'interprétation,
 3) reliez l'interprétation à l'indice visuel.
-Objectif : au moins 2 à 3 observations concrètes par élément SI c'est visible. Si ce n'est pas visible, dites-le clairement et n'inventez pas.
+Objectif : au moins 2 à 3 observations concrètes par élément SI c'est visible. Si ce n'est pas visible, dites-le clairement.
+
 ## Main droite — Le vécu et les choix
 Même niveau de détail que la main gauche. Mettez en évidence ce qui a évolué par rapport au potentiel inné. N'affirmez un changement que si vous pouvez décrire une différence visible entre les deux photos.
+
 ## Comparaison — Ce que le temps a façonné
-Comparez les deux mains point par point. Qu'est-ce qui a changé ? Qu'est-ce qui est resté stable ? Qu'est-ce que cela révèle sur le parcours de vie ? Chaque comparaison doit mentionner l'indice sur chaque main.
+Comparez les deux mains point par point. Qu'est-ce qui a changé ? Qu'est-ce qui est resté stable ? Chaque comparaison doit mentionner l'indice sur chaque main.
+
 ## Points forts
 3 à 5 points forts concrets, chacun expliqué en 2-3 phrases minimum. Basé uniquement sur ce que vous voyez.
+
 ## Points à travailler
-3 à 5 axes de développement concrets, formulés de façon positive et constructive. Jamais négatif, jamais brutal. Basé uniquement sur ce que vous voyez.
+3 à 5 axes de développement concrets, formulés de façon positive et constructive. Jamais négatif, jamais brutal.
+
 ## Conclusion
-Synthèse chaleureuse et encourageante. Message personnalisé basé sur l'ensemble de l'analyse. Terminez sur une note d'ouverture et de confiance.`;
+Synthèse chaleureuse et encourageante. Message personnalisé adressé à ${civilite}. Terminez sur une note d'ouverture et de confiance.`;
 
     const resp = await client.responses.create({
       model: "gpt-4.1-mini",
@@ -198,7 +241,6 @@ Synthèse chaleureuse et encourageante. Message personnalisé basé sur l'ensemb
       { error: "Analyze failed", details: String(e?.message || e) },
       { status: 500 }
     );
-
   } finally {
     if (supabase) {
       await deleteFromSupabase(supabase, [leftPath, rightPath]);
