@@ -123,15 +123,6 @@ export default function Home() {
     textTransform: "uppercase",
   };
 
-  const footerLinkStyle = {
-    fontSize: 13,
-    color: theme.textLight,
-    marginBottom: 10,
-    cursor: "pointer",
-    textDecoration: "none",
-    display: "block",
-  };
-
   return (
     <div style={{ backgroundColor: theme.bg, minHeight: "100vh", fontFamily: "Georgia, serif" }}>
 
@@ -141,23 +132,29 @@ export default function Home() {
         backgroundColor: "rgba(250,247,242,0.95)",
         backdropFilter: "blur(8px)",
         borderBottom: `1px solid ${theme.border}`,
-        padding: "0 32px",
+        padding: "0 40px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        height: 64,
+        height: 68,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 20 }}>🌿</span>
-          <span style={{ fontWeight: 700, fontSize: 16, color: theme.text, letterSpacing: "0.02em" }}>
+        {/* Logo agrandi */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 26 }}>🌿</span>
+          <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>
             Lecture de Mains
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <a href="#comment" style={{ fontSize: 13, color: theme.textLight, textDecoration: "none", padding: "6px 12px" }}>Comment ça marche</a>
-          <a href="#formulaire" style={{ fontSize: 13, color: theme.textLight, textDecoration: "none", padding: "6px 12px" }}>Thèmes</a>
+        {/* Nav links + bouton */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <a href="#comment" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
+            Comment ça marche
+          </a>
+          <a href="#formulaire" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
+            Thèmes
+          </a>
           <a href="#formulaire" style={{
-            fontSize: 13, fontWeight: 600, color: "#fff",
+            fontSize: 14, fontWeight: 600, color: "#fff",
             backgroundColor: theme.sage, textDecoration: "none",
-            padding: "8px 18px", borderRadius: 8,
+            padding: "10px 22px", borderRadius: 8,
             letterSpacing: "0.02em", marginLeft: 8,
           }}>
             Lancer mon analyse
@@ -169,7 +166,7 @@ export default function Home() {
       <section style={{
         maxWidth: 1100,
         margin: "0 auto",
-        padding: "64px 32px",
+        padding: "64px 40px",
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         gap: 56,
@@ -186,33 +183,35 @@ export default function Home() {
           }}>
             ✦ Expert en chiromancie · 20 ans d'expérience
           </div>
+
+          {/* Titre agrandi */}
           <h1 style={{
-            fontSize: 38, fontWeight: 700, color: theme.text,
-            lineHeight: 1.25, margin: "0 0 24px",
+            fontSize: 44, fontWeight: 700, color: theme.text,
+            lineHeight: 1.2, margin: "0 0 28px",
           }}>
             Découvrez ce que vos mains révèlent de vous
           </h1>
 
-          {/* Texte enrichi */}
-          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+          {/* Texte enrichi — chaque paragraphe sur sa propre ligne */}
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
           </p>
-          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles et ce que la vie vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel. C'est la main de ce que vous auriez pu devenir si rien n'avait interféré.
           </p>
-          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             La main droite, elle, reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte les traces de vos expériences, de vos décisions, de vos épreuves et de vos réussites. C'est la main de ce que vous êtes devenus.
           </p>
-          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 16px" }}>
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             La comparaison des deux est au cœur de l'analyse : c'est là que se révèle votre véritable parcours de vie.
           </p>
-          <p style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.8, margin: "0 0 32px" }}>
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 36px" }}>
             Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir une lecture concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente l'intégralité de l'analyse : chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle vraiment.
           </p>
 
           {/* Badges */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
-            {["Analyse personnalisée", "Réponse sous 72h", "Confidentiel & sécurisé"].map((b) => (
+            {["Analyse personnalisée", "Réponse sous 24h", "Confidentiel & sécurisé"].map((b) => (
               <span key={b} style={{
                 fontSize: 12, color: theme.sage,
                 border: `1px solid ${theme.sageBorder}`,
@@ -232,7 +231,7 @@ export default function Home() {
             {[
               { num: "1", title: "Remplissez le formulaire", desc: "Vos informations personnelles et le thème de votre choix." },
               { num: "2", title: "Uploadez vos photos", desc: "Une photo de chaque main, paume ouverte, bonne lumière." },
-              { num: "3", title: "Recevez votre analyse", desc: "Notre expert étudie vos mains et vous envoie votre rapport sous 72h." },
+              { num: "3", title: "Recevez votre analyse", desc: "Notre expert étudie vos mains et vous envoie votre rapport sous 24h." },
             ].map((step) => (
               <div key={step.num} style={{ display: "flex", gap: 16, marginBottom: 20 }}>
                 <div style={{
@@ -260,19 +259,20 @@ export default function Home() {
           padding: "28px 24px",
           boxShadow: "0 8px 40px rgba(0,0,0,0.07)",
           position: "sticky",
-          top: 80,
+          top: 84,
         }}>
           <div style={{ fontWeight: 700, fontSize: 16, color: theme.text, marginBottom: 4 }}>
             Lancer mon analyse
           </div>
           <div style={{ fontSize: 12, color: theme.textLight, marginBottom: 16 }}>
-            Résultats transmis sous 72h par email
+            Résultats transmis sous 24h par email
           </div>
 
+          {/* Infos */}
           <div style={{ backgroundColor: theme.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 20, fontSize: 13 }}>
             <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${theme.border}` }}>
               <span style={{ color: theme.textLight }}>Délai</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Sous 72h</span>
+              <span style={{ color: theme.text, fontWeight: 600 }}>Sous 24h</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${theme.border}` }}>
               <span style={{ color: theme.textLight }}>Livraison</span>
@@ -415,7 +415,7 @@ export default function Home() {
 
       {/* ERREUR */}
       {error && (
-        <div style={{ maxWidth: 760, margin: "24px auto", padding: "0 32px" }}>
+        <div style={{ maxWidth: 760, margin: "24px auto", padding: "0 40px" }}>
           <pre style={{
             whiteSpace: "pre-wrap", color: theme.error, fontSize: 12,
             backgroundColor: "#FDF0F0", padding: 16, borderRadius: 10,
@@ -428,7 +428,7 @@ export default function Home() {
 
       {/* RÉSULTAT */}
       {result && (
-        <section style={{ maxWidth: 760, margin: "40px auto", padding: "0 32px 60px" }}>
+        <section style={{ maxWidth: 760, margin: "40px auto", padding: "0 40px 60px" }}>
           <div style={{
             padding: "16px 20px",
             backgroundColor: theme.sageLight,
@@ -439,7 +439,7 @@ export default function Home() {
           }}>
             <strong style={{ color: theme.text }}>Merci pour votre confiance.</strong><br />
             Vous consultez une version de démonstration de votre analyse.<br /><br />
-            Dans la version finale, notre expert étudiera vos deux mains et vous recevrez votre analyse complète par email sous <strong>72 heures maximum</strong>.
+            Dans la version finale, notre expert étudiera vos deux mains et vous recevrez votre analyse complète par email sous <strong>24 heures maximum</strong>.
           </div>
           <div style={{
             backgroundColor: theme.card,
@@ -463,45 +463,74 @@ export default function Home() {
       <footer style={{
         borderTop: `1px solid ${theme.border}`,
         backgroundColor: theme.card,
-        padding: "48px 32px 0",
+        padding: "56px 40px 0",
       }}>
         <div style={{
-          maxWidth: 1100, margin: "0 auto",
-          display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 40,
-          paddingBottom: 40,
+          maxWidth: 900,
+          margin: "0 auto",
+          display: "grid",
+          gridTemplateColumns: "2fr 1fr 1fr",
+          gap: 48,
+          paddingBottom: 48,
+          textAlign: "center",
         }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <span style={{ fontSize: 18 }}>🌿</span>
-              <span style={{ fontWeight: 700, fontSize: 15, color: theme.text }}>Lecture de Mains</span>
+          {/* Logo */}
+          <div style={{ textAlign: "left" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <span style={{ fontSize: 22 }}>🌿</span>
+              <span style={{ fontWeight: 700, fontSize: 17, color: theme.text }}>Lecture de Mains</span>
             </div>
-            <p style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, margin: 0, maxWidth: 280 }}>
+            <p style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, margin: 0, maxWidth: 260 }}>
               Analyse chiromantique personnalisée par un expert. Confidentiel, bienveillant et sérieux.
             </p>
           </div>
+
+          {/* Navigation */}
           <div>
-            <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
               Navigation
             </div>
-            <a href="#comment" style={footerLinkStyle}>Comment ça marche</a>
-            <a href="#formulaire" style={footerLinkStyle}>Thèmes</a>
-            <a href="#formulaire" style={footerLinkStyle}>Lancer mon analyse</a>
-            <a href="#" style={footerLinkStyle}>Mentions légales</a>
-            <a href="#" style={footerLinkStyle}>Confidentialité</a>
+            {[
+              { label: "Comment ça marche", href: "#comment" },
+              { label: "Thèmes", href: "#formulaire" },
+              { label: "Lancer mon analyse", href: "#formulaire" },
+              { label: "Mentions légales", href: "#" },
+              { label: "Confidentialité", href: "#" },
+            ].map((l) => (
+              <a key={l.label} href={l.href} style={{
+                fontSize: 13, color: theme.textLight, marginBottom: 10,
+                textDecoration: "none", display: "block",
+              }}>
+                {l.label}
+              </a>
+            ))}
           </div>
+
+          {/* Mentions */}
           <div>
-            <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
               Mentions
             </div>
-            <a href="#" style={footerLinkStyle}>Mentions légales (à compléter)</a>
-            <a href="#" style={footerLinkStyle}>Confidentialité (à compléter)</a>
+            {[
+              { label: "Mentions légales (à compléter)", href: "#" },
+              { label: "Confidentialité (à compléter)", href: "#" },
+            ].map((l) => (
+              <a key={l.label} href={l.href} style={{
+                fontSize: 13, color: theme.textLight, marginBottom: 10,
+                textDecoration: "none", display: "block",
+              }}>
+                {l.label}
+              </a>
+            ))}
           </div>
         </div>
+
+        {/* Barre du bas */}
         <div style={{
-          maxWidth: 1100, margin: "0 auto",
+          maxWidth: 900, margin: "0 auto",
           borderTop: `1px solid ${theme.border}`,
           padding: "20px 0",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
+          display: "flex", justifyContent: "center", alignItems: "center", gap: 48,
         }}>
           <span style={{ fontSize: 12, color: theme.textLight }}>© 2026 Lecture de Mains</span>
           <span style={{ fontSize: 12, color: theme.textLight }}>Expert en chiromancie · 20 ans d'expérience</span>
