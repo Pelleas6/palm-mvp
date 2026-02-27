@@ -114,6 +114,7 @@ export default function Home() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // optionnel : garde ça si tu l'utilises côté serveur
           "x-api-secret": process.env.NEXT_PUBLIC_API_SECRET || "",
         },
         body: JSON.stringify({ leftPath, rightPath, prenom, nom, email, dateNaissance, themeChoisi }),
@@ -139,9 +140,9 @@ export default function Home() {
 
   const inputStyle = {
     width: "100%",
-    padding: "9px 12px",
-    marginTop: 5,
-    borderRadius: 8,
+    padding: "10px 12px",
+    marginTop: 6,
+    borderRadius: 10,
     border: `1px solid ${theme.border}`,
     backgroundColor: theme.bg,
     color: theme.text,
@@ -159,10 +160,64 @@ export default function Home() {
     textTransform: "uppercase",
   };
 
+  const seoPages = [
+    { label: "Ligne de vie", href: "/" },
+    { label: "Ligne de cœur", href: "/ligne-de-coeur" },
+    { label: "Ligne de tête", href: "/ligne-de-tete" },
+    { label: "Lecture complète", href: "/lecture-complete-des-lignes-de-la-main" },
+    { label: "Ligne de vie cassée", href: "/signification-ligne-de-vie-cassee" },
+    { label: "Ligne de vie courte", href: "/ligne-de-vie-courte" },
+  ];
+
   return (
     <div style={{ backgroundColor: theme.bg, minHeight: "100vh", fontFamily: "Georgia, serif" }}>
+      <style jsx global>{`
+        html {
+          scroll-behavior: smooth;
+        }
+        @media (max-width: 980px) {
+          .heroGrid {
+            grid-template-columns: 1fr !important;
+            gap: 28px !important;
+          }
+          .stickyCard {
+            position: static !important;
+            top: auto !important;
+          }
+          .navLinks {
+            display: none !important;
+          }
+          .navWrap {
+            padding: 0 18px !important;
+          }
+          .sectionPad {
+            padding: 40px 18px !important;
+          }
+        }
+        @media (max-width: 520px) {
+          .nameGrid {
+            grid-template-columns: 1fr !important;
+          }
+          .footerGrid {
+            grid-template-columns: 1fr !important;
+            gap: 22px !important;
+          }
+        }
+        .softShadow {
+          box-shadow: 0 8px 40px rgba(0, 0, 0, 0.07);
+        }
+        .softShadow2 {
+          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.04);
+        }
+        .focusable:focus {
+          outline: 3px solid rgba(201, 168, 76, 0.25);
+          outline-offset: 2px;
+        }
+      `}</style>
+
       {/* NAVBAR */}
       <nav
+        className="navWrap"
         style={{
           position: "sticky",
           top: 0,
@@ -177,27 +232,31 @@ export default function Home() {
           height: 68,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <span style={{ fontSize: 26 }}>🌿</span>
           <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>
             Ligne de Vie
           </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        </a>
+
+        <div className="navLinks" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <a
             href="#comment"
+            className="focusable"
             style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}
           >
             Comment ça marche
           </a>
           <a
             href="#form-card"
+            className="focusable"
             style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}
           >
             Thèmes
           </a>
           <a
             href="#form-card"
+            className="focusable"
             style={{
               fontSize: 14,
               fontWeight: 600,
@@ -205,18 +264,19 @@ export default function Home() {
               backgroundColor: theme.sage,
               textDecoration: "none",
               padding: "10px 22px",
-              borderRadius: 8,
+              borderRadius: 10,
               letterSpacing: "0.02em",
               marginLeft: 8,
             }}
           >
-            Lancer mon analyse
+            Commencer mon analyse
           </a>
         </div>
       </nav>
 
       {/* HERO */}
       <section
+        className="sectionPad heroGrid"
         style={{
           maxWidth: 1100,
           margin: "0 auto",
@@ -231,7 +291,9 @@ export default function Home() {
         <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
           <div
             style={{
-              display: "inline-block",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
               fontSize: 11,
               fontWeight: 700,
               color: theme.gold,
@@ -240,45 +302,47 @@ export default function Home() {
               marginBottom: 16,
             }}
           >
-            ✦ Expert en chiromancie · 20 ans d'expérience
+            <span style={{ width: 6, height: 6, borderRadius: 6, backgroundColor: theme.gold, opacity: 0.9 }} />
+            ✦ Lecture sérieuse · personnalisée · confidentielle
           </div>
 
+          {/* SEO : H1 orienté "ligne de vie" */}
           <h1
             style={{
               fontSize: 44,
               fontWeight: 700,
               color: theme.text,
               lineHeight: 1.2,
-              margin: "0 0 28px",
+              margin: "0 0 18px",
             }}
           >
-            Découvrez ce que vos mains révèlent de vous
+            Découvrez ce que votre ligne de vie révèle de vous
           </h1>
 
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
           </p>
+
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles
-            et ce que la vie vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel. C'est
-            la main de ce que vous auriez pu devenir si rien n'avait interféré.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            La main droite, elle, reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte
-            les traces de vos expériences, de vos décisions, de vos épreuves et de vos réussites. C'est la main de ce que vous êtes
-            devenus.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            La comparaison des deux est au cœur de l'analyse : c'est là que se révèle votre véritable parcours de vie.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 36px" }}>
-            Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir
-            une lecture concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente
-            l'intégralité de l'analyse : chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle
-            vraiment.
+            et ce que la vie vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel.
           </p>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
+            La main droite reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte les
+            traces de vos expériences, de vos décisions, de vos épreuves et de vos réussites.
+          </p>
+
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
+            La comparaison des deux est au cœur de l’analyse : c’est là que se révèle votre parcours de vie.
+          </p>
+
+          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 28px" }}>
+            Lecture rigoureuse et bienveillante — basée uniquement sur ce qui est visible (lignes, bifurcations, monts, forme), et
+            orientée par le thème que vous choisissez.
+          </p>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 34 }}>
             {["Analyse personnalisée", "Réponse sous 24h", "Confidentiel & sécurisé"].map((b) => (
               <span
                 key={b}
@@ -287,8 +351,8 @@ export default function Home() {
                   color: theme.sage,
                   border: `1px solid ${theme.sageBorder}`,
                   backgroundColor: theme.sageLight,
-                  borderRadius: 20,
-                  padding: "5px 14px",
+                  borderRadius: 999,
+                  padding: "6px 14px",
                 }}
               >
                 {b}
@@ -296,9 +360,9 @@ export default function Home() {
             ))}
           </div>
 
-          {/* COMMENT ÇA MARCHE — VERSION PREMIUM */}
-          <div id="comment" style={{ marginTop: 40 }}>
-            <div style={{ textAlign: "left", marginBottom: 32 }}>
+          {/* COMMENT ÇA MARCHE */}
+          <div id="comment" style={{ marginTop: 10 }}>
+            <div style={{ textAlign: "left", marginBottom: 22 }}>
               <div
                 style={{
                   fontSize: 11,
@@ -311,30 +375,12 @@ export default function Home() {
                 ✦ Votre analyse en trois étapes
               </div>
 
-              <div
-                style={{
-                  fontSize: 15,
-                  color: theme.textLight,
-                  lineHeight: 1.7,
-                  maxWidth: 520,
-                }}
-              >
-                Chaque analyse est réalisée individuellement.
-                <br />
-                Aucune lecture automatisée, aucune interprétation générique.
+              <div style={{ fontSize: 15, color: theme.textLight, lineHeight: 1.7, maxWidth: 520 }}>
+                Chaque analyse est réalisée individuellement. Aucune lecture générique.
               </div>
             </div>
 
-            <div
-              style={{
-                position: "relative",
-                paddingLeft: 36,
-                display: "flex",
-                flexDirection: "column",
-                gap: 36,
-              }}
-            >
-              {/* Ligne verticale dorée */}
+            <div style={{ position: "relative", paddingLeft: 36, display: "flex", flexDirection: "column", gap: 22 }}>
               <div
                 style={{
                   position: "absolute",
@@ -347,134 +393,60 @@ export default function Home() {
                 }}
               />
 
-              {/* Étape 1 */}
-              <div
-                style={{
-                  position: "relative",
-                  backgroundColor: theme.card,
-                  padding: "22px 24px",
-                  borderRadius: 14,
-                  border: `1px solid ${theme.border}`,
-                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
-                }}
-              >
+              {[
+                {
+                  n: 1,
+                  title: "Renseignez vos informations",
+                  text:
+                    "Votre prénom, votre date de naissance et le thème qui vous guide. Cela oriente l’analyse avec justesse.",
+                },
+                {
+                  n: 2,
+                  title: "Ajoutez les photos des deux mains",
+                  text: "Paume ouverte, lumière naturelle, lignes nettes. Chaque détail compte.",
+                },
+                {
+                  n: 3,
+                  title: "Recevez votre lecture par email",
+                  text: "Rapport détaillé transmis sous 24h (hors dimanche). Photos supprimées après traitement.",
+                },
+              ].map((step) => (
                 <div
+                  key={step.n}
+                  className="softShadow2"
                   style={{
-                    position: "absolute",
-                    left: -36,
-                    top: 24,
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    border: `1.5px solid ${theme.gold}`,
-                    backgroundColor: theme.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: theme.gold,
-                    fontWeight: 600,
+                    position: "relative",
+                    backgroundColor: theme.card,
+                    padding: "20px 22px",
+                    borderRadius: 14,
+                    border: `1px solid ${theme.border}`,
                   }}
                 >
-                  1
-                </div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: -36,
+                      top: 22,
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      border: `1.5px solid ${theme.gold}`,
+                      backgroundColor: theme.bg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                      color: theme.gold,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {step.n}
+                  </div>
 
-                <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>
-                  Renseignez vos informations personnelles
+                  <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>{step.title}</div>
+                  <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>{step.text}</div>
                 </div>
-
-                <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>
-                  Votre prénom, votre date de naissance et le thème qui vous guide.
-                  <br />
-                  Ces éléments permettent d’orienter la lecture avec justesse et précision.
-                </div>
-              </div>
-
-              {/* Étape 2 */}
-              <div
-                style={{
-                  position: "relative",
-                  backgroundColor: theme.card,
-                  padding: "22px 24px",
-                  borderRadius: 14,
-                  border: `1px solid ${theme.border}`,
-                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    left: -36,
-                    top: 24,
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    border: `1.5px solid ${theme.gold}`,
-                    backgroundColor: theme.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: theme.gold,
-                    fontWeight: 600,
-                  }}
-                >
-                  2
-                </div>
-
-                <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>
-                  Transmettez les photos de vos deux mains
-                </div>
-
-                <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>
-                  Paume ouverte, lumière naturelle, lignes visibles.
-                  <br />
-                  Chaque détail compte : forme, monts, lignes, bifurcations.
-                </div>
-              </div>
-
-              {/* Étape 3 */}
-              <div
-                style={{
-                  position: "relative",
-                  backgroundColor: theme.card,
-                  padding: "22px 24px",
-                  borderRadius: 14,
-                  border: `1px solid ${theme.border}`,
-                  boxShadow: "0 6px 24px rgba(0,0,0,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    left: -36,
-                    top: 24,
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    border: `1.5px solid ${theme.gold}`,
-                    backgroundColor: theme.bg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    color: theme.gold,
-                    fontWeight: 600,
-                  }}
-                >
-                  3
-                </div>
-
-                <div style={{ fontSize: 16, color: theme.text, marginBottom: 6 }}>
-                  Recevez votre lecture personnalisée
-                </div>
-
-                <div style={{ fontSize: 14, color: theme.textLight, lineHeight: 1.7 }}>
-                  Notre expert analyse vos deux mains avec attention.
-                  <br />
-                  Votre rapport détaillé vous est adressé sous 24h, par email.
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -482,55 +454,57 @@ export default function Home() {
         {/* Colonne droite — Formulaire */}
         <div
           id="form-card"
+          className="stickyCard softShadow"
           style={{
             backgroundColor: theme.card,
             borderRadius: 16,
             border: `1px solid ${theme.border}`,
             padding: "28px 24px",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.07)",
             position: "sticky",
             top: 84,
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: 16, color: theme.text, marginBottom: 4 }}>Lancer mon analyse</div>
-          <div style={{ fontSize: 12, color: theme.textLight, marginBottom: 16 }}>Résultats transmis sous 24h par email</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: theme.text, marginBottom: 4 }}>Commencer mon analyse</div>
+          <div style={{ fontSize: 12, color: theme.textLight, marginBottom: 14 }}>
+            Rapport transmis sous 24h par email (hors dimanche)
+          </div>
 
-          <div style={{ backgroundColor: theme.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 20, fontSize: 13 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                paddingBottom: 8,
-                marginBottom: 8,
-                borderBottom: `1px solid ${theme.border}`,
-              }}
-            >
-              <span style={{ color: theme.textLight }}>Délai</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Sous 24h</span>
+          {/* Réassurance plus “premium” + moins administratif */}
+          <div
+            style={{
+              backgroundColor: theme.goldLight,
+              borderRadius: 12,
+              padding: "12px 14px",
+              marginBottom: 18,
+              border: `1px solid ${theme.border}`,
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, color: theme.text }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 14 }}>
+                <span style={{ color: theme.textLight }}>Délai</span>
+                <span style={{ fontWeight: 600 }}>Sous 24h</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 14 }}>
+                <span style={{ color: theme.textLight }}>Confidentialité</span>
+                <span style={{ fontWeight: 600 }}>Photos supprimées</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 14 }}>
+                <span style={{ color: theme.textLight }}>Lecture</span>
+                <span style={{ fontWeight: 600 }}>Personnalisée</span>
+              </div>
             </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                paddingBottom: 8,
-                marginBottom: 8,
-                borderBottom: `1px solid ${theme.border}`,
-              }}
-            >
-              <span style={{ color: theme.textLight }}>Livraison</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Par email</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: theme.textLight }}>Confidentialité</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Photos supprimées</span>
+
+            <div style={{ marginTop: 10, fontSize: 11, color: theme.textLight, lineHeight: 1.5 }}>
+              Vous recevez un rapport clair, orienté par votre thème, basé sur ce qui est réellement visible sur vos mains.
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <div className="nameGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div>
                 <div style={labelStyle}>Prénom</div>
                 <input
+                  className="focusable"
                   type="text"
                   value={prenom}
                   placeholder="Marie"
@@ -545,6 +519,7 @@ export default function Home() {
               <div>
                 <div style={labelStyle}>Nom</div>
                 <input
+                  className="focusable"
                   type="text"
                   value={nom}
                   placeholder="Dupont"
@@ -561,6 +536,7 @@ export default function Home() {
             <div style={{ marginBottom: 12 }}>
               <div style={labelStyle}>Email</div>
               <input
+                className="focusable"
                 type="email"
                 value={email}
                 placeholder="votre@email.com"
@@ -576,6 +552,7 @@ export default function Home() {
             <div style={{ marginBottom: 16 }}>
               <div style={labelStyle}>Date de naissance</div>
               <input
+                className="focusable"
                 type="date"
                 value={dateNaissance}
                 style={inputStyle}
@@ -600,7 +577,7 @@ export default function Home() {
                     }}
                     style={{
                       padding: "10px 12px",
-                      borderRadius: 10,
+                      borderRadius: 12,
                       border: `1.5px solid ${themeChoisi === t.id ? theme.sage : theme.border}`,
                       backgroundColor: themeChoisi === t.id ? theme.sageLight : theme.bg,
                       cursor: "pointer",
@@ -628,26 +605,30 @@ export default function Home() {
               <div style={labelStyle}>Photos de vos mains</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
                 <label
+                  className="focusable"
                   style={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 10,
-                    borderRadius: 10,
+                    borderRadius: 12,
                     border: `2px dashed ${leftFile ? theme.sage : theme.border}`,
                     backgroundColor: leftFile ? theme.sageLight : theme.bg,
                     cursor: "pointer",
-                    minHeight: 80,
+                    minHeight: 92,
                   }}
                 >
                   {leftPreview ? (
-                    <img src={leftPreview} alt="Main gauche" style={{ maxWidth: "100%", maxHeight: 80, borderRadius: 6 }} />
+                    <img src={leftPreview} alt="Main gauche" style={{ maxWidth: "100%", maxHeight: 88, borderRadius: 8 }} />
                   ) : (
                     <>
                       <span style={{ fontSize: 20 }}>🤚</span>
                       <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>
                         Main gauche
+                      </span>
+                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 2, textAlign: "center", opacity: 0.9 }}>
+                        (paume visible)
                       </span>
                     </>
                   )}
@@ -664,26 +645,30 @@ export default function Home() {
                 </label>
 
                 <label
+                  className="focusable"
                   style={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 10,
-                    borderRadius: 10,
+                    borderRadius: 12,
                     border: `2px dashed ${rightFile ? theme.sage : theme.border}`,
                     backgroundColor: rightFile ? theme.sageLight : theme.bg,
                     cursor: "pointer",
-                    minHeight: 80,
+                    minHeight: 92,
                   }}
                 >
                   {rightPreview ? (
-                    <img src={rightPreview} alt="Main droite" style={{ maxWidth: "100%", maxHeight: 80, borderRadius: 6 }} />
+                    <img src={rightPreview} alt="Main droite" style={{ maxWidth: "100%", maxHeight: 88, borderRadius: 8 }} />
                   ) : (
                     <>
                       <span style={{ fontSize: 20 }}>🤚</span>
                       <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>
                         Main droite
+                      </span>
+                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 2, textAlign: "center", opacity: 0.9 }}>
+                        (paume visible)
                       </span>
                     </>
                   )}
@@ -699,15 +684,20 @@ export default function Home() {
                   />
                 </label>
               </div>
+
+              <div style={{ marginTop: 8, fontSize: 11, color: theme.textLight, lineHeight: 1.5 }}>
+                Conseil : lumière naturelle, pas de flash, main à plat, lignes nettes.
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={!canSubmit}
+              className="focusable"
               style={{
                 width: "100%",
                 padding: "13px 0",
-                borderRadius: 10,
+                borderRadius: 12,
                 border: "none",
                 backgroundColor: canSubmit ? theme.sage : theme.border,
                 color: canSubmit ? "#fff" : theme.textLight,
@@ -724,12 +714,12 @@ export default function Home() {
 
             {!canSubmit && !loading && (
               <p style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: theme.textLight }}>
-                Remplissez tous les champs pour continuer.
+                Remplissez tous les champs + 2 photos pour continuer.
               </p>
             )}
 
             <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: theme.textLight, lineHeight: 1.5 }}>
-              Vos photos sont supprimées après analyse. Données confidentielles.
+              Données confidentielles. Photos supprimées après analyse.
             </p>
           </form>
         </div>
@@ -758,12 +748,12 @@ export default function Home() {
       {result === "MAIL_CONFIRMATION" && (
         <section style={{ maxWidth: 760, margin: "40px auto", padding: "0 40px 60px" }}>
           <div
+            className="softShadow2"
             style={{
               backgroundColor: theme.card,
               borderRadius: 16,
               border: `1px solid ${theme.border}`,
               padding: "32px 28px",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
             }}
           >
             <div
@@ -782,23 +772,15 @@ export default function Home() {
 
             <div style={{ fontSize: 14, lineHeight: 1.85, color: theme.text }}>
               <p style={{ marginTop: 0 }}>
-                Nous vous remercions pour ces informations précieuses.
-                <br />
-                Votre demande est désormais en cours d’étude par notre expert en chiromancie.
+                Merci. Votre demande est en cours d’étude.
               </p>
 
               <p>
-                Après une analyse attentive et approfondie de vos deux mains, votre rapport personnalisé vous sera adressé par email
-                demain, entre 09h00 et 19h45 (hors dimanche).
-              </p>
-
-              <p>
-                Afin de garantir la bonne réception, nous vous invitons à consulter également votre dossier de courriers
-                indésirables.
+                Après analyse de vos deux mains, votre rapport personnalisé vous sera adressé par email sous 24h (hors dimanche).
               </p>
 
               <p style={{ marginBottom: 0 }}>
-                Vos données sont traitées avec la plus stricte confidentialité et les photographies sont supprimées après analyse.
+                Pensez à vérifier vos courriers indésirables. Vos photos sont supprimées après traitement.
               </p>
             </div>
           </div>
@@ -814,8 +796,9 @@ export default function Home() {
         }}
       >
         <div
+          className="footerGrid"
           style={{
-            maxWidth: 900,
+            maxWidth: 1000,
             margin: "0 auto",
             display: "grid",
             gridTemplateColumns: "2fr 1fr 1fr",
@@ -828,8 +811,8 @@ export default function Home() {
               <span style={{ fontSize: 22 }}>🌿</span>
               <span style={{ fontWeight: 700, fontSize: 17, color: theme.text }}>Ligne de Vie</span>
             </div>
-            <p style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, margin: 0, maxWidth: 260 }}>
-              Analyse chiromantique personnalisée par un expert. Confidentiel, bienveillant et sérieux.
+            <p style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, margin: 0, maxWidth: 320 }}>
+              Lecture de main personnalisée, orientée par votre thème. Confidentialité, clarté, sérieux.
             </p>
           </div>
 
@@ -844,18 +827,14 @@ export default function Home() {
                 marginBottom: 18,
               }}
             >
-              Navigation
+              Pages
             </div>
-            {[
-              { label: "Comment ça marche", href: "#comment" },
-              { label: "Thèmes", href: "#form-card" },
-              { label: "Lancer mon analyse", href: "#form-card" },
-              { label: "Mentions légales", href: "/mentions-legales" },
-              { label: "Confidentialité", href: "/confidentialite" },
-            ].map((l) => (
+
+            {seoPages.map((l) => (
               <a
                 key={l.label}
                 href={l.href}
+                className="focusable"
                 style={{
                   fontSize: 13,
                   color: theme.textLight,
@@ -880,15 +859,19 @@ export default function Home() {
                 marginBottom: 18,
               }}
             >
-              Mentions
+              Infos
             </div>
+
             {[
+              { label: "Comment ça marche", href: "#comment" },
+              { label: "Commencer mon analyse", href: "#form-card" },
               { label: "Mentions légales", href: "/mentions-legales" },
               { label: "Confidentialité", href: "/confidentialite" },
             ].map((l) => (
               <a
                 key={l.label}
                 href={l.href}
+                className="focusable"
                 style={{
                   fontSize: 13,
                   color: theme.textLight,
@@ -905,18 +888,20 @@ export default function Home() {
 
         <div
           style={{
-            maxWidth: 900,
+            maxWidth: 1000,
             margin: "0 auto",
             borderTop: `1px solid ${theme.border}`,
             padding: "20px 0",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: 48,
+            gap: 22,
+            flexWrap: "wrap",
           }}
         >
           <span style={{ fontSize: 12, color: theme.textLight }}>© 2026 Ligne de Vie</span>
-          <span style={{ fontSize: 12, color: theme.textLight }}>Expert en chiromancie · 20 ans d'expérience</span>
+          <span style={{ fontSize: 12, color: theme.textLight }}>ma-ligne-de-vie.fr</span>
+          <span style={{ fontSize: 12, color: theme.textLight }}>Confidentiel · Personnalisé · Sérieux</span>
         </div>
       </footer>
     </div>
