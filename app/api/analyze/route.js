@@ -146,72 +146,50 @@ Synthèse chaleureuse adressée à ${civilite}, orientée vers l'angle choisi. T
 }
 
 function reportToHtml(report) {
-  return report
-    .split("\n")
-    .map((line) => {
-      if (line.startsWith("## ")) return `<h2 style="color:#3A3228;font-size:17px;margin:28px 0 10px;border-bottom:1px solid #E8E0D0;padding-bottom:6px;">${line.replace("## ", "")}</h2>`;
-      if (line.startsWith("---")) return `<hr style="border:none;border-top:1px solid #E8E0D0;margin:20px 0;">`;
-      if (line.startsWith("*") && line.endsWith("*")) return `<p style="font-style:italic;color:#7A6F65;font-size:12px;margin:16px 0 0;">${line.replace(/\*/g, "")}</p>`;
-      if (line.trim() === "") return "";
-      return `<p style="margin:0 0 12px;font-size:14px;color:#3A3228;line-height:1.8;">${line}</p>`;
-    })
-    .join("");
+  return report.split("\n").map((l) => {
+    if (l.startsWith("## ")) return `<h2 class="rh2">${l.slice(3)}</h2>`;
+    if (l.startsWith("---"))  return `<hr class="rhr">`;
+    if (l.startsWith("*") && l.endsWith("*")) return `<p class="rit">${l.replace(/\*/g,"")}</p>`;
+    if (!l.trim()) return "";
+    return `<p class="rp">${l}</p>`;
+  }).join("");
 }
 
 function clientEmailHtml(prenom, report) {
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { margin:0; padding:0; background:#FAF7F2; font-family:Georgia,serif; -webkit-text-size-adjust:100%; }
-    .wrapper { width:100%; max-width:600px; margin:0 auto; padding:20px 16px; box-sizing:border-box; }
-    .card { background:#fff; border-radius:12px; border:1px solid #E8E0D0; padding:20px 18px; margin-bottom:16px; }
-    .report-block { background:#FAF7F2; border-radius:10px; border:1px solid #E8E0D0; padding:16px 14px; }
-    .report-block p { margin:0 0 12px; font-size:15px; color:#3A3228; line-height:1.75; word-break:break-word; }
-    .report-block h2 { font-size:16px; color:#3A3228; margin:22px 0 8px; padding-bottom:6px; border-bottom:1px solid #E8E0D0; }
-    .report-block hr { border:none; border-top:1px solid #E8E0D0; margin:16px 0; }
-    .badge { background:#EFF5F0; border-radius:10px; border:1px solid #B5CDB7; padding:12px 14px; margin-bottom:16px; }
-    @media (max-width:480px) {
-      .wrapper { padding:12px 10px; }
-      .card { padding:16px 14px; }
-      .report-block { padding:12px 10px; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  body{margin:0;padding:0;background:#fff;font-family:Georgia,serif;-webkit-text-size-adjust:100%;color:#3A3228}
+  .w{max-width:580px;margin:0 auto;padding:32px 24px;box-sizing:border-box}
+  .rh2{font-size:15px;font-weight:700;color:#3A3228;margin:28px 0 6px;padding-bottom:6px;border-bottom:1px solid #C9A84C;letter-spacing:.03em}
+  .rhr{border:none;border-top:1px solid #E8E0D0;margin:24px 0}
+  .rit{font-style:italic;color:#7A6F65;font-size:12px;margin:16px 0 0}
+  .rp{margin:0 0 14px;font-size:15px;color:#3A3228;line-height:1.85;word-break:break-word}
+  @media(max-width:480px){.w{padding:20px 16px}.rp{font-size:15px}}
+</style>
 </head>
 <body>
-  <div class="wrapper">
-
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:28px;">🌿</div>
-      <h1 style="margin:8px 0 2px;font-size:20px;color:#3A3228;font-weight:700;">Ligne de Vie</h1>
-      <p style="margin:0;font-size:12px;color:#7A6F65;">ma-ligne-de-vie.fr</p>
-    </div>
-
-    <div class="card">
-      <p style="margin:0 0 6px;font-size:16px;color:#3A3228;">Bonjour <strong>${prenom}</strong>,</p>
-      <p style="margin:0 0 18px;font-size:14px;color:#7A6F65;line-height:1.7;">
-        Voici votre rapport personnalisé, préparé avec soin à partir des photos de vos deux mains.
-      </p>
-      <div class="report-block">
-        ${reportToHtml(report)}
-      </div>
-    </div>
-
-    <div class="badge">
-      <p style="margin:0;font-size:12px;color:#5C7E60;line-height:1.6;">
-        🔒 Vos photos ont été supprimées de nos serveurs après traitement.<br>
-        Ce rapport est strictement personnel et confidentiel.
-      </p>
-    </div>
-
-    <p style="text-align:center;font-size:11px;color:#7A6F65;line-height:1.6;margin:0;">
-      © 2026 Ligne de Vie · ma-ligne-de-vie.fr<br>
-      Confidentiel · Personnalisé · Sérieux
-    </p>
+<div class="w">
+  <div style="text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #E8E0D0">
+    <div style="font-size:26px;margin-bottom:10px">🌿</div>
+    <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9A84C;margin-bottom:6px">Ligne de Vie</div>
+    <div style="font-size:11px;color:#7A6F65">ma-ligne-de-vie.fr</div>
   </div>
+
+  <p style="margin:0 0 6px;font-size:17px">Bonjour <strong>${prenom}</strong>,</p>
+  <p style="margin:0 0 32px;font-size:14px;color:#7A6F65;line-height:1.7">Veuillez trouver ci-dessous votre analyse personnalisée.</p>
+
+  ${reportToHtml(report)}
+
+  <div style="margin-top:32px;padding-top:20px;border-top:1px solid #E8E0D0">
+    <p style="margin:0;font-size:12px;color:#7A6F65;line-height:1.7">Vos photos ont été supprimées de nos serveurs après traitement.<br>Ce rapport est strictement personnel et confidentiel.</p>
+  </div>
+
+  <p style="margin:28px 0 0;font-size:11px;color:#7A6F65;text-align:center;letter-spacing:.04em">© 2026 Ligne de Vie · Confidentiel · Personnalisé · Sérieux</p>
+</div>
 </body>
 </html>`.trim();
 }
