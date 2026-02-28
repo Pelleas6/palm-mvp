@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 
 const theme = {
   bg: "#FAF7F2",
@@ -41,9 +40,6 @@ export default function Home() {
 
   const [leftPreview, setLeftPreview] = useState(null);
   const [rightPreview, setRightPreview] = useState(null);
-
-  const MAX_BYTES = 20 * 1024 * 1024; // 20 Mo
-  const ALLOWED_TYPES = useMemo(() => new Set(["image/jpeg", "image/png", "image/webp"]), []);
 
   useEffect(() => {
     if (!leftFile) {
@@ -86,85 +82,34 @@ export default function Home() {
     }
   }
 
-  function clientValidateFiles() {
-    if (!leftFile || !rightFile) {
-      return "Merci de sélectionner les deux photos (main gauche + main droite).";
-    }
-    if (!ALLOWED_TYPES.has(leftFile.type)) {
-      return "Main gauche : format non autorisé (jpg/png/webp).";
-    }
-    if (!ALLOWED_TYPES.has(rightFile.type)) {
-      return "Main droite : format non autorisé (jpg/png/webp).";
-    }
-    if (leftFile.size > MAX_BYTES) {
-      return "Main gauche : fichier trop lourd (max 20 Mo).";
-    }
-    if (rightFile.size > MAX_BYTES) {
-      return "Main droite : fichier trop lourd (max 20 Mo).";
-    }
-    return null;
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setResult(null);
 
     try {
-      const fileErr = clientValidateFiles();
-      if (fileErr) throw new Error(fileErr);
-
       setLoading(true);
 
-      // 1) demander 2 URLs signées (json léger) -> plus de 413
-      const preRes = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          left: { name: leftFile.name, type: leftFile.type, size: leftFile.size },
-          right: { name: rightFile.name, type: rightFile.type, size: rightFile.size },
-        }),
-      });
+      const fd = new FormData();
+      fd.append("left", leftFile);
+      fd.append("right", rightFile);
 
-      const preData = await safeJson(preRes);
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const uploadData = await safeJson(uploadRes);
 
-      if (!preRes.ok) {
-        throw new Error("UPLOAD-PREP ERROR\nstatus=" + preRes.status + "\nbody=" + JSON.stringify(preData, null, 2));
+      if (!uploadRes.ok) {
+        throw new Error(
+          "UPLOAD ERROR\nstatus=" + uploadRes.status + "\nbody=" + JSON.stringify(uploadData, null, 2)
+        );
       }
 
-      const leftPath = preData?.leftPath;
-      const rightPath = preData?.rightPath;
-      const leftSignedUrl = preData?.leftSignedUrl;
-      const rightSignedUrl = preData?.rightSignedUrl;
+      const leftPath = uploadData?.leftPath;
+      const rightPath = uploadData?.rightPath;
 
-      if (!leftPath || !rightPath || !leftSignedUrl || !rightSignedUrl) {
-        throw new Error("Réponse /api/upload invalide : " + JSON.stringify(preData, null, 2));
+      if (!leftPath || !rightPath) {
+        throw new Error("Chemins manquants: " + JSON.stringify(uploadData, null, 2));
       }
 
-      // 2) upload direct Supabase (PUT) via URLs signées
-      const upLeft = await fetch(leftSignedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": leftFile.type },
-        body: leftFile,
-      });
-
-      if (!upLeft.ok) {
-        const t = await upLeft.text().catch(() => "");
-        throw new Error("UPLOAD DIRECT LEFT FAILED\nstatus=" + upLeft.status + "\nbody=" + t);
-      }
-
-      const upRight = await fetch(rightSignedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": rightFile.type },
-        body: rightFile,
-      });
-
-      if (!upRight.ok) {
-        const t = await upRight.text().catch(() => "");
-        throw new Error("UPLOAD DIRECT RIGHT FAILED\nstatus=" + upRight.status + "\nbody=" + t);
-      }
-
-      // 3) analyse (json léger)
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: {
@@ -177,12 +122,15 @@ export default function Home() {
       const analyzeData = await safeJson(analyzeRes);
 
       if (!analyzeRes.ok) {
-        throw new Error("ANALYZE ERROR\nstatus=" + analyzeRes.status + "\nbody=" + JSON.stringify(analyzeData, null, 2));
+        throw new Error(
+          "ANALYZE ERROR\nstatus=" + analyzeRes.status + "\nbody=" + JSON.stringify(analyzeData, null, 2)
+        );
       }
 
+      // UI premium : on ne montre pas le rapport ici (mail plus tard)
       setResult("MAIL_CONFIRMATION");
 
-      // option premium : reset photos après envoi
+      // Option premium : on vide les photos après envoi
       setLeftFile(null);
       setRightFile(null);
     } catch (err) {
@@ -216,6 +164,7 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: theme.bg, minHeight: "100vh", fontFamily: "Georgia, serif" }}>
+      {/* NAVBAR */}
       <nav
         style={{
           position: "sticky",
@@ -233,13 +182,21 @@ export default function Home() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 26 }}>🌿</span>
-          <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>Lecture de Mains</span>
+          <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>
+            Lecture de Mains
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <a href="#comment" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
+          <a
+            href="#comment"
+            style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}
+          >
             Comment ça marche
           </a>
-          <a href="#form-card" style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}>
+          <a
+            href="#form-card"
+            style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}
+          >
             Thèmes
           </a>
           <a
@@ -261,6 +218,7 @@ export default function Home() {
         </div>
       </nav>
 
+      {/* HERO */}
       <section
         style={{
           maxWidth: 1100,
@@ -272,6 +230,7 @@ export default function Home() {
           alignItems: "start",
         }}
       >
+        {/* Colonne gauche */}
         <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
           <div
             style={{
@@ -287,7 +246,15 @@ export default function Home() {
             ✦ Expert en chiromancie · 20 ans d'expérience
           </div>
 
-          <h1 style={{ fontSize: 44, fontWeight: 700, color: theme.text, lineHeight: 1.2, margin: "0 0 28px" }}>
+          <h1
+            style={{
+              fontSize: 44,
+              fontWeight: 700,
+              color: theme.text,
+              lineHeight: 1.2,
+              margin: "0 0 28px",
+            }}
+          >
             Découvrez ce que vos mains révèlent de vous
           </h1>
 
@@ -295,21 +262,23 @@ export default function Home() {
             Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
           </p>
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles et ce que la vie
-            vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel. C'est la main de ce que vous auriez
-            pu devenir si rien n'avait interféré.
+            Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles
+            et ce que la vie vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel. C'est
+            la main de ce que vous auriez pu devenir si rien n'avait interféré.
           </p>
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            La main droite, elle, reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte les traces de
-            vos expériences, de vos décisions, de vos épreuves et de vos réussites. C'est la main de ce que vous êtes devenus.
+            La main droite, elle, reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte
+            les traces de vos expériences, de vos décisions, de vos épreuves et de vos réussites. C'est la main de ce que vous êtes
+            devenus.
           </p>
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
             La comparaison des deux est au cœur de l'analyse : c'est là que se révèle votre véritable parcours de vie.
           </p>
           <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 36px" }}>
-            Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir une lecture
-            concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente l'intégralité de l'analyse :
-            chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle vraiment.
+            Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir
+            une lecture concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente
+            l'intégralité de l'analyse : chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle
+            vraiment.
           </p>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
@@ -330,8 +299,18 @@ export default function Home() {
             ))}
           </div>
 
+          {/* ICI : MODIF UNIQUEMENT */}
           <div id="comment">
-            <div style={{ fontSize: 11, fontWeight: 700, color: theme.gold, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: theme.gold,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
               ✦ Votre analyse en trois étapes
             </div>
 
@@ -343,25 +322,28 @@ export default function Home() {
               {
                 num: "1",
                 title: "Renseignez vos informations personnelles",
-                desc: "Votre prénom, votre date de naissance et le thème qui vous guide. Ces éléments permettent d’orienter la lecture avec justesse et précision.",
+                desc:
+                  "Votre prénom, votre date de naissance et le thème qui vous guide. Ces éléments permettent d’orienter la lecture avec justesse et précision.",
               },
               {
                 num: "2",
                 title: "Transmettez les photos de vos deux mains",
-                desc: "Paume ouverte, lumière naturelle, lignes visibles. Chaque détail compte : forme, monts, lignes, bifurcations.",
+                desc:
+                  "Paume ouverte, lumière naturelle, lignes visibles. Chaque détail compte : forme, monts, lignes, bifurcations.",
               },
               {
                 num: "3",
                 title: "Recevez votre lecture personnalisée",
-                desc: "Notre expert analyse vos deux mains avec attention. Votre rapport détaillé vous est adressé sous 24h, par email.",
+                desc:
+                  "Notre expert analyse vos deux mains avec attention. Votre rapport détaillé vous est adressé sous 24h, par email.",
               },
             ].map((step, idx) => (
-              <div key={step.num} style={{ display: "flex", gap: 16, marginBottom: 22 }}>
+              <div key={step.num} style={{ display: "flex", gap: 16, marginBottom: 20 }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                   <div
                     style={{
-                      minWidth: 34,
-                      height: 34,
+                      minWidth: 32,
+                      height: 32,
                       borderRadius: "50%",
                       backgroundColor: theme.goldLight,
                       border: `1px solid ${theme.gold}`,
@@ -372,34 +354,28 @@ export default function Home() {
                       fontWeight: 700,
                       color: theme.gold,
                       flexShrink: 0,
-                      boxShadow: "0 6px 18px rgba(201,168,76,0.18)",
                     }}
                   >
                     {step.num}
                   </div>
                   {idx < 2 ? (
-                    <div style={{ width: 1, height: 36, backgroundColor: "rgba(201,168,76,0.45)", borderRadius: 1 }} />
+                    <div style={{ width: 1, height: 30, backgroundColor: "rgba(201,168,76,0.45)", borderRadius: 1 }} />
                   ) : null}
                 </div>
 
-                <div
-                  style={{
-                    backgroundColor: theme.card,
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: 14,
-                    padding: "14px 16px",
-                    boxShadow: "0 10px 28px rgba(0,0,0,0.05)",
-                    flex: 1,
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: 14, color: theme.text, marginBottom: 4 }}>{step.title}</div>
-                  <div style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.6 }}>{step.desc}</div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: theme.text }}>{step.title}</div>
+                  <div style={{ fontSize: 13, color: theme.textLight, marginTop: 2, lineHeight: 1.5 }}>
+                    {step.desc}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+          {/* FIN MODIF */}
         </div>
 
+        {/* Colonne droite — Formulaire */}
         <div
           id="form-card"
           style={{
@@ -416,11 +392,27 @@ export default function Home() {
           <div style={{ fontSize: 12, color: theme.textLight, marginBottom: 16 }}>Résultats transmis sous 24h par email</div>
 
           <div style={{ backgroundColor: theme.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 20, fontSize: 13 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${theme.border}` }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                paddingBottom: 8,
+                marginBottom: 8,
+                borderBottom: `1px solid ${theme.border}`,
+              }}
+            >
               <span style={{ color: theme.textLight }}>Délai</span>
               <span style={{ color: theme.text, fontWeight: 600 }}>Sous 24h</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 8, marginBottom: 8, borderBottom: `1px solid ${theme.border}` }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                paddingBottom: 8,
+                marginBottom: 8,
+                borderBottom: `1px solid ${theme.border}`,
+              }}
+            >
               <span style={{ color: theme.textLight }}>Livraison</span>
               <span style={{ color: theme.text, fontWeight: 600 }}>Par email</span>
             </div>
@@ -512,7 +504,14 @@ export default function Home() {
                     }}
                   >
                     <div style={{ fontSize: 18, marginBottom: 4 }}>{t.emoji}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: themeChoisi === t.id ? theme.sage : theme.text, lineHeight: 1.3 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: themeChoisi === t.id ? theme.sage : theme.text,
+                        lineHeight: 1.3,
+                      }}
+                    >
                       {t.label}
                     </div>
                     <div style={{ fontSize: 10, color: theme.textLight, marginTop: 3, lineHeight: 1.4 }}>{t.desc}</div>
@@ -523,12 +522,7 @@ export default function Home() {
 
             <div style={{ marginBottom: 16 }}>
               <div style={labelStyle}>Photos de vos mains</div>
-
-              <div style={{ marginTop: 6, fontSize: 11, color: theme.textLight, lineHeight: 1.5 }}>
-                Formats : JPG, PNG, WEBP. Taille max : 20 Mo par photo.
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
                 <label
                   style={{
                     display: "flex",
@@ -540,20 +534,22 @@ export default function Home() {
                     border: `2px dashed ${leftFile ? theme.sage : theme.border}`,
                     backgroundColor: leftFile ? theme.sageLight : theme.bg,
                     cursor: "pointer",
-                    minHeight: 92,
+                    minHeight: 80,
                   }}
                 >
                   {leftPreview ? (
-                    <img src={leftPreview} alt="Main gauche" style={{ maxWidth: "100%", maxHeight: 92, borderRadius: 8 }} />
+                    <img src={leftPreview} alt="Main gauche" style={{ maxWidth: "100%", maxHeight: 80, borderRadius: 6 }} />
                   ) : (
                     <>
                       <span style={{ fontSize: 20 }}>🤚</span>
-                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>Main gauche</span>
+                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>
+                        Main gauche
+                      </span>
                     </>
                   )}
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/*"
                     style={{ display: "none" }}
                     onChange={(e) => {
                       setLeftFile(e.target.files?.[0] || null);
@@ -561,9 +557,6 @@ export default function Home() {
                       setError(null);
                     }}
                   />
-                  {leftFile && leftFile.size > MAX_BYTES ? (
-                    <div style={{ marginTop: 8, fontSize: 10, color: theme.error, textAlign: "center" }}>Fichier trop lourd (max 20 Mo)</div>
-                  ) : null}
                 </label>
 
                 <label
@@ -577,20 +570,22 @@ export default function Home() {
                     border: `2px dashed ${rightFile ? theme.sage : theme.border}`,
                     backgroundColor: rightFile ? theme.sageLight : theme.bg,
                     cursor: "pointer",
-                    minHeight: 92,
+                    minHeight: 80,
                   }}
                 >
                   {rightPreview ? (
-                    <img src={rightPreview} alt="Main droite" style={{ maxWidth: "100%", maxHeight: 92, borderRadius: 8 }} />
+                    <img src={rightPreview} alt="Main droite" style={{ maxWidth: "100%", maxHeight: 80, borderRadius: 6 }} />
                   ) : (
                     <>
                       <span style={{ fontSize: 20 }}>🤚</span>
-                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>Main droite</span>
+                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>
+                        Main droite
+                      </span>
                     </>
                   )}
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/*"
                     style={{ display: "none" }}
                     onChange={(e) => {
                       setRightFile(e.target.files?.[0] || null);
@@ -598,9 +593,6 @@ export default function Home() {
                       setError(null);
                     }}
                   />
-                  {rightFile && rightFile.size > MAX_BYTES ? (
-                    <div style={{ marginTop: 8, fontSize: 10, color: theme.error, textAlign: "center" }}>Fichier trop lourd (max 20 Mo)</div>
-                  ) : null}
                 </label>
               </div>
             </div>
@@ -627,7 +619,9 @@ export default function Home() {
             </button>
 
             {!canSubmit && !loading && (
-              <p style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: theme.textLight }}>Remplissez tous les champs pour continuer.</p>
+              <p style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: theme.textLight }}>
+                Remplissez tous les champs pour continuer.
+              </p>
             )}
 
             <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: theme.textLight, lineHeight: 1.5 }}>
@@ -637,6 +631,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ERREUR */}
       {error && (
         <div style={{ maxWidth: 760, margin: "24px auto", padding: "0 40px" }}>
           <pre
@@ -655,6 +650,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* RÉSULTAT */}
       {result === "MAIL_CONFIRMATION" && (
         <section style={{ maxWidth: 760, margin: "40px auto", padding: "0 40px 60px" }}>
           <div
@@ -666,7 +662,16 @@ export default function Home() {
               boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, paddingBottom: 14, borderBottom: `1px solid ${theme.border}` }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 18,
+                paddingBottom: 14,
+                borderBottom: `1px solid ${theme.border}`,
+              }}
+            >
               <div style={{ width: 3, height: 24, backgroundColor: theme.gold, borderRadius: 2 }} />
               <h2 style={{ margin: 0, fontSize: 18, color: theme.text, fontWeight: 700 }}>Demande enregistrée</h2>
             </div>
@@ -678,18 +683,42 @@ export default function Home() {
                 Votre demande est désormais en cours d’étude par notre expert en chiromancie.
               </p>
 
-              <p>Après une analyse attentive et approfondie de vos deux mains, votre rapport personnalisé vous sera adressé par email demain, entre 09h00 et 19h45 (hors dimanche).</p>
+              <p>
+                Après une analyse attentive et approfondie de vos deux mains, votre rapport personnalisé vous sera adressé par email
+                demain, entre 09h00 et 19h45 (hors dimanche).
+              </p>
 
-              <p>Afin de garantir la bonne réception, nous vous invitons à consulter également votre dossier de courriers indésirables.</p>
+              <p>
+                Afin de garantir la bonne réception, nous vous invitons à consulter également votre dossier de courriers
+                indésirables.
+              </p>
 
-              <p style={{ marginBottom: 0 }}>Vos données sont traitées avec la plus stricte confidentialité et les photographies sont supprimées après analyse.</p>
+              <p style={{ marginBottom: 0 }}>
+                Vos données sont traitées avec la plus stricte confidentialité et les photographies sont supprimées après analyse.
+              </p>
             </div>
           </div>
         </section>
       )}
 
-      <footer style={{ borderTop: `1px solid ${theme.border}`, backgroundColor: theme.card, padding: "56px 40px 0" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 48, paddingBottom: 48 }}>
+      {/* FOOTER */}
+      <footer
+        style={{
+          borderTop: `1px solid ${theme.border}`,
+          backgroundColor: theme.card,
+          padding: "56px 40px 0",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 900,
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1fr",
+            gap: 48,
+            paddingBottom: 48,
+          }}
+        >
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <span style={{ fontSize: 22 }}>🌿</span>
@@ -701,31 +730,87 @@ export default function Home() {
           </div>
 
           <div>
-            <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 12,
+                color: theme.text,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                marginBottom: 18,
+              }}
+            >
               Navigation
             </div>
-            <a href="#comment" style={{ fontSize: 13, color: theme.textLight, marginBottom: 10, textDecoration: "none", display: "block" }}>
-              Votre analyse en trois étapes
-            </a>
-            <a href="#form-card" style={{ fontSize: 13, color: theme.textLight, marginBottom: 10, textDecoration: "none", display: "block" }}>
-              Lancer mon analyse
-            </a>
+            {[
+              { label: "Votre analyse en trois étapes", href: "#comment" },
+              { label: "Thèmes", href: "#form-card" },
+              { label: "Lancer mon analyse", href: "#form-card" },
+              { label: "Mentions légales", href: "/mentions-legales" },
+              { label: "Confidentialité", href: "/confidentialite" },
+            ].map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                style={{
+                  fontSize: 13,
+                  color: theme.textLight,
+                  marginBottom: 10,
+                  textDecoration: "none",
+                  display: "block",
+                }}
+              >
+                {l.label}
+              </a>
+            ))}
           </div>
 
           <div>
-            <div style={{ fontWeight: 700, fontSize: 12, color: theme.text, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 18 }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 12,
+                color: theme.text,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                marginBottom: 18,
+              }}
+            >
               Mentions
             </div>
-            <Link href="/mentions-legales" style={{ fontSize: 13, color: theme.textLight, marginBottom: 10, textDecoration: "none", display: "block" }}>
-              Mentions légales
-            </Link>
-            <Link href="/confidentialite" style={{ fontSize: 13, color: theme.textLight, marginBottom: 10, textDecoration: "none", display: "block" }}>
-              Confidentialité
-            </Link>
+            {[
+              { label: "Mentions légales", href: "/mentions-legales" },
+              { label: "Confidentialité", href: "/confidentialite" },
+            ].map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                style={{
+                  fontSize: 13,
+                  color: theme.textLight,
+                  marginBottom: 10,
+                  textDecoration: "none",
+                  display: "block",
+                }}
+              >
+                {l.label}
+              </a>
+            ))}
           </div>
         </div>
 
-        <div style={{ maxWidth: 900, margin: "0 auto", borderTop: `1px solid ${theme.border}`, padding: "20px 0", display: "flex", justifyContent: "center", alignItems: "center", gap: 48 }}>
+        <div
+          style={{
+            maxWidth: 900,
+            margin: "0 auto",
+            borderTop: `1px solid ${theme.border}`,
+            padding: "20px 0",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 48,
+          }}
+        >
           <span style={{ fontSize: 12, color: theme.textLight }}>© 2026 Lecture de Mains</span>
           <span style={{ fontSize: 12, color: theme.textLight }}>Expert en chiromancie · 20 ans d'expérience</span>
         </div>
