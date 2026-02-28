@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getResendClient } from "@/lib/resend";
+import { getResendClient } from "../../../lib/resend";
 
 export async function POST(req) {
   try {
