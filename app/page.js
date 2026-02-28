@@ -108,6 +108,8 @@ export default function Home() {
     if (!otpVerified) { setError("Veuillez vérifier votre email avant d'envoyer."); return; }
     try {
       setLoading(true);
+
+      // 1. Upload photos vers Supabase
       const uploadRes = await fetch("/api/upload", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -120,22 +122,26 @@ export default function Home() {
       const { leftPath, rightPath, leftSignedUrl, rightSignedUrl } = uploadData;
       if (!leftPath || !rightPath || !leftSignedUrl || !rightSignedUrl)
         throw new Error("Réponse upload incomplète : " + JSON.stringify(uploadData, null, 2));
+
       const [leftPut, rightPut] = await Promise.all([
         fetch(leftSignedUrl,  { method: "PUT", headers: { "Content-Type": leftFile.type  }, body: leftFile  }),
         fetch(rightSignedUrl, { method: "PUT", headers: { "Content-Type": rightFile.type }, body: rightFile }),
       ]);
       if (!leftPut.ok || !rightPut.ok)
         throw new Error("Erreur upload Supabase — left:" + leftPut.status + " right:" + rightPut.status);
-      const analyzeRes = await fetch("/api/analyze", {
+
+      // 2. Créer session Stripe et rediriger
+      const checkoutRes = await fetch("/api/create-checkout", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leftPath, rightPath, prenom, nom, email, dateNaissance, themeChoisi }),
+        body: JSON.stringify({ prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath }),
       });
-      const analyzeData = await safeJson(analyzeRes);
-      if (!analyzeRes.ok) throw new Error("ANALYZE ERROR\n" + JSON.stringify(analyzeData, null, 2));
-      setResult("MAIL_CONFIRMATION");
-      setLeftFile(null); setRightFile(null);
-    } catch (err) { setError(String(err?.message || err)); }
-    finally { setLoading(false); }
+      const checkoutData = await safeJson(checkoutRes);
+      if (!checkoutRes.ok) throw new Error("CHECKOUT ERROR\n" + JSON.stringify(checkoutData, null, 2));
+
+      // Redirection vers Stripe
+      window.location.href = checkoutData.url;
+
+    } catch (err) { setError(String(err?.message || err)); setLoading(false); }
   }
 
   const inputStyle = (hasError) => ({
