@@ -162,28 +162,45 @@ function clientEmailHtml(prenom, report) {
   return `
 <!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#FAF7F2;font-family:Georgia,serif;">
-  <div style="max-width:620px;margin:0 auto;padding:40px 24px;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { margin:0; padding:0; background:#FAF7F2; font-family:Georgia,serif; -webkit-text-size-adjust:100%; }
+    .wrapper { width:100%; max-width:600px; margin:0 auto; padding:20px 16px; box-sizing:border-box; }
+    .card { background:#fff; border-radius:12px; border:1px solid #E8E0D0; padding:20px 18px; margin-bottom:16px; }
+    .report-block { background:#FAF7F2; border-radius:10px; border:1px solid #E8E0D0; padding:16px 14px; }
+    .report-block p { margin:0 0 12px; font-size:15px; color:#3A3228; line-height:1.75; word-break:break-word; }
+    .report-block h2 { font-size:16px; color:#3A3228; margin:22px 0 8px; padding-bottom:6px; border-bottom:1px solid #E8E0D0; }
+    .report-block hr { border:none; border-top:1px solid #E8E0D0; margin:16px 0; }
+    .badge { background:#EFF5F0; border-radius:10px; border:1px solid #B5CDB7; padding:12px 14px; margin-bottom:16px; }
+    @media (max-width:480px) {
+      .wrapper { padding:12px 10px; }
+      .card { padding:16px 14px; }
+      .report-block { padding:12px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
 
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="font-size:36px;">🌿</div>
-      <h1 style="margin:10px 0 4px;font-size:24px;color:#3A3228;font-weight:700;">Ligne de Vie</h1>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:28px;">🌿</div>
+      <h1 style="margin:8px 0 2px;font-size:20px;color:#3A3228;font-weight:700;">Ligne de Vie</h1>
       <p style="margin:0;font-size:12px;color:#7A6F65;">ma-ligne-de-vie.fr</p>
     </div>
 
-    <div style="background:#fff;border-radius:16px;border:1px solid #E8E0D0;padding:32px 28px;margin-bottom:24px;">
-      <p style="margin:0 0 8px;font-size:18px;color:#3A3228;">Bonjour <strong>${prenom}</strong>,</p>
-      <p style="margin:0 0 24px;font-size:14px;color:#7A6F65;line-height:1.7;">
-        Voici votre rapport personnalisé de chiromancie. Il a été préparé avec soin à partir des photos de vos deux mains.
+    <div class="card">
+      <p style="margin:0 0 6px;font-size:16px;color:#3A3228;">Bonjour <strong>${prenom}</strong>,</p>
+      <p style="margin:0 0 18px;font-size:14px;color:#7A6F65;line-height:1.7;">
+        Voici votre rapport personnalisé, préparé avec soin à partir des photos de vos deux mains.
       </p>
-
-      <div style="background:#FAF7F2;border-radius:12px;border:1px solid #E8E0D0;padding:24px;">
+      <div class="report-block">
         ${reportToHtml(report)}
       </div>
     </div>
 
-    <div style="background:#EFF5F0;border-radius:12px;border:1px solid #B5CDB7;padding:16px 20px;margin-bottom:24px;">
+    <div class="badge">
       <p style="margin:0;font-size:12px;color:#5C7E60;line-height:1.6;">
         🔒 Vos photos ont été supprimées de nos serveurs après traitement.<br>
         Ce rapport est strictement personnel et confidentiel.
