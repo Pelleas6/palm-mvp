@@ -1,95 +1,170 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
 
-const theme = {
-  bg: "#FAF7F2",
-  card: "#FFFFFF",
-  border: "#E8E0D0",
-  sage: "#7A9E7E",
-  sageLight: "#EFF5F0",
-  sageBorder: "#B5CDB7",
-  sageDark: "#5C7E60",
-  gold: "#C9A84C",
-  goldLight: "#FBF6EC",
-  text: "#3A3228",
-  textLight: "#7A6F65",
-  error: "#B85C5C",
-};
+import { useMemo, useRef, useState } from "react";
 
-const THEMES = [
-  { id: "amour", emoji: "🌹", label: "Amour & Relations", desc: "Vie sentimentale, liens affectifs, capacité à aimer" },
-  { id: "travail", emoji: "💼", label: "Travail & Carrière", desc: "Ambitions, talents, réussite professionnelle" },
-  { id: "developpement", emoji: "🌱", label: "Développement personnel", desc: "Évolution intérieure, potentiel, croissance" },
-  { id: "finances", emoji: "💰", label: "Finances & Abondance", desc: "Rapport à l'argent, ressources, prospérité" },
-  { id: "famille", emoji: "👨‍👩‍👧", label: "Famille & Liens", desc: "Liens familiaux, ancrage, transmission" },
-];
+const MAX_MB = 20;
+const MAX_BYTES = MAX_MB * 1024 * 1024;
 
-export default function Home() {
+function formatBytes(n) {
+  if (!Number.isFinite(n)) return "";
+  const mb = n / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} Mo`;
+  const kb = n / 1024;
+  return `${kb.toFixed(0)} Ko`;
+}
+
+async function safeJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export default function Page() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+
+  const themes = useMemo(
+    () => [
+      {
+        id: "amour",
+        title: "Amour & Relations",
+        desc: "Vie sentimentale, liens affectifs, capacité à aimer",
+        emoji: "🌹",
+      },
+      {
+        id: "travail",
+        title: "Travail & Carrière",
+        desc: "Ambitions, talents, réussite professionnelle",
+        emoji: "💼",
+      },
+      {
+        id: "dev",
+        title: "Développement personnel",
+        desc: "Évolution intérieure, potentiel, croissance",
+        emoji: "🌿",
+      },
+      {
+        id: "finance",
+        title: "Finances & Abondance",
+        desc: "Rapport à l'argent, ressources, prospérité",
+        emoji: "💰",
+      },
+      {
+        id: "famille",
+        title: "Famille & Liens",
+        desc: "Liens familiaux, équilibre, place dans le clan",
+        emoji: "👨‍👩‍👧‍👦",
+      },
+      {
+        id: "general",
+        title: "Lecture générale",
+        desc: "Vue d’ensemble, forces, tensions, synthèse",
+        emoji: "🔎",
+      },
+    ],
+    []
+  );
+
+  const [theme, setTheme] = useState("general");
+
   const [leftFile, setLeftFile] = useState(null);
   const [rightFile, setRightFile] = useState(null);
 
-  const [prenom, setPrenom] = useState("");
-  const [nom, setNom] = useState("");
-  const [email, setEmail] = useState("");
-  const [dateNaissance, setDateNaissance] = useState("");
-  const [themeChoisi, setThemeChoisi] = useState("");
+  const leftRef = useRef(null);
+  const rightRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null); // "MAIL_CONFIRMATION" | null
-  const [error, setError] = useState(null);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
-  const [leftPreview, setLeftPreview] = useState(null);
-  const [rightPreview, setRightPreview] = useState(null);
+  const isFormValid = useMemo(() => {
+    if (!firstName.trim()) return false;
+    if (!lastName.trim()) return false;
+    if (!email.trim()) return false;
+    if (!birthDate) return false;
+    if (!leftFile || !rightFile) return false;
+    return true;
+  }, [firstName, lastName, email, birthDate, leftFile, rightFile]);
 
-  useEffect(() => {
-    if (!leftFile) {
-      setLeftPreview(null);
+  function resetFiles() {
+    setLeftFile(null);
+    setRightFile(null);
+    if (leftRef.current) leftRef.current.value = "";
+    if (rightRef.current) rightRef.current.value = "";
+  }
+
+  function validateFile(file) {
+    if (!file) return { ok: false, msg: "Fichier manquant." };
+    const okType = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+    if (!okType) return { ok: false, msg: "Format non supporté. (JPG, PNG, WEBP)" };
+    if (file.size > MAX_BYTES) {
+      return { ok: false, msg: `Fichier trop lourd: ${formatBytes(file.size)} (max ${MAX_MB} Mo)` };
+    }
+    return { ok: true, msg: "" };
+  }
+
+  function onPickLeft(e) {
+    setError("");
+    const f = e.target.files?.[0] || null;
+    if (!f) {
+      setLeftFile(null);
       return;
     }
-    const url = URL.createObjectURL(leftFile);
-    setLeftPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [leftFile]);
-
-  useEffect(() => {
-    if (!rightFile) {
-      setRightPreview(null);
+    const v = validateFile(f);
+    if (!v.ok) {
+      setLeftFile(null);
+      if (leftRef.current) leftRef.current.value = "";
+      setError(`Main gauche: ${v.msg}`);
       return;
     }
-    const url = URL.createObjectURL(rightFile);
-    setRightPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [rightFile]);
+    setLeftFile(f);
+  }
 
-  const canSubmit = useMemo(() => {
-    return (
-      !!leftFile &&
-      !!rightFile &&
-      prenom.trim().length > 0 &&
-      nom.trim().length > 0 &&
-      email.trim().length > 0 &&
-      dateNaissance.trim().length > 0 &&
-      themeChoisi.length > 0 &&
-      !loading
-    );
-  }, [leftFile, rightFile, prenom, nom, email, dateNaissance, themeChoisi, loading]);
-
-  async function safeJson(res) {
-    try {
-      return await res.json();
-    } catch {
-      return null;
+  function onPickRight(e) {
+    setError("");
+    const f = e.target.files?.[0] || null;
+    if (!f) {
+      setRightFile(null);
+      return;
     }
+    const v = validateFile(f);
+    if (!v.ok) {
+      setRightFile(null);
+      if (rightRef.current) rightRef.current.value = "";
+      setError(`Main droite: ${v.msg}`);
+      return;
+    }
+    setRightFile(f);
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(null);
     setResult(null);
+    setError("");
+
+    if (!leftFile || !rightFile) {
+      setError("Ajoute bien les 2 photos (main gauche + main droite).");
+      return;
+    }
+
+    const v1 = validateFile(leftFile);
+    const v2 = validateFile(rightFile);
+    if (!v1.ok || !v2.ok) {
+      setError(`${!v1.ok ? `Main gauche: ${v1.msg}` : ""}${!v1.ok && !v2.ok ? " — " : ""}${
+        !v2.ok ? `Main droite: ${v2.msg}` : ""
+      }`);
+      return;
+    }
+
+    setLoading(true);
+    setStatus("Upload des photos…");
 
     try {
-      setLoading(true);
-
       const fd = new FormData();
       fd.append("left", leftFile);
       fd.append("right", rightFile);
@@ -99,7 +174,10 @@ export default function Home() {
 
       if (!uploadRes.ok) {
         throw new Error(
-          "UPLOAD ERROR\nstatus=" + uploadRes.status + "\nbody=" + JSON.stringify(uploadData, null, 2)
+          "UPLOAD_ERROR\nstatus=" +
+            uploadRes.status +
+            "\nbody=" +
+            JSON.stringify(uploadData, null, 2)
         );
       }
 
@@ -110,711 +188,820 @@ export default function Home() {
         throw new Error("Chemins manquants: " + JSON.stringify(uploadData, null, 2));
       }
 
+      setStatus("Analyse en cours…");
+
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-secret": process.env.NEXT_PUBLIC_API_SECRET || "",
-        },
-        body: JSON.stringify({ leftPath, rightPath, prenom, nom, email, dateNaissance, themeChoisi }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leftPath,
+          rightPath,
+          theme,
+          user: {
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            email: email.trim(),
+            birthDate,
+          },
+        }),
       });
 
       const analyzeData = await safeJson(analyzeRes);
 
       if (!analyzeRes.ok) {
         throw new Error(
-          "ANALYZE ERROR\nstatus=" + analyzeRes.status + "\nbody=" + JSON.stringify(analyzeData, null, 2)
+          "ANALYZE_ERROR\nstatus=" +
+            analyzeRes.status +
+            "\nbody=" +
+            JSON.stringify(analyzeData, null, 2)
         );
       }
 
-      // UI premium : on ne montre pas le rapport ici (mail plus tard)
-      setResult("MAIL_CONFIRMATION");
-
-      // Option premium : on vide les photos après envoi
-      setLeftFile(null);
-      setRightFile(null);
+      setResult(analyzeData);
+      setStatus("Terminé.");
     } catch (err) {
-      setError(String(err?.message || err));
+      setStatus("");
+      setError(err?.message || "Erreur inconnue");
     } finally {
       setLoading(false);
     }
   }
 
-  const inputStyle = {
-    width: "100%",
-    padding: "9px 12px",
-    marginTop: 5,
-    borderRadius: 8,
-    border: `1px solid ${theme.border}`,
-    backgroundColor: theme.bg,
-    color: theme.text,
-    fontSize: 13,
-    outline: "none",
-    boxSizing: "border-box",
-    fontFamily: "Georgia, serif",
-  };
-
-  const labelStyle = {
-    fontSize: 11,
-    fontWeight: 700,
-    color: theme.textLight,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-  };
-
   return (
-    <div style={{ backgroundColor: theme.bg, minHeight: "100vh", fontFamily: "Georgia, serif" }}>
-      {/* NAVBAR */}
-      <nav
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          backgroundColor: "rgba(250,247,242,0.95)",
-          backdropFilter: "blur(8px)",
-          borderBottom: `1px solid ${theme.border}`,
-          padding: "0 40px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          height: 68,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 26 }}>🌿</span>
-          <span style={{ fontWeight: 700, fontSize: 20, color: theme.text, letterSpacing: "0.02em" }}>
-            Lecture de Mains
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <a
-            href="#comment"
-            style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}
-          >
-            Comment ça marche
+    <div className="page">
+      <header className="header">
+        <nav className="topnav">
+          <a className="brand" href="#top">
+            <span className="leaf" aria-hidden="true">
+              🌿
+            </span>
+            <span className="brandText">Lecture de Mains</span>
           </a>
-          <a
-            href="#form-card"
-            style={{ fontSize: 14, color: theme.textLight, textDecoration: "none", padding: "6px 14px" }}
-          >
-            Thèmes
-          </a>
-          <a
-            href="#form-card"
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#fff",
-              backgroundColor: theme.sage,
-              textDecoration: "none",
-              padding: "10px 22px",
-              borderRadius: 8,
-              letterSpacing: "0.02em",
-              marginLeft: 8,
-            }}
-          >
+
+          <div className="navlinks">
+            <a href="#how">Comment ça marche</a>
+            <a href="#themes">Thèmes</a>
+          </div>
+
+          <a className="cta" href="#form">
             Lancer mon analyse
           </a>
-        </div>
-      </nav>
+        </nav>
+      </header>
 
-      {/* HERO */}
-      <section
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "64px 40px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 56,
-          alignItems: "start",
-        }}
-      >
-        {/* Colonne gauche */}
-        <div style={{ minWidth: 0, overflowWrap: "break-word" }}>
-          <div
-            style={{
-              display: "inline-block",
-              fontSize: 11,
-              fontWeight: 700,
-              color: theme.gold,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginBottom: 16,
-            }}
-          >
-            ✦ Expert en chiromancie · 20 ans d'expérience
-          </div>
-
-          <h1
-            style={{
-              fontSize: 44,
-              fontWeight: 700,
-              color: theme.text,
-              lineHeight: 1.2,
-              margin: "0 0 28px",
-            }}
-          >
-            Découvrez ce que vos mains révèlent de vous
-          </h1>
-
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles
-            et ce que la vie vous a donné à la naissance — vos talents profonds, votre sensibilité, votre caractère originel. C'est
-            la main de ce que vous auriez pu devenir si rien n'avait interféré.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            La main droite, elle, reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous. Elle porte
-            les traces de vos expériences, de vos décisions, de vos épreuves et de vos réussites. C'est la main de ce que vous êtes
-            devenus.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 20px" }}>
-            La comparaison des deux est au cœur de l'analyse : c'est là que se révèle votre véritable parcours de vie.
-          </p>
-          <p style={{ fontSize: 16, color: theme.textLight, lineHeight: 1.85, margin: "0 0 36px" }}>
-            Notre expert analyse les deux avec rigueur et bienveillance — les lignes, la forme, les bifurcations — pour vous offrir
-            une lecture concrète, ancrée dans ce qui est réellement visible, jamais inventée. Le thème que vous choisissez oriente
-            l'intégralité de l'analyse : chaque observation est interprétée à travers ce prisme, pour un rapport qui vous parle
-            vraiment.
-          </p>
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
-            {["Analyse personnalisée", "Réponse sous 24h", "Confidentiel & sécurisé"].map((b) => (
-              <span
-                key={b}
-                style={{
-                  fontSize: 12,
-                  color: theme.sage,
-                  border: `1px solid ${theme.sageBorder}`,
-                  backgroundColor: theme.sageLight,
-                  borderRadius: 20,
-                  padding: "5px 14px",
-                }}
-              >
-                {b}
-              </span>
-            ))}
-          </div>
-
-          {/* ICI : MODIF UNIQUEMENT */}
-          <div id="comment">
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: theme.gold,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                marginBottom: 12,
-              }}
-            >
-              ✦ Votre analyse en trois étapes
-            </div>
-
-            <div style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, marginBottom: 18 }}>
-              Chaque analyse est réalisée individuellement. Aucune lecture automatisée, aucune interprétation générique.
-            </div>
-
-            {[
-              {
-                num: "1",
-                title: "Renseignez vos informations personnelles",
-                desc:
-                  "Votre prénom, votre date de naissance et le thème qui vous guide. Ces éléments permettent d’orienter la lecture avec justesse et précision.",
-              },
-              {
-                num: "2",
-                title: "Transmettez les photos de vos deux mains",
-                desc:
-                  "Paume ouverte, lumière naturelle, lignes visibles. Chaque détail compte : forme, monts, lignes, bifurcations.",
-              },
-              {
-                num: "3",
-                title: "Recevez votre lecture personnalisée",
-                desc:
-                  "Notre expert analyse vos deux mains avec attention. Votre rapport détaillé vous est adressé sous 24h, par email.",
-              },
-            ].map((step, idx) => (
-              <div key={step.num} style={{ display: "flex", gap: 16, marginBottom: 20 }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <div
-                    style={{
-                      minWidth: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      backgroundColor: theme.goldLight,
-                      border: `1px solid ${theme.gold}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      color: theme.gold,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {step.num}
-                  </div>
-                  {idx < 2 ? (
-                    <div style={{ width: 1, height: 30, backgroundColor: "rgba(201,168,76,0.45)", borderRadius: 1 }} />
-                  ) : null}
-                </div>
-
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: theme.text }}>{step.title}</div>
-                  <div style={{ fontSize: 13, color: theme.textLight, marginTop: 2, lineHeight: 1.5 }}>
-                    {step.desc}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* FIN MODIF */}
-        </div>
-
-        {/* Colonne droite — Formulaire */}
-        <div
-          id="form-card"
-          style={{
-            backgroundColor: theme.card,
-            borderRadius: 16,
-            border: `1px solid ${theme.border}`,
-            padding: "28px 24px",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.07)",
-            position: "sticky",
-            top: 84,
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: 16, color: theme.text, marginBottom: 4 }}>Lancer mon analyse</div>
-          <div style={{ fontSize: 12, color: theme.textLight, marginBottom: 16 }}>Résultats transmis sous 24h par email</div>
-
-          <div style={{ backgroundColor: theme.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 20, fontSize: 13 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                paddingBottom: 8,
-                marginBottom: 8,
-                borderBottom: `1px solid ${theme.border}`,
-              }}
-            >
-              <span style={{ color: theme.textLight }}>Délai</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Sous 24h</span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                paddingBottom: 8,
-                marginBottom: 8,
-                borderBottom: `1px solid ${theme.border}`,
-              }}
-            >
-              <span style={{ color: theme.textLight }}>Livraison</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Par email</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: theme.textLight }}>Confidentialité</span>
-              <span style={{ color: theme.text, fontWeight: 600 }}>Photos supprimées</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-              <div>
-                <div style={labelStyle}>Prénom</div>
-                <input
-                  type="text"
-                  value={prenom}
-                  placeholder="Marie"
-                  style={inputStyle}
-                  onChange={(e) => {
-                    setPrenom(e.target.value);
-                    setResult(null);
-                    setError(null);
-                  }}
-                />
-              </div>
-              <div>
-                <div style={labelStyle}>Nom</div>
-                <input
-                  type="text"
-                  value={nom}
-                  placeholder="Dupont"
-                  style={inputStyle}
-                  onChange={(e) => {
-                    setNom(e.target.value);
-                    setResult(null);
-                    setError(null);
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <div style={labelStyle}>Email</div>
-              <input
-                type="email"
-                value={email}
-                placeholder="votre@email.com"
-                style={inputStyle}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setResult(null);
-                  setError(null);
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={labelStyle}>Date de naissance</div>
-              <input
-                type="date"
-                value={dateNaissance}
-                style={inputStyle}
-                onChange={(e) => {
-                  setDateNaissance(e.target.value);
-                  setResult(null);
-                  setError(null);
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={labelStyle}>Thème de lecture</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-                {THEMES.map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={() => {
-                      setThemeChoisi(t.id);
-                      setResult(null);
-                      setError(null);
-                    }}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: `1.5px solid ${themeChoisi === t.id ? theme.sage : theme.border}`,
-                      backgroundColor: themeChoisi === t.id ? theme.sageLight : theme.bg,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <div style={{ fontSize: 18, marginBottom: 4 }}>{t.emoji}</div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: themeChoisi === t.id ? theme.sage : theme.text,
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {t.label}
-                    </div>
-                    <div style={{ fontSize: 10, color: theme.textLight, marginTop: 3, lineHeight: 1.4 }}>{t.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={labelStyle}>Photos de vos mains</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 6 }}>
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 10,
-                    borderRadius: 10,
-                    border: `2px dashed ${leftFile ? theme.sage : theme.border}`,
-                    backgroundColor: leftFile ? theme.sageLight : theme.bg,
-                    cursor: "pointer",
-                    minHeight: 80,
-                  }}
-                >
-                  {leftPreview ? (
-                    <img src={leftPreview} alt="Main gauche" style={{ maxWidth: "100%", maxHeight: 80, borderRadius: 6 }} />
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 20 }}>🤚</span>
-                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>
-                        Main gauche
-                      </span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      setLeftFile(e.target.files?.[0] || null);
-                      setResult(null);
-                      setError(null);
-                    }}
-                  />
-                </label>
-
-                <label
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 10,
-                    borderRadius: 10,
-                    border: `2px dashed ${rightFile ? theme.sage : theme.border}`,
-                    backgroundColor: rightFile ? theme.sageLight : theme.bg,
-                    cursor: "pointer",
-                    minHeight: 80,
-                  }}
-                >
-                  {rightPreview ? (
-                    <img src={rightPreview} alt="Main droite" style={{ maxWidth: "100%", maxHeight: 80, borderRadius: 6 }} />
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 20 }}>🤚</span>
-                      <span style={{ fontSize: 10, color: theme.textLight, marginTop: 4, textAlign: "center" }}>
-                        Main droite
-                      </span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      setRightFile(e.target.files?.[0] || null);
-                      setResult(null);
-                      setError(null);
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              style={{
-                width: "100%",
-                padding: "13px 0",
-                borderRadius: 10,
-                border: "none",
-                backgroundColor: canSubmit ? theme.sage : theme.border,
-                color: canSubmit ? "#fff" : theme.textLight,
-                fontSize: 14,
-                fontWeight: 600,
-                fontFamily: "Georgia, serif",
-                cursor: canSubmit ? "pointer" : "not-allowed",
-                letterSpacing: "0.03em",
-                transition: "background-color 0.2s",
-              }}
-            >
-              {loading ? "✨ Analyse en cours..." : "✦ Envoyer ma demande"}
-            </button>
-
-            {!canSubmit && !loading && (
-              <p style={{ textAlign: "center", marginTop: 8, fontSize: 11, color: theme.textLight }}>
-                Remplissez tous les champs pour continuer.
-              </p>
-            )}
-
-            <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: theme.textLight, lineHeight: 1.5 }}>
-              Vos photos sont supprimées après analyse. Données confidentielles.
+      <main id="top" className="main">
+        <section className="hero">
+          <div className="hero-left">
+            <div className="kicker">Expertise chiromancie • analyse personnalisée</div>
+            <h1>Découvrez ce que vos lignes disent de vous</h1>
+            <p className="sub">
+              Uploadez 2 photos nettes (main gauche + main droite). Vous recevez un rapport clair et
+              structuré.
             </p>
-          </form>
-        </div>
-      </section>
 
-      {/* ERREUR */}
-      {error && (
-        <div style={{ maxWidth: 760, margin: "24px auto", padding: "0 40px" }}>
-          <pre
-            style={{
-              whiteSpace: "pre-wrap",
-              color: theme.error,
-              fontSize: 12,
-              backgroundColor: "#FDF0F0",
-              padding: 16,
-              borderRadius: 10,
-              border: "1px solid #E8C0C0",
-            }}
-          >
-            {error}
-          </pre>
-        </div>
-      )}
-
-      {/* RÉSULTAT */}
-      {result === "MAIL_CONFIRMATION" && (
-        <section style={{ maxWidth: 760, margin: "40px auto", padding: "0 40px 60px" }}>
-          <div
-            style={{
-              backgroundColor: theme.card,
-              borderRadius: 16,
-              border: `1px solid ${theme.border}`,
-              padding: "32px 28px",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 18,
-                paddingBottom: 14,
-                borderBottom: `1px solid ${theme.border}`,
-              }}
-            >
-              <div style={{ width: 3, height: 24, backgroundColor: theme.gold, borderRadius: 2 }} />
-              <h2 style={{ margin: 0, fontSize: 18, color: theme.text, fontWeight: 700 }}>Demande enregistrée</h2>
+            <div className="bullets">
+              <div className="bullet">
+                <div className="bTitle">Délai</div>
+                <div className="bValue">Sous 24h</div>
+              </div>
+              <div className="bullet">
+                <div className="bTitle">Livraison</div>
+                <div className="bValue">Par email</div>
+              </div>
+              <div className="bullet">
+                <div className="bTitle">Confidentialité</div>
+                <div className="bValue">Photos supprimées</div>
+              </div>
             </div>
 
-            <div style={{ fontSize: 14, lineHeight: 1.85, color: theme.text }}>
-              <p style={{ marginTop: 0 }}>
-                Nous vous remercions pour ces informations précieuses.
-                <br />
-                Votre demande est désormais en cours d’étude par notre expert en chiromancie.
-              </p>
+            <div id="themes" className="themes">
+              {themes.map((t) => {
+                const active = theme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`themeCard ${active ? "active" : ""}`}
+                    onClick={() => setTheme(t.id)}
+                    aria-pressed={active}
+                  >
+                    <div className="themeTop">
+                      <span className="themeEmoji" aria-hidden="true">
+                        {t.emoji}
+                      </span>
+                      <span className="themeTitle">{t.title}</span>
+                    </div>
+                    <div className="themeDesc">{t.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
 
-              <p>
-                Après une analyse attentive et approfondie de vos deux mains, votre rapport personnalisé vous sera adressé par email
-                demain, entre 09h00 et 19h45 (hors dimanche).
-              </p>
+            <div id="how" className="how">
+              <div className="howTitle">Comment ça marche</div>
+              <ol className="howList">
+                <li>Vous renseignez vos infos + vous choisissez un thème.</li>
+                <li>Vous ajoutez 2 photos nettes (gauche + droite), max {MAX_MB} Mo chacune.</li>
+                <li>Vous lancez l’analyse. Le rapport est envoyé par email.</li>
+              </ol>
+            </div>
+          </div>
 
-              <p>
-                Afin de garantir la bonne réception, nous vous invitons à consulter également votre dossier de courriers
-                indésirables.
-              </p>
+          <div id="form" className="formWrap">
+            <div className="form-card">
+              <div className="formHead">
+                <div className="formTitle">Lancer mon analyse</div>
+                <div className="formSubtitle">Résultats transmis sous 24h par email</div>
+              </div>
 
-              <p style={{ marginBottom: 0 }}>
-                Vos données sont traitées avec la plus stricte confidentialité et les photographies sont supprimées après analyse.
-              </p>
+              <div className="miniInfo">
+                <div className="miniRow">
+                  <span>Délai</span>
+                  <span>Sous 24h</span>
+                </div>
+                <div className="miniRow">
+                  <span>Livraison</span>
+                  <span>Par email</span>
+                </div>
+                <div className="miniRow">
+                  <span>Confidentialité</span>
+                  <span>Photos supprimées</span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="form">
+                <div className="grid2">
+                  <div className="field">
+                    <label>Prénom</label>
+                    <input
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Marie"
+                      autoComplete="given-name"
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Nom</label>
+                    <input
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Dupont"
+                      autoComplete="family-name"
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Email</label>
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="votre@email.com"
+                    type="email"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Date de naissance</label>
+                  <input
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    type="date"
+                    autoComplete="bday"
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Thème de lecture</label>
+                  <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+                    {themes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="uploadGrid">
+                  <div className="uploadBox">
+                    <div className="uploadLabel">Main gauche</div>
+                    <input
+                      ref={leftRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={onPickLeft}
+                    />
+                    <div className="uploadHint">
+                      {leftFile ? `${leftFile.name} • ${formatBytes(leftFile.size)}` : `JPG/PNG/WEBP • max ${MAX_MB} Mo`}
+                    </div>
+                  </div>
+
+                  <div className="uploadBox">
+                    <div className="uploadLabel">Main droite</div>
+                    <input
+                      ref={rightRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={onPickRight}
+                    />
+                    <div className="uploadHint">
+                      {rightFile ? `${rightFile.name} • ${formatBytes(rightFile.size)}` : `JPG/PNG/WEBP • max ${MAX_MB} Mo`}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="actions">
+                  <button className="primary" type="submit" disabled={loading || !isFormValid}>
+                    {loading ? "Analyse en cours…" : "Envoyer"}
+                  </button>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => {
+                      setError("");
+                      setStatus("");
+                      setResult(null);
+                      resetFiles();
+                    }}
+                    disabled={loading}
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+
+                {status ? <div className="status">{status}</div> : null}
+                {error ? <pre className="error">{error}</pre> : null}
+
+                {result ? (
+                  <div className="result">
+                    <div className="resultTitle">Réponse API</div>
+                    <pre className="resultBox">{JSON.stringify(result, null, 2)}</pre>
+                  </div>
+                ) : null}
+
+                <div className="legalLine">
+                  En envoyant, vous acceptez nos pages{" "}
+                  <a href="/mentions-legales">mentions légales</a> et{" "}
+                  <a href="/confidentialite">confidentialité</a>.
+                </div>
+              </form>
             </div>
           </div>
         </section>
-      )}
+      </main>
 
-      {/* FOOTER */}
-      <footer
-        style={{
-          borderTop: `1px solid ${theme.border}`,
-          backgroundColor: theme.card,
-          padding: "56px 40px 0",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 900,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr",
-            gap: 48,
-            paddingBottom: 48,
-          }}
-        >
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 22 }}>🌿</span>
-              <span style={{ fontWeight: 700, fontSize: 17, color: theme.text }}>Lecture de Mains</span>
-            </div>
-            <p style={{ fontSize: 13, color: theme.textLight, lineHeight: 1.7, margin: 0, maxWidth: 260 }}>
-              Analyse chiromantique personnalisée par un expert. Confidentiel, bienveillant et sérieux.
-            </p>
+      <footer className="footer">
+        <div className="footerInner">
+          <div className="footLeft">© {new Date().getFullYear()} ma-ligne-de-vie.fr</div>
+          <div className="footLinks">
+            <a href="/mentions-legales">Mentions légales</a>
+            <a href="/confidentialite">Confidentialité</a>
           </div>
-
-          <div>
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: 12,
-                color: theme.text,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                marginBottom: 18,
-              }}
-            >
-              Navigation
-            </div>
-            {[
-              { label: "Votre analyse en trois étapes", href: "#comment" },
-              { label: "Thèmes", href: "#form-card" },
-              { label: "Lancer mon analyse", href: "#form-card" },
-              { label: "Mentions légales", href: "/mentions-legales" },
-              { label: "Confidentialité", href: "/confidentialite" },
-            ].map((l) => (
-              <a
-                key={l.label}
-                href={l.href}
-                style={{
-                  fontSize: 13,
-                  color: theme.textLight,
-                  marginBottom: 10,
-                  textDecoration: "none",
-                  display: "block",
-                }}
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
-
-          <div>
-            <div
-              style={{
-                fontWeight: 700,
-                fontSize: 12,
-                color: theme.text,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                marginBottom: 18,
-              }}
-            >
-              Mentions
-            </div>
-            {[
-              { label: "Mentions légales", href: "/mentions-legales" },
-              { label: "Confidentialité", href: "/confidentialite" },
-            ].map((l) => (
-              <a
-                key={l.label}
-                href={l.href}
-                style={{
-                  fontSize: 13,
-                  color: theme.textLight,
-                  marginBottom: 10,
-                  textDecoration: "none",
-                  display: "block",
-                }}
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        <div
-          style={{
-            maxWidth: 900,
-            margin: "0 auto",
-            borderTop: `1px solid ${theme.border}`,
-            padding: "20px 0",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 48,
-          }}
-        >
-          <span style={{ fontSize: 12, color: theme.textLight }}>© 2026 Lecture de Mains</span>
-          <span style={{ fontSize: 12, color: theme.textLight }}>Expert en chiromancie · 20 ans d'expérience</span>
         </div>
       </footer>
+
+      <style jsx global>{`
+        :root {
+          --bg: #f6f1e8;
+          --card: rgba(255, 255, 255, 0.72);
+          --ink: #1d1b16;
+          --muted: rgba(29, 27, 22, 0.7);
+          --line: rgba(29, 27, 22, 0.12);
+          --shadow: 0 22px 60px rgba(0, 0, 0, 0.12);
+          --radius: 18px;
+          --accent: #6e8f78;
+          --accent2: #5f7f6a;
+        }
+
+        html,
+        body {
+          padding: 0;
+          margin: 0;
+          background: var(--bg);
+          color: var(--ink);
+          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+            "Apple Color Emoji", "Segoe UI Emoji";
+        }
+
+        a {
+          color: inherit;
+          text-decoration: none;
+        }
+
+        .page {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .header {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          backdrop-filter: blur(12px);
+          background: rgba(246, 241, 232, 0.7);
+          border-bottom: 1px solid var(--line);
+        }
+
+        .topnav {
+          max-width: 1120px;
+          margin: 0 auto;
+          height: 74px;
+          padding: 0 22px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .leaf {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          background: rgba(110, 143, 120, 0.18);
+          border: 1px solid rgba(110, 143, 120, 0.25);
+        }
+
+        .brandText {
+          font-size: 18px;
+          letter-spacing: 0.2px;
+        }
+
+        .navlinks {
+          display: flex;
+          gap: 18px;
+          color: var(--muted);
+        }
+
+        .navlinks a:hover {
+          color: var(--ink);
+        }
+
+        .cta {
+          background: var(--accent);
+          color: white;
+          padding: 12px 16px;
+          border-radius: 14px;
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          box-shadow: 0 12px 24px rgba(110, 143, 120, 0.22);
+          white-space: nowrap;
+        }
+
+        .cta:hover {
+          background: var(--accent2);
+        }
+
+        .main {
+          flex: 1;
+        }
+
+        .hero {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 44px 22px 46px;
+          display: grid;
+          grid-template-columns: 1.12fr 0.88fr;
+          gap: 26px;
+          align-items: start;
+        }
+
+        .hero-left {
+          min-width: 0;
+        }
+
+        .kicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          color: var(--muted);
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.55);
+          padding: 8px 12px;
+          border-radius: 999px;
+        }
+
+        .hero-left h1 {
+          margin: 14px 0 10px;
+          font-size: 44px;
+          line-height: 1.08;
+          letter-spacing: -0.5px;
+        }
+
+        .sub {
+          margin: 0 0 18px;
+          color: var(--muted);
+          font-size: 16px;
+          line-height: 1.6;
+          max-width: 56ch;
+        }
+
+        .bullets {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin: 18px 0 18px;
+        }
+
+        .bullet {
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.55);
+          border-radius: 14px;
+          padding: 12px 12px;
+        }
+
+        .bTitle {
+          font-size: 12px;
+          color: var(--muted);
+          margin-bottom: 4px;
+        }
+
+        .bValue {
+          font-size: 14px;
+        }
+
+        .themes {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          margin-top: 14px;
+        }
+
+        .themeCard {
+          text-align: left;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.62);
+          border-radius: 16px;
+          padding: 14px 14px;
+          cursor: pointer;
+          transition: transform 0.06s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .themeCard:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+        }
+
+        .themeCard.active {
+          border-color: rgba(110, 143, 120, 0.55);
+          box-shadow: 0 18px 40px rgba(110, 143, 120, 0.18);
+        }
+
+        .themeTop {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 6px;
+        }
+
+        .themeEmoji {
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          border-radius: 12px;
+          background: rgba(110, 143, 120, 0.14);
+          border: 1px solid rgba(110, 143, 120, 0.22);
+        }
+
+        .themeTitle {
+          font-size: 14px;
+        }
+
+        .themeDesc {
+          font-size: 13px;
+          color: var(--muted);
+          line-height: 1.35;
+        }
+
+        .how {
+          margin-top: 18px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.55);
+          border-radius: 16px;
+          padding: 14px 14px;
+        }
+
+        .howTitle {
+          font-size: 14px;
+          margin-bottom: 8px;
+        }
+
+        .howList {
+          margin: 0;
+          padding-left: 18px;
+          color: var(--muted);
+          line-height: 1.55;
+          font-size: 13px;
+        }
+
+        .formWrap {
+          min-width: 0;
+        }
+
+        .form-card {
+          position: sticky;
+          top: 96px;
+          border: 1px solid var(--line);
+          background: var(--card);
+          border-radius: var(--radius);
+          box-shadow: var(--shadow);
+          padding: 18px 16px 16px;
+        }
+
+        .formHead {
+          margin-bottom: 12px;
+        }
+
+        .formTitle {
+          font-size: 20px;
+          letter-spacing: -0.2px;
+          margin-bottom: 4px;
+        }
+
+        .formSubtitle {
+          font-size: 13px;
+          color: var(--muted);
+        }
+
+        .miniInfo {
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.55);
+          padding: 10px 12px;
+          margin-bottom: 12px;
+        }
+
+        .miniRow {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          font-size: 13px;
+          color: var(--muted);
+          padding: 5px 0;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .miniRow:last-child {
+          border-bottom: 0;
+        }
+
+        .form {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .grid2 {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .field label {
+          display: block;
+          font-size: 12px;
+          color: var(--muted);
+          margin: 0 0 6px;
+        }
+
+        input,
+        select {
+          width: 100%;
+          box-sizing: border-box;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.82);
+          border-radius: 12px;
+          padding: 11px 12px;
+          font-size: 14px;
+          outline: none;
+        }
+
+        input:focus,
+        select:focus {
+          border-color: rgba(110, 143, 120, 0.6);
+          box-shadow: 0 0 0 4px rgba(110, 143, 120, 0.14);
+        }
+
+        .uploadGrid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .uploadBox {
+          border: 1px dashed rgba(29, 27, 22, 0.22);
+          background: rgba(255, 255, 255, 0.5);
+          border-radius: 14px;
+          padding: 12px 12px;
+        }
+
+        .uploadLabel {
+          font-size: 12px;
+          color: var(--muted);
+          margin-bottom: 8px;
+        }
+
+        .uploadHint {
+          margin-top: 8px;
+          font-size: 12px;
+          color: var(--muted);
+          word-break: break-word;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-top: 2px;
+        }
+
+        .primary,
+        .ghost {
+          border-radius: 14px;
+          padding: 12px 12px;
+          font-size: 14px;
+          cursor: pointer;
+          border: 1px solid var(--line);
+        }
+
+        .primary {
+          background: var(--accent);
+          color: white;
+          border-color: rgba(0, 0, 0, 0.05);
+          box-shadow: 0 14px 30px rgba(110, 143, 120, 0.22);
+        }
+
+        .primary:hover {
+          background: var(--accent2);
+        }
+
+        .primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        .ghost {
+          background: rgba(255, 255, 255, 0.75);
+        }
+
+        .ghost:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .status {
+          margin-top: 6px;
+          font-size: 13px;
+          color: var(--muted);
+        }
+
+        .error {
+          margin: 8px 0 0;
+          background: rgba(255, 0, 0, 0.06);
+          border: 1px solid rgba(255, 0, 0, 0.18);
+          padding: 10px 10px;
+          border-radius: 14px;
+          font-size: 12px;
+          color: rgba(150, 20, 20, 0.95);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        .result {
+          margin-top: 10px;
+          border-top: 1px solid var(--line);
+          padding-top: 10px;
+        }
+
+        .resultTitle {
+          font-size: 13px;
+          color: var(--muted);
+          margin-bottom: 8px;
+        }
+
+        .resultBox {
+          margin: 0;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.65);
+          border-radius: 14px;
+          padding: 10px 10px;
+          font-size: 12px;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        .legalLine {
+          margin-top: 10px;
+          font-size: 12px;
+          color: var(--muted);
+          line-height: 1.45;
+        }
+
+        .legalLine a {
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+
+        .footer {
+          border-top: 1px solid var(--line);
+          background: rgba(246, 241, 232, 0.7);
+          backdrop-filter: blur(12px);
+        }
+
+        .footerInner {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 18px 22px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          color: var(--muted);
+          font-size: 13px;
+        }
+
+        .footLinks {
+          display: flex;
+          gap: 16px;
+        }
+
+        .footLinks a:hover {
+          color: var(--ink);
+        }
+
+        /* mobile fixes (keeps desktop design identical) */
+        @media (max-width: 900px) {
+          .topnav {
+            height: auto;
+            padding: 12px 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+
+          .navlinks {
+            width: 100%;
+            justify-content: flex-start;
+            gap: 14px;
+          }
+
+          .cta {
+            margin-left: auto;
+          }
+
+          .hero {
+            grid-template-columns: 1fr;
+            padding: 28px 16px 34px;
+            gap: 20px;
+          }
+
+          .hero-left h1 {
+            font-size: 32px;
+            line-height: 1.18;
+          }
+
+          .bullets {
+            grid-template-columns: 1fr;
+          }
+
+          .themes {
+            grid-template-columns: 1fr;
+          }
+
+          .grid2 {
+            grid-template-columns: 1fr;
+          }
+
+          .uploadGrid {
+            grid-template-columns: 1fr;
+          }
+
+          .actions {
+            grid-template-columns: 1fr;
+          }
+
+          .form-card {
+            position: static;
+            top: auto;
+          }
+
+          .footerInner {
+            padding: 18px 16px;
+            flex-direction: column;
+            align-items: flex-start;
+          }
+        }
+      `}</style>
     </div>
   );
 }
