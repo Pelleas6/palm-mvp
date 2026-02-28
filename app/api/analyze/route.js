@@ -125,24 +125,24 @@ Synthèse chaleureuse adressée à ${civilite}, orientée vers l'angle choisi. T
 ---
 *Rapport d'analyse morphologique préparé avec soin.*`;
 
-  const resp = await client.chat.completions.create({
-    model: "gpt-4o",
-    max_tokens: 4000,
-    messages: [
+  const resp = await client.responses.create({
+    model: "gpt-4.1-mini",
+    max_output_tokens: 4000,
+    input: [
       {
         role: "user",
         content: [
-          { type: "text", text: prompt },
-          { type: "text", text: "Photo main gauche :" },
-          { type: "image_url", image_url: { url: `data:${leftMime};base64,${leftB64}`, detail: "high" } },
-          { type: "text", text: "Photo main droite :" },
-          { type: "image_url", image_url: { url: `data:${rightMime};base64,${rightB64}`, detail: "high" } },
+          { type: "input_text", text: prompt },
+          { type: "input_text", text: "Photo main gauche :" },
+          { type: "input_image", image_url: `data:${leftMime};base64,${leftB64}` },
+          { type: "input_text", text: "Photo main droite :" },
+          { type: "input_image", image_url: `data:${rightMime};base64,${rightB64}` },
         ],
       },
     ],
   });
 
-  return resp.choices?.[0]?.message?.content || "Aucun texte généré.";
+  return resp.output_text || "Aucun texte généré.";
 }
 
 function reportToHtml(report) {
