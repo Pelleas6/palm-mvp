@@ -175,6 +175,7 @@ export default function Home() {
         .softShadow { box-shadow: 0 8px 40px rgba(0,0,0,0.07); }
         .softShadow2 { box-shadow: 0 6px 24px rgba(0,0,0,0.04); }
         .focusable:focus { outline: 3px solid rgba(201,168,76,0.25); outline-offset: 2px; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
       `}</style>
 
       {/* NAVBAR */}
@@ -378,8 +379,22 @@ export default function Home() {
 
             {/* Bouton submit */}
             <button type="submit" disabled={!canSubmit} className="focusable" style={{ width:"100%", padding:"13px 0", borderRadius:12, border:"none", backgroundColor:canSubmit ? theme.sage : theme.border, color:canSubmit ? "#fff" : theme.textLight, fontSize:14, fontWeight:600, fontFamily:"Georgia, serif", cursor:canSubmit ? "pointer" : "not-allowed", letterSpacing:"0.03em", transition:"background-color 0.2s" }}>
-              {loading ? "✨ Analyse en cours..." : "✦ Envoyer ma demande"}
+              {loading ? "Préparation de votre dossier…" : "✦ Envoyer ma demande"}
             </button>
+
+            {/* État de chargement premium */}
+            {loading && (
+              <div style={{ marginTop:16, padding:"16px 18px", borderRadius:12, backgroundColor:theme.goldLight, border:`1px solid ${theme.border}` }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", backgroundColor:theme.gold, animation:"pulse 1.5s infinite" }} />
+                  <span style={{ fontSize:13, fontWeight:600, color:theme.text }}>Dossier en cours de préparation</span>
+                </div>
+                <p style={{ margin:0, fontSize:12, color:theme.textLight, lineHeight:1.6 }}>
+                  Votre dossier est transmis à notre expert.<br />
+                  L'analyse de vos deux mains va être réalisée avec soin.
+                </p>
+              </div>
+            )}
 
             {!canSubmit && !loading && (
               <p style={{ textAlign:"center", marginTop:8, fontSize:11, color:theme.textLight }}>
