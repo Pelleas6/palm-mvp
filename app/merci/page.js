@@ -1,9 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
-export default function Merci() {
-  const searchParams = useSearchParams();
+function MerciContent() {
   const [dots, setDots] = useState(".");
 
   useEffect(() => {
@@ -93,5 +91,13 @@ export default function Merci() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function Merci() {
+  return (
+    <Suspense fallback={null}>
+      <MerciContent />
+    </Suspense>
   );
 }
