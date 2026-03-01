@@ -30,7 +30,7 @@ function mimeFromPath(path) {
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
   const resp = await openai.responses.create({
     model: "gpt-4.1-mini",
-    max_output_tokens: 18,
+    max_output_tokens: 16,
     input: [{
       role: "user",
       content: [
@@ -54,10 +54,10 @@ export async function POST(req) {
       return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
     }
 
-    // Vérifier OTP
+    // Vérifier OTP (désactivé temporairement)
     const redis = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
-    const verified = await redis.get(`otp_verified:${email}`);
-    if (!verified) return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
+    // const verified = await redis.get(`otp_verified:${email}`);
+    // if (!verified) return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
 
     // Valider les images
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
