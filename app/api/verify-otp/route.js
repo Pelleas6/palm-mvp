@@ -58,9 +58,10 @@ export async function POST(req) {
       );
     }
 
-    // Code correct → on supprime pour usage unique
+    // Code correct → on supprime pour usage unique + on marque l'email comme vérifié
     await redis.del(otpKey);
     await redis.del(attemptsKey);
+    await redis.set(`otp_verified:${email}`, "1", { ex: 3600 }); // valide 1h
 
     return NextResponse.json({ ok: true }, { status: 200 });
 
