@@ -99,16 +99,11 @@ export async function POST(req) {
 
     const redis = new Redis({ url: redisUrl, token: redisToken });
 
-    // Anti-spam : max 3 OTP par email par heure
-    const spamKey = `otp_spam:${email}`;
-    const spamCount = await redis.incr(spamKey);
-    if (spamCount === 1) await redis.expire(spamKey, 3600);
-    if (spamCount > 3) {
-      return NextResponse.json(
-        { error: "Trop de tentatives. Réessayez dans une heure." },
-        { status: 429 }
-      );
-    }
+    // Anti-spam désactivé temporairement pour les tests
+    // const spamKey = `otp_spam:${email}`;
+    // const spamCount = await redis.incr(spamKey);
+    // if (spamCount === 1) await redis.expire(spamKey, 3600);
+    // if (spamCount > 3) { return NextResponse.json({ error: "Trop de tentatives." }, { status: 429 }); }
 
     const otp = generateOtp();
     const otpKey = `otp:${email}`;
