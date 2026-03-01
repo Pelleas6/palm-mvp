@@ -8,24 +8,13 @@ import { Redis } from "@upstash/redis";
 import { Client as QStash } from "@upstash/qstash";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { getEnv } from "../../../lib/env";
+import { mimeFromPath, BUCKET } from "../../../lib/report";
 
-const BUCKET   = "palm-uploads";
 const BASE_URL = "https://ma-ligne-de-vie.fr";
 
 // 0 = immédiat (test), 86400 = 24h (prod)
 const DELAY_SECONDS = 0;
-
-function getEnv(name) {
-  const v = process.env[name];
-  return v && v.trim() ? v.trim() : null;
-}
-
-function mimeFromPath(path) {
-  const p = (path || "").toLowerCase();
-  if (p.endsWith(".png"))  return "image/png";
-  if (p.endsWith(".webp")) return "image/webp";
-  return "image/jpeg";
-}
 
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
   const resp = await openai.responses.create({
@@ -75,12 +64,10 @@ export async function POST(req) {
     const imagesValides = await validateImages(openai, leftB64, rightB64, leftMime, rightMime);
 
     if (!imagesValides) {
-      // Supprimer les images invalides
       await Promise.allSettled([
         supabase.storage.from(BUCKET).remove([leftPath]),
         supabase.storage.from(BUCKET).remove([rightPath]),
       ]);
-      // Envoyer email d'erreur via QStash immédiatement
       const qstash = new QStash({ token: getEnv("QSTASH_TOKEN") });
       await qstash.publishJSON({
         url: `${BASE_URL}/api/process-job`,
