@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { getResendClient } from "../../../lib/resend";
@@ -105,32 +104,81 @@ function adminEmailHtml(prenom, nom, email, dateNaissance, themeChoisi, report) 
   <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;padding:28px;border:1px solid #ddd;">
     <h2 style="margin:0 0 20px;color:#3A3228;font-size:18px;">🔔 Nouvelle analyse — ${prenom} ${nom}</h2>
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:28px;">
-      <tr><td style="padding:10px 8px;color:#7A6F65;width:150px;border-bottom:1px solid #eee;">Prénom / Nom</td><td style="padding:10px 8px;font-weight:bold;color:#3A3228;border-bottom:1px solid #eee;">${prenom} ${nom}</td></tr>
-      <tr><td style="padding:10px 8px;color:#7A6F65;border-bottom:1px solid #eee;">Email client</td><td style="padding:10px 8px;color:#3A3228;border-bottom:1px solid #eee;"><a href="mailto:${email}" style="color:#7A9E7E;">${email}</a></td></tr>
-      <tr><td style="padding:10px 8px;color:#7A6F65;border-bottom:1px solid #eee;">Date de naissance</td><td style="padding:10px 8px;color:#3A3228;border-bottom:1px solid #eee;">${dateNaissance}</td></tr>
-      <tr><td style="padding:10px 8px;color:#7A6F65;">Thème choisi</td><td style="padding:10px 8px;color:#3A3228;">${themeChoisi}</td></tr>
+      <tr><td style="padding:10px 8px;color:#7A6F65;width:140px;border-bottom:1px solid #eee;">Prénom / Nom</td><td style="padding:10px 8px;font-weight:bold;border-bottom:1px solid #eee;">${prenom} ${nom}</td></tr>
+      <tr><td style="padding:10px 8px;color:#7A6F65;border-bottom:1px solid #eee;">Email</td><td style="padding:10px 8px;border-bottom:1px solid #eee;"><a href="mailto:${email}" style="color:#7A9E7E;">${email}</a></td></tr>
+      <tr><td style="padding:10px 8px;color:#7A6F65;border-bottom:1px solid #eee;">Naissance</td><td style="padding:10px 8px;border-bottom:1px solid #eee;">${dateNaissance}</td></tr>
+      <tr><td style="padding:10px 8px;color:#7A6F65;">Thème</td><td style="padding:10px 8px;">${themeChoisi}</td></tr>
     </table>
-    <h3 style="font-size:15px;color:#3A3228;margin:0 0 14px;border-bottom:1px solid #eee;padding-bottom:8px;">Rapport</h3>
     <div style="font-size:13px;color:#3A3228;line-height:1.7;white-space:pre-wrap;">${report}</div>
   </div>
 </body>
 </html>`.trim();
 }
 
+function invalidPhotoEmailHtml(prenom) {
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  body{margin:0;padding:0;background:#fff;font-family:Georgia,serif;color:#3A3228}
+  .w{max-width:580px;margin:0 auto;padding:32px 24px;box-sizing:border-box}
+</style>
+</head>
+<body>
+<div class="w">
+  <div style="text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #E8E0D0">
+    <div style="font-size:26px;margin-bottom:10px">🌿</div>
+    <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9A84C;margin-bottom:6px">Ligne de Vie</div>
+    <div style="font-size:11px;color:#7A6F65">ma-ligne-de-vie.fr</div>
+  </div>
+  <p style="margin:0 0 6px;font-size:17px">Bonjour <strong>${prenom}</strong>,</p>
+  <p style="margin:0 0 24px;font-size:15px;line-height:1.85">
+    Nous avons bien reçu votre dossier, mais les photos transmises ne nous ont pas permis de réaliser votre analyse dans les meilleures conditions.
+  </p>
+  <p style="margin:0 0 32px;font-size:15px;line-height:1.85">
+    Merci de nous recontacter avec des photos de vos paumes de mains gauche et droite bien visibles.
+  </p>
+  <div style="background:#FBF6EC;border-radius:10px;border:1px solid #E8D9B0;padding:16px 18px;margin-bottom:32px">
+    <p style="margin:0;font-size:13px;color:#7A6F65;line-height:1.7">
+      💡 Conseil : paume ouverte face à l'objectif, lumière naturelle, fond neutre, lignes bien visibles.
+    </p>
+  </div>
+  <div style="padding-top:20px;border-top:1px solid #E8E0D0">
+    <p style="margin:0;font-size:13px;color:#7A6F65;line-height:1.7;font-style:italic">
+      Nous restons à votre disposition.<br>
+      <strong>Votre expert — Ligne de Vie 🌿</strong>
+    </p>
+  </div>
+</div>
+</body>
+</html>`.trim();
+}
+
 export async function POST(req) {
   try {
-    const { email } = await req.json();
-    if (!email) return NextResponse.json({ error: "Email manquant." }, { status: 400 });
+    const body = await req.json();
 
-    const redis = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
-    const jobRaw = await redis.get(`free_job:${email}`);
-    if (!jobRaw) return NextResponse.json({ error: "Job introuvable." }, { status: 404 });
+    // Cas photos invalides
+    if (body.type === "invalid_photos") {
+      const { prenom, nom, email } = body;
+      const resend = getResendClient();
+      await Promise.all([
+        resend.emails.send({ from: FROM_EMAIL, to: email, subject: "Votre dossier Ligne de Vie", html: invalidPhotoEmailHtml(prenom) }),
+        resend.emails.send({ from: FROM_EMAIL, to: ADMIN_EMAIL, subject: `⚠️ Photos invalides — ${prenom} ${nom}`, html: `<p style="font-family:sans-serif">Photos invalides envoyées par <strong>${prenom} ${nom}</strong> (${email}). Aucune analyse générée.</p>` }),
+      ]);
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
 
-    const { prenom, nom, dateNaissance, themeChoisi, leftPath, rightPath } = JSON.parse(jobRaw);
-    await redis.del(`free_job:${email}`);
+    // Cas analyse normale
+    const { prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath } = body;
+    if (!prenom || !email || !leftPath || !rightPath) {
+      return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
+    }
 
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
-    const client   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
+    const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
     const resend   = getResendClient();
 
     const age     = calculerAge(dateNaissance);
@@ -172,16 +220,16 @@ RÈGLES :
 - Jamais de généralités vagues
 - Pas de mention d'IA ou d'automatisation`;
 
-    const { data: leftData, error: leftErr } = await supabase.storage.from(BUCKET).download(leftPath);
+    const { data: leftData,  error: leftErr  } = await supabase.storage.from(BUCKET).download(leftPath);
     const { data: rightData, error: rightErr } = await supabase.storage.from(BUCKET).download(rightPath);
     if (leftErr || rightErr) throw new Error("Erreur download Supabase");
 
-    const leftB64  = Buffer.from(await leftData.arrayBuffer()).toString("base64");
-    const rightB64 = Buffer.from(await rightData.arrayBuffer()).toString("base64");
+    const leftB64   = Buffer.from(await leftData.arrayBuffer()).toString("base64");
+    const rightB64  = Buffer.from(await rightData.arrayBuffer()).toString("base64");
     const leftMime  = mimeFromPath(leftPath);
     const rightMime = mimeFromPath(rightPath);
 
-    const resp = await client.responses.create({
+    const resp = await openai.responses.create({
       model: "gpt-4.1-mini",
       max_output_tokens: 4000,
       input: [{
