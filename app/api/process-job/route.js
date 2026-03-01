@@ -5,21 +5,13 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { getEnv } from "../../../lib/env";
 import { getResendClient } from "../../../lib/resend";
-import { generateReport, sendEmails, cleanupImages, invalidPhotoEmailHtml } from "../../../lib/report";
-
-const ADMIN_EMAIL = "karim.soualem@gmail.com";
-const FROM_EMAIL  = "contact@ma-ligne-de-vie.fr";
-
-function getEnv(name) {
-  const v = process.env[name];
-  return v && v.trim() ? v.trim() : null;
-}
+import { generateReport, sendEmails, cleanupImages, invalidPhotoEmailHtml, ADMIN_EMAIL, FROM_EMAIL } from "../../../lib/report";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-
+    const body     = await req.json();
     const resend   = getResendClient();
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
     const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
