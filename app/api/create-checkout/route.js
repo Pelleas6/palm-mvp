@@ -117,6 +117,65 @@ function adminEmailHtml(prenom, nom, email, dateNaissance, themeChoisi, report) 
 </html>`.trim();
 }
 
+function invalidPhotoEmailHtml(prenom) {
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  body{margin:0;padding:0;background:#fff;font-family:Georgia,serif;-webkit-text-size-adjust:100%;color:#3A3228}
+  .w{max-width:580px;margin:0 auto;padding:32px 24px;box-sizing:border-box}
+</style>
+</head>
+<body>
+<div class="w">
+  <div style="text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid #E8E0D0">
+    <div style="font-size:26px;margin-bottom:10px">🌿</div>
+    <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#C9A84C;margin-bottom:6px">Ligne de Vie</div>
+    <div style="font-size:11px;color:#7A6F65">ma-ligne-de-vie.fr</div>
+  </div>
+  <p style="margin:0 0 6px;font-size:17px">Bonjour <strong>${prenom}</strong>,</p>
+  <p style="margin:0 0 24px;font-size:15px;color:#3A3228;line-height:1.85">
+    Nous avons bien reçu votre dossier, mais les photos transmises ne nous ont pas permis de réaliser votre analyse dans les meilleures conditions.
+  </p>
+  <p style="margin:0 0 32px;font-size:15px;color:#3A3228;line-height:1.85">
+    Merci de nous recontacter avec des photos de vos paumes de mains gauche et droite bien visibles.
+  </p>
+  <div style="background:#FBF6EC;border-radius:10px;border:1px solid #E8D9B0;padding:16px 18px;margin-bottom:32px">
+    <p style="margin:0;font-size:13px;color:#7A6F65;line-height:1.7">
+      💡 Conseil : paume ouverte face à l'objectif, lumière naturelle, fond neutre, lignes bien visibles.
+    </p>
+  </div>
+  <div style="padding-top:20px;border-top:1px solid #E8E0D0">
+    <p style="margin:0;font-size:13px;color:#7A6F65;line-height:1.7;font-style:italic">
+      Nous restons à votre disposition.<br>
+      <strong>Votre expert — Ligne de Vie 🌿</strong>
+    </p>
+  </div>
+  <p style="margin:28px 0 0;font-size:11px;color:#7A6F65;text-align:center;letter-spacing:.04em">© 2026 Ligne de Vie · Confidentiel · Personnalisé · Sérieux</p>
+</div>
+</body>
+</html>`.trim();
+}
+
+async function validateImages(client, leftB64, rightB64, leftMime, rightMime) {
+  const resp = await client.responses.create({
+    model: "gpt-4.1-mini",
+    max_output_tokens: 10,
+    input: [{
+      role: "user",
+      content: [
+        { type: "input_text", text: "Ces deux images montrent-elles bien des paumes de mains humaines (une main gauche et une main droite) ? Réponds uniquement par OUI ou NON." },
+        { type: "input_image", image_url: `data:${leftMime};base64,${leftB64}` },
+        { type: "input_image", image_url: `data:${rightMime};base64,${rightB64}` },
+      ],
+    }],
+  });
+  const answer = (resp.output_text || "").trim().toUpperCase();
+  return answer.startsWith("OUI");
+}
+
 async function runAnalysis(prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath) {
   const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
   const client   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
@@ -169,6 +228,20 @@ RÈGLES :
   const rightB64  = Buffer.from(await rightData.arrayBuffer()).toString("base64");
   const leftMime  = mimeFromPath(leftPath);
   const rightMime = mimeFromPath(rightPath);
+
+  // Validation des images
+  const imagesValides = await validateImages(client, leftB64, rightB64, leftMime, rightMime);
+  if (!imagesValides) {
+    await Promise.all([
+      resend.emails.send({ from: FROM_EMAIL, to: email, subject: "Votre dossier Ligne de Vie", html: invalidPhotoEmailHtml(prenom) }),
+      resend.emails.send({ from: FROM_EMAIL, to: ADMIN_EMAIL, subject: `⚠️ Photos invalides — ${prenom} ${nom}`, html: `<p>Photos invalides envoyées par ${prenom} ${nom} (${email}). Aucune analyse générée.</p>` }),
+    ]);
+    await Promise.allSettled([
+      supabase.storage.from(BUCKET).remove([leftPath]),
+      supabase.storage.from(BUCKET).remove([rightPath]),
+    ]);
+    return;
+  }
 
   const resp = await client.responses.create({
     model: "gpt-4.1-mini",
