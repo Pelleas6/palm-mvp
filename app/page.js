@@ -202,11 +202,11 @@ export default function Home() {
 
         {/* Colonne gauche */}
         <div style={{ minWidth:0, overflowWrap:"break-word" }}>
-          <div style={{ display:"inline-flex", alignItems:"center", gap:10, fontSize:11, fontWeight:700, color:theme.gold, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:16 }}>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:10, fontSize:13, fontWeight:700, color:theme.gold, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:16 }}>
             <span style={{ width:6, height:6, borderRadius:6, backgroundColor:theme.gold, opacity:0.9 }} />
             ✦ Lecture sérieuse · personnalisée · confidentielle
           </div>
-          <h1 style={{ fontSize:44, fontWeight:700, color:theme.text, lineHeight:1.2, margin:"0 0 18px" }}>Découvrez ce que votre ligne de vie révèle de vous</h1>
+          <h1 style={{ fontSize:36, fontWeight:700, color:theme.text, lineHeight:1.2, margin:"0 0 18px" }}>Découvrez ce que votre ligne de vie révèle de vous</h1>
           <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 20px" }}>Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.</p>
           <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 20px" }}>Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles et ce que la vie vous a donné à la naissance.</p>
           <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 20px" }}>La main droite reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous.</p>
@@ -219,7 +219,7 @@ export default function Home() {
 
           <div id="comment" style={{ marginTop:10 }}>
             <div style={{ marginBottom:22 }}>
-              <div style={{ fontSize:11, letterSpacing:"0.14em", textTransform:"uppercase", color:theme.gold, marginBottom:10 }}>✦ Votre analyse en trois étapes</div>
+              <div style={{ fontSize:13, letterSpacing:"0.06em", textTransform:"uppercase", color:theme.gold, marginBottom:10 }}>✦ Votre analyse en trois étapes</div>
               <div style={{ fontSize:15, color:theme.textLight, lineHeight:1.7, maxWidth:520 }}>Chaque analyse est réalisée individuellement. Aucune lecture générique.</div>
             </div>
             <div style={{ position:"relative", paddingLeft:36, display:"flex", flexDirection:"column", gap:22 }}>
