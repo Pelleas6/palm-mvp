@@ -130,7 +130,7 @@ export default function Home() {
       if (!leftPut.ok || !rightPut.ok)
         throw new Error("Erreur upload Supabase — left:" + leftPut.status + " right:" + rightPut.status);
 
-      // 2. Créer session Stripe et rediriger
+      // 2. Créer session Stripe ou analyse directe selon PAYMENT_ENABLED
       const checkoutRes = await fetch("/api/create-checkout", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath }),
@@ -138,8 +138,14 @@ export default function Home() {
       const checkoutData = await safeJson(checkoutRes);
       if (!checkoutRes.ok) throw new Error("CHECKOUT ERROR\n" + JSON.stringify(checkoutData, null, 2));
 
-      // Redirection vers Stripe
-      window.location.href = checkoutData.url;
+      if (checkoutData.free) {
+        // Mode gratuit — analyse lancée directement
+        setResult("MAIL_CONFIRMATION");
+        setLeftFile(null); setRightFile(null);
+      } else {
+        // Redirection vers Stripe
+        window.location.href = checkoutData.url;
+      }
 
     } catch (err) { setError(String(err?.message || err)); setLoading(false); }
   }
