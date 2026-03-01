@@ -7,6 +7,7 @@ import Stripe from "stripe";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import { getResendClient } from "../../../lib/resend";
+import { Redis } from "@upstash/redis";
 
 const BUCKET = "palm-uploads";
 const ADMIN_EMAIL = "karim.soualem@gmail.com";
@@ -227,6 +228,19 @@ export async function POST(req) {
   }
 
   try {
+    // Vérifier que l'email a bien été validé par OTP
+    const redisUrl   = getEnv("UPSTASH_REDIS_REST_URL");
+    const redisToken = getEnv("UPSTASH_REDIS_REST_TOKEN");
+    if (redisUrl && redisToken) {
+      const redis = new Redis({ url: redisUrl, token: redisToken });
+      const verified = await redis.get(`otp_verified:${email}`);
+      if (!verified) {
+        console.error("Email non vérifié par OTP :", email);
+        return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
+      }
+      await redis.del(`otp_verified:${email}`); // usage unique
+    }
+
     const supabaseUrl  = getEnv("SUPABASE_URL");
     const supabaseKey  = getEnv("SUPABASE_SERVICE_ROLE_KEY");
     const openaiKey    = getEnv("OPENAI_API_KEY");
