@@ -30,7 +30,7 @@ function mimeFromPath(path) {
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
   const resp = await openai.responses.create({
     model: "gpt-4.1-mini",
-    max_output_tokens: 10,
+    max_output_tokens: 18,
     input: [{
       role: "user",
       content: [
