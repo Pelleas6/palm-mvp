@@ -152,7 +152,13 @@ Focus approfondi sur le thème choisi. Insights concrets et personnalisés.
 2-3 pistes concrètes et bienveillantes pour avancer sur ce thème.
 
 ---
-*Rapport d'analyse morphologique préparé avec soin.*
+
+## Mot de votre expert
+Terminez le rapport par ce message chaleureux, personnel et bienveillant, en une ou deux phrases naturelles adaptées au thème et à ce que vous avez observé chez ${prenom}. Puis concluez toujours par :
+
+*J'espère que cette lecture vous aura apporté un éclairage utile. Prenez soin de vous.*
+
+*Votre expert — Ligne de Vie 🌿*
 
 RÈGLES :
 - Utilise uniquement ce qui est visible sur les photos
