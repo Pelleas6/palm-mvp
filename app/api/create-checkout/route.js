@@ -292,16 +292,16 @@ export async function POST(req) {
     // Vérifier OTP
     const verified = await redis.get(`otp_verified:${email}`);
     if (!verified) return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
-    await redis.del(`otp_verified:${email}`);
 
     // Mode gratuit — analyse directe
     const paymentEnabled = getEnv("PAYMENT_ENABLED");
     if (paymentEnabled === "false") {
       await runAnalysis(prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath);
+      await redis.del(`otp_verified:${email}`); // supprimer seulement après succès
       return NextResponse.json({ free: true }, { status: 200 });
     }
 
-    // Mode payant — créer session Stripe
+    // Mode payant — créer session Stripe (on garde la clé, le webhook la supprimera)
     const stripeSecret = getEnv("STRIPE_SECRET_KEY");
     if (!stripeSecret) return NextResponse.json({ error: "Stripe non configuré." }, { status: 500 });
 
