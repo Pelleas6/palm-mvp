@@ -12,24 +12,22 @@ import { getEnv } from "../../../lib/env";
 import { mimeFromPath, BUCKET } from "../../../lib/report";
 
 const BASE_URL = "https://ma-ligne-de-vie.fr";
-
-// 0 = immédiat (test), 86400 = 24h (prod)
 const DELAY_SECONDS = 0;
 
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
-  const resp = await openai.responses.create({
-    model: "gpt-4.1-mini",
-    max_output_tokens: 16,
-    input: [{
+  const resp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 16,
+    messages: [{
       role: "user",
       content: [
-        { type: "input_text", text: "Ces deux images montrent-elles bien des paumes de mains humaines (une main gauche et une main droite) ? Réponds uniquement par OUI ou NON." },
-        { type: "input_image", image_url: `data:${leftMime};base64,${leftB64}` },
-        { type: "input_image", image_url: `data:${rightMime};base64,${rightB64}` },
+        { type: "text",      text: "Ces deux images montrent-elles bien des paumes de mains humaines (une main gauche et une main droite) ? Réponds uniquement par OUI ou NON." },
+        { type: "image_url", image_url: { url: `data:${leftMime};base64,${leftB64}` } },
+        { type: "image_url", image_url: { url: `data:${rightMime};base64,${rightB64}` } },
       ],
     }],
   });
-  return (resp.output_text || "").trim().toUpperCase().startsWith("OUI");
+  return (resp.choices[0].message.content || "").trim().toUpperCase().startsWith("OUI");
 }
 
 export async function POST(req) {
@@ -43,12 +41,10 @@ export async function POST(req) {
       return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
     }
 
-    // Vérifier OTP (désactivé temporairement)
     const redis = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
     // const verified = await redis.get(`otp_verified:${email}`);
     // if (!verified) return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
 
-    // Valider les images
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
     const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
 
@@ -77,10 +73,8 @@ export async function POST(req) {
       return NextResponse.json({ free: true }, { status: 200 });
     }
 
-    // Images valides — consommer OTP
     await redis.del(`otp_verified:${email}`);
 
-    // Mode gratuit — publier job QStash
     const paymentEnabled = getEnv("PAYMENT_ENABLED");
     if (paymentEnabled === "false") {
       const qstash = new QStash({ token: getEnv("QSTASH_TOKEN") });
@@ -92,7 +86,6 @@ export async function POST(req) {
       return NextResponse.json({ free: true }, { status: 200 });
     }
 
-    // Mode payant — créer session Stripe
     const stripe  = new Stripe(getEnv("STRIPE_SECRET_KEY"));
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -115,6 +108,6 @@ export async function POST(req) {
 
   } catch (e) {
     console.error("create-checkout error:", e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
   }
 }
