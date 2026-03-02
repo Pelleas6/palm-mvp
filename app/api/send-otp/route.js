@@ -2,10 +2,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { randomInt } from "crypto";
 import { Redis } from "@upstash/redis";
+import { getEnv } from "../../../lib/env";
 import { getResendClient } from "../../../lib/resend";
-
-const FROM_EMAIL = "contact@ma-ligne-de-vie.fr";
+import { FROM_EMAIL } from "../../../lib/report";
 
 const ALLOWED_DOMAINS = new Set([
   // International
@@ -28,13 +29,8 @@ const ALLOWED_DOMAINS = new Set([
   "wp.pl", "o2.pl",
 ]);
 
-function getEnv(name) {
-  const v = process.env[name];
-  return v && v.trim() ? v.trim() : null;
-}
-
 function generateOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000)); // cryptographiquement sûr
 }
 
 function otpEmailHtml(otp) {
@@ -86,12 +82,12 @@ export async function POST(req) {
     const domain = email.split("@")[1];
     if (!ALLOWED_DOMAINS.has(domain)) {
       return NextResponse.json(
-        { error: `Merci d'utiliser une adresse email personnelle valide (Gmail, Outlook, Yahoo…)` },
+        { error: "Merci d'utiliser une adresse email personnelle valide (Gmail, Outlook, Yahoo…)" },
         { status: 422 }
       );
     }
 
-    const redisUrl = getEnv("UPSTASH_REDIS_REST_URL");
+    const redisUrl   = getEnv("UPSTASH_REDIS_REST_URL");
     const redisToken = getEnv("UPSTASH_REDIS_REST_TOKEN");
     if (!redisUrl || !redisToken) {
       return NextResponse.json({ error: "Configuration Redis manquante." }, { status: 500 });
@@ -100,19 +96,18 @@ export async function POST(req) {
     const redis = new Redis({ url: redisUrl, token: redisToken });
 
     // Anti-spam désactivé temporairement pour les tests
-    // const spamKey = `otp_spam:${email}`;
+    // const spamKey   = `otp_spam:${email}`;
     // const spamCount = await redis.incr(spamKey);
     // if (spamCount === 1) await redis.expire(spamKey, 3600);
-    // if (spamCount > 3) { return NextResponse.json({ error: "Trop de tentatives." }, { status: 429 }); }
+    // if (spamCount > 3) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans 1 heure." }, { status: 429 });
 
     const otp = generateOtp();
-    const otpKey = `otp:${email}`;
-    await redis.set(otpKey, otp, { ex: 600 }); // expire dans 10 min
+    await redis.set(`otp:${email}`, otp, { ex: 600 });
 
     const resend = getResendClient();
     const { error: mailError } = await resend.emails.send({
       from: FROM_EMAIL,
-      to: email,
+      to:   email,
       subject: "Votre code de vérification — Ligne de Vie",
       html: otpEmailHtml(otp),
     });
@@ -126,6 +121,6 @@ export async function POST(req) {
 
   } catch (e) {
     console.error("send-otp error:", e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ error: "Une erreur est survenue. Contactez-nous." }, { status: 500 });
   }
 }
