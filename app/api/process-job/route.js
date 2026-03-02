@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
@@ -16,7 +16,6 @@ export async function POST(req) {
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
     const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
 
-    // Cas photos invalides
     if (body.type === "invalid_photos") {
       const { prenom, nom, email } = body;
       await Promise.all([
@@ -26,7 +25,6 @@ export async function POST(req) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    // Cas analyse normale
     const { prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath } = body;
     if (!prenom || !email || !leftPath || !rightPath) {
       return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
@@ -40,6 +38,6 @@ export async function POST(req) {
 
   } catch (e) {
     console.error("process-job error:", e);
-    return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
+    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
   }
 }
