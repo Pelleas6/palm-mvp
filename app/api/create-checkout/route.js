@@ -16,7 +16,7 @@ const DELAY_SECONDS = 0;
 
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
   const resp = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-4.1",
     max_tokens: 16,
     messages: [{
       role: "user",
