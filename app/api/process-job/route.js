@@ -40,6 +40,6 @@ export async function POST(req) {
 
   } catch (e) {
     console.error("process-job error:", e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
   }
 }
