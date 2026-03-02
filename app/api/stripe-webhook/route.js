@@ -7,13 +7,9 @@ import Stripe from "stripe";
 import { Redis } from "@upstash/redis";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { getEnv } from "../../../lib/env";
 import { getResendClient } from "../../../lib/resend";
 import { generateReport, sendEmails, cleanupImages } from "../../../lib/report";
-
-function getEnv(name) {
-  const v = process.env[name];
-  return v && v.trim() ? v.trim() : null;
-}
 
 export async function POST(req) {
   const stripeSecret  = getEnv("STRIPE_SECRET_KEY");
@@ -42,13 +38,23 @@ export async function POST(req) {
   const { prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath } = session.metadata || {};
 
   if (!prenom || !nom || !email || !dateNaissance || !themeChoisi || !leftPath || !rightPath) {
-    console.error("Metadata manquante dans la session Stripe");
+    console.error("Metadata manquante dans la session Stripe:", session.id);
     return NextResponse.json({ error: "Metadata manquante." }, { status: 400 });
   }
 
+  const redis = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
+
+  // Idempotence — évite les doublons si Stripe rejoue le webhook
+  const doneKey    = `stripe_done:${session.id}`;
+  const alreadyDone = await redis.get(doneKey);
+  if (alreadyDone) {
+    console.log("Webhook déjà traité:", session.id);
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
+  await redis.set(doneKey, "1", { ex: 86400 * 7 }); // garde 7 jours
+
   try {
     // Vérifier OTP
-    const redis    = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
     const verified = await redis.get(`otp_verified:${email}`);
     if (!verified) {
       console.error("Email non vérifié par OTP :", email);
@@ -68,6 +74,8 @@ export async function POST(req) {
 
   } catch (e) {
     console.error("Webhook analyze error:", e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    // En cas d'erreur, on supprime la clé d'idempotence pour que Stripe puisse retenter
+    await redis.del(doneKey);
+    return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
   }
 }
