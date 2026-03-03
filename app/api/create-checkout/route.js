@@ -17,17 +17,23 @@ const DELAY_SECONDS = 0;
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
   const resp = await openai.chat.completions.create({
     model: "gpt-4.1",
-    max_tokens: 16,
+    max_tokens: 20,
     messages: [{
       role: "user",
       content: [
-        { type: "text",      text: "Ces deux images montrent-elles bien des paumes de mains humaines (une main gauche et une main droite) ? Réponds uniquement par OUI ou NON." },
+        { type: "text",      text: "Ces deux images montrent-elles des paumes de mains humaines clairement exploitables pour une lecture (peu importe l'ordre gauche/droite) ? Réponds uniquement par OUI ou NON." },
         { type: "image_url", image_url: { url: `data:${leftMime};base64,${leftB64}` } },
         { type: "image_url", image_url: { url: `data:${rightMime};base64,${rightB64}` } },
       ],
     }],
   });
-  return (resp.choices[0].message.content || "").trim().toUpperCase().startsWith("OUI");
+
+  const answer = (resp.choices[0].message.content || "").trim().toUpperCase();
+  if (answer.startsWith("NON")) return false;
+  if (answer.startsWith("OUI")) return true;
+
+  // En cas de réponse imprécise, on évite de bloquer à tort une analyse valide.
+  return true;
 }
 
 export async function POST(req) {
@@ -57,7 +63,13 @@ export async function POST(req) {
     const leftMime  = mimeFromPath(leftPath);
     const rightMime = mimeFromPath(rightPath);
 
-    const imagesValides = await validateImages(openai, leftB64, rightB64, leftMime, rightMime);
+    let imagesValides = true;
+    try {
+      imagesValides = await validateImages(openai, leftB64, rightB64, leftMime, rightMime);
+    } catch (e) {
+      console.error("Validation IA photos échouée, passage en mode permissif:", e);
+      imagesValides = true;
+    }
 
     if (!imagesValides) {
       await Promise.allSettled([
