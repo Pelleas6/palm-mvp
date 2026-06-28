@@ -47,21 +47,18 @@ export async function POST(req) {
   }
 
   try {
-    const redis    = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
-    const verified = await redis.get(`otp_verified:${email}`);
-    if (!verified) {
-      console.error("Email non vérifié par OTP :", email);
-      return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
-    }
-    await redis.del(`otp_verified:${email}`);
+    const requestData = await redis.get(`request:${requestId}`);
+    if (!requestData) throw new Error("Request non trouvée.");
+    const { email, leftPath, rightPath, theme } = JSON.parse(requestData);
 
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
     const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
     const resend   = getResendClient();
 
-    const report = await generateReport(supabase, openai, prenom, dateNaissance, themeChoisi, leftPath, rightPath);
-    await sendEmails(resend, prenom, nom, email, dateNaissance, themeChoisi, report);
+    const report = await generateReport(supabase, openai, "Client", "2000-01-01", theme, leftPath, rightPath);
+    await sendEmails(resend, "Client", "Client", email, "2000-01-01", theme, report);
     await cleanupImages(supabase, leftPath, rightPath);
+    await redis.del(`request:${requestId}`);
 
     return NextResponse.json({ ok: true }, { status: 200 });
 

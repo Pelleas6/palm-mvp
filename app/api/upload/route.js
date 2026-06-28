@@ -36,10 +36,23 @@ function rnd(len = 10) {
 }
 
 export async function POST(req) {
+  const sessionId = req.cookies.get("palm_session")?.value;
+  if (!sessionId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  
+  const origin = req.headers.get("origin") || req.headers.get("referer");
+  const allowedOrigin = getEnv("SITE_URL") || "https://ma-ligne-de-vie.fr";
+  if (origin && !origin.startsWith(allowedOrigin.replace(/\/$/, "")) && !origin.startsWith("http://localhost:")) {
+     return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
+  }
+
+  const sessionData = await redis.get(`session:${sessionId}`);
+  if (!sessionData) return NextResponse.json({ error: "Session expired" }, { status: 401 });
+  const session = JSON.parse(sessionData);
+
   const supabaseUrl = getEnv("SUPABASE_URL");
   const supabaseKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" }, { status: 500 });
+    return NextResponse.json({ error: "Missing configuration" }, { status: 500 });
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
@@ -71,8 +84,12 @@ export async function POST(req) {
 
   const dateFolder = ymd();
   const stamp      = Date.now();
+  const crypto     = require("crypto");
+  const requestId  = crypto.randomBytes(16).toString("hex");
   const leftPath   = `uploads/${dateFolder}/${stamp}_${rnd()}_left_${safeName(left.name)}.${extFromType(left.type)}`;
   const rightPath  = `uploads/${dateFolder}/${stamp}_${rnd()}_right_${safeName(right.name)}.${extFromType(right.type)}`;
+  
+  await redis.set(`request:${requestId}`, JSON.stringify({ email: session.email, leftPath, rightPath, status: "signed" }), { ex: 86400 });
 
   const { data: leftSigned,  error: leftErr  } = await supabase.storage.from(BUCKET).createSignedUploadUrl(leftPath);
   if (leftErr || !leftSigned?.signedUrl) {
@@ -85,6 +102,7 @@ export async function POST(req) {
   }
 
   return NextResponse.json({
+    requestId,
     leftPath,
     rightPath,
     leftSignedUrl:  leftSigned.signedUrl,

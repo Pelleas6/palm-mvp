@@ -1,0 +1,6 @@
+node_modules/
+.next/
+.env*
+*.bak-*
+app/**/*.bak-*
+node_modules/\n.next/\n.env*\n*.bak-*\napp/**/*.bak-*

@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getEnv } from "../../../lib/env";
 import { mimeFromPath, BUCKET } from "../../../lib/report";
 
-const BASE_URL = "https://ma-ligne-de-vie.fr";
+const BASE_URL = "process.env.SITE_URL";
 const DELAY_SECONDS = 0;
 
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
@@ -37,31 +37,37 @@ async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
 }
 
 export async function POST(req) {
+  const sessionId = req.cookies.get("palm_session")?.value;
+  if (!sessionId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  
+  const origin = req.headers.get("origin") || req.headers.get("referer");
+  const allowedOrigin = getEnv("SITE_URL") || "process.env.SITE_URL";
+  if (origin && !origin.startsWith(allowedOrigin.replace(/\/$/, "")) && !origin.startsWith("http://localhost:")) {
+     return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
+  }
+
   try {
     let body;
     try { body = await req.json(); }
     catch { return NextResponse.json({ error: "JSON invalide." }, { status: 400 }); }
 
-    const { prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath } = body;
-    if (!prenom || !nom || !email || !dateNaissance || !themeChoisi || !leftPath || !rightPath) {
-      return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
-    }
+    const { requestId, prenom, nom, dateNaissance, themeChoisi } = body;
+    const requestData = await redis.get(`request:${requestId}`);
+    if (!requestData) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    const request = JSON.parse(requestData);
+    if (request.email !== session.email) return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
 
-    const redis = new Redis({ url: getEnv("UPSTASH_REDIS_REST_URL"), token: getEnv("UPSTASH_REDIS_REST_TOKEN") });
-    // const verified = await redis.get(`otp_verified:${email}`);
-    // if (!verified) return NextResponse.json({ error: "Email non vérifié." }, { status: 403 });
-
-    const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
+    const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"));
     const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
 
-    const { data: leftData,  error: leftErr  } = await supabase.storage.from(BUCKET).download(leftPath);
-    const { data: rightData, error: rightErr } = await supabase.storage.from(BUCKET).download(rightPath);
+    const { data: leftData,  error: leftErr  } = await supabase.storage.from(BUCKET).download(request.leftPath);
+    const { data: rightData, error: rightErr } = await supabase.storage.from(BUCKET).download(request.rightPath);
     if (leftErr || rightErr) return NextResponse.json({ error: "Erreur lecture images." }, { status: 500 });
 
     const leftB64   = Buffer.from(await leftData.arrayBuffer()).toString("base64");
     const rightB64  = Buffer.from(await rightData.arrayBuffer()).toString("base64");
-    const leftMime  = mimeFromPath(leftPath);
-    const rightMime = mimeFromPath(rightPath);
+    const leftMime  = mimeFromPath(request.leftPath);
+    const rightMime = mimeFromPath(request.rightPath);
 
     let imagesValides = true;
     try {
@@ -73,50 +79,38 @@ export async function POST(req) {
 
     if (!imagesValides) {
       await Promise.allSettled([
-        supabase.storage.from(BUCKET).remove([leftPath]),
-        supabase.storage.from(BUCKET).remove([rightPath]),
+        supabase.storage.from(BUCKET).remove([request.leftPath]),
+        supabase.storage.from(BUCKET).remove([request.rightPath]),
       ]);
-      const qstash = new QStash({ token: getEnv("QSTASH_TOKEN") });
-      await qstash.publishJSON({
-        url: `${BASE_URL}/api/process-job`,
-        body: { type: "invalid_photos", prenom, nom, email },
-        delay: 0,
-      });
       return NextResponse.json({ free: true }, { status: 200 });
     }
-
-    await redis.del(`otp_verified:${email}`);
 
     const paymentEnabled = getEnv("PAYMENT_ENABLED");
     if (paymentEnabled === "false") {
       const qstash = new QStash({ token: getEnv("QSTASH_TOKEN") });
       await qstash.publishJSON({
         url: `${BASE_URL}/api/process-job`,
-        body: { type: "analyze", prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath },
+        body: { type: "analyze", prenom, nom, email: request.email, dateNaissance, themeChoisi, leftPath: request.leftPath, rightPath: request.rightPath },
         delay: DELAY_SECONDS,
       });
       return NextResponse.json({ free: true }, { status: 200 });
     }
 
     const stripe  = new Stripe(getEnv("STRIPE_SECRET_KEY"));
-    const session = await stripe.checkout.sessions.create({
+    const session_stripe = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
-        price_data: {
-          currency: "eur",
-          product_data: { name: "Analyse de ligne de vie", description: `Rapport personnalisé — thème : ${themeChoisi}` },
-          unit_amount: 2999,
-        },
+        price: getEnv("STRIPE_PRICE_ID"),
         quantity: 1,
       }],
       mode: "payment",
-      customer_email: email,
+      customer_email: request.email,
       success_url: `${BASE_URL}/merci?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${BASE_URL}/?cancelled=1`,
-      metadata: { prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath },
+      metadata: { requestId },
     });
 
-    return NextResponse.json({ url: session.url }, { status: 200 });
+    return NextResponse.json({ url: session_stripe.url }, { status: 200 });
 
   } catch (e) {
     console.error("create-checkout error:", e);
