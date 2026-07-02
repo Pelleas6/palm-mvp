@@ -5,7 +5,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Redis } from "@upstash/redis";
-import OpenAI from "openai";
+import { getOpenAIClient } from "../../../lib/openai-client.js";
 import { createClient } from "@supabase/supabase-js";
 import { getResendClient } from "../../../lib/resend";
 import { generateReport, sendEmails, cleanupImages } from "../../../lib/report";
@@ -39,24 +39,24 @@ export async function POST(req) {
   }
 
   const session = event.data.object;
-  const { prenom, nom, email, dateNaissance, themeChoisi, leftPath, rightPath } = session.metadata || {};
-
-  if (!prenom || !nom || !email || !dateNaissance || !themeChoisi || !leftPath || !rightPath) {
-    console.error("Metadata manquante dans la session Stripe");
-    return NextResponse.json({ error: "Metadata manquante." }, { status: 400 });
+  const requestId = session.metadata?.requestId;
+  
+  if (!requestId) {
+    console.error("No requestId in metadata");
+    return NextResponse.json({ error: "No requestId" }, { status: 400 });
   }
 
   try {
     const requestData = await redis.get(`request:${requestId}`);
     if (!requestData) throw new Error("Request non trouvée.");
-    const { email, leftPath, rightPath, theme } = JSON.parse(requestData);
+    const { email, prenom, nom, dateNaissance, theme, leftPath, rightPath } = JSON.parse(requestData);
 
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
-    const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
+    const openai   = getOpenAIClient();
     const resend   = getResendClient();
 
-    const report = await generateReport(supabase, openai, "Client", "2000-01-01", theme, leftPath, rightPath);
-    await sendEmails(resend, "Client", "Client", email, "2000-01-01", theme, report);
+    const report = await generateReport(supabase, openai, prenom, dateNaissance, theme, leftPath, rightPath);
+    await sendEmails(resend, prenom, nom, email, dateNaissance, theme, report);
     await cleanupImages(supabase, leftPath, rightPath);
     await redis.del(`request:${requestId}`);
 

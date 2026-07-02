@@ -8,7 +8,7 @@ import { Redis } from "@upstash/redis";
 import { Client as QStash } from "@upstash/qstash";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-import { getEnv } from "../../../lib/env";
+import { getEnv } from "./env.js";
 import { mimeFromPath, BUCKET } from "../../../lib/report";
 
 const BASE_URL = "process.env.SITE_URL";
