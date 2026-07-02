@@ -212,11 +212,9 @@ export default function Home() {
             <span style={{ width:6, height:6, borderRadius:6, backgroundColor:theme.gold, opacity:0.9 }} />
             ✦ Lecture sérieuse · personnalisée · confidentielle
           </div>
-          <h1 style={{ fontSize:36, fontWeight:700, color:theme.text, lineHeight:1.2, margin:"0 0 18px" }}>Découvrez ce que votre ligne de vie révèle de vous</h1>
-          <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 20px" }}>Une analyse personnalisée et approfondie de vos deux mains, orientée sur le thème qui vous tient le plus à cœur.</p>
-          <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 20px" }}>Chaque main raconte une histoire différente. La main gauche révèle votre potentiel inné, vos dispositions naturelles et ce que la vie vous a donné à la naissance.</p>
-          <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 20px" }}>La main droite reflète votre vécu, vos choix, les transformations que le temps a façonnées en vous.</p>
-          <p style={{ fontSize:16, color:theme.textLight, lineHeight:1.85, margin:"0 0 28px" }}>Lecture rigoureuse et bienveillante — basée uniquement sur ce qui est visible, orientée par le thème que vous choisissez.</p>
+          <h1 style={{ fontSize:48, fontWeight:400, fontFamily: "'Playfair Display', serif", color: "#2C2621", lineHeight:1.1, margin:"0 0 24px" }}>Découvrez ce que votre ligne de vie révèle de vous</h1>
+          <p style={{ fontSize:18, color: "#7A6F65", lineHeight:1.8, margin:"0 0 32px" }}>Une analyse personnalisée et approfondie de vos mains, orientée par votre intuition.</p>
+          <a href="#form-card" style={{ display: "inline-block", border: "1px solid #2C2621", padding: "14px 32px", color: "#2C2621", textDecoration: "none", fontSize: 14, textTransform: "uppercase", letterSpacing: "0.15em", transition: "all 0.3s" }}>Commencer l'analyse</a>
           <div style={{ display:"flex", flexWrap:"wrap", gap:10, marginBottom:34 }}>
             {["Analyse personnalisée","Réponse sous 24h","Confidentiel & sécurisé"].map((b) => (
               <span key={b} style={{ fontSize:12, color:theme.sage, border:`1px solid ${theme.sageBorder}`, backgroundColor:theme.sageLight, borderRadius:999, padding:"6px 14px" }}>{b}</span>
@@ -436,7 +434,7 @@ export default function Home() {
             </div>
             <div style={{ fontSize:14, lineHeight:1.85, color:theme.text }}>
               <p style={{ marginTop:0 }}>Merci. Votre demande est en cours d'étude.</p>
-              <p>Votre rapport personnalisé vous sera adressé par email sous 24h (hors dimanche).</p>
+              "Rapport personnalisé transmis sous 24h"
               <p style={{ marginBottom:0 }}>Pensez à vérifier vos courriers indésirables. Vos photos sont supprimées après traitement.</p>
             </div>
           </div>
