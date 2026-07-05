@@ -5,7 +5,7 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Redis } from "@upstash/redis";
-import { getOpenAIClient } from "../../../lib/openai-client.js";
+import { getGeminiClient } from "../../../lib/openai-client.js";
 import { createClient } from "@supabase/supabase-js";
 import { getResendClient } from "../../../lib/resend";
 import { generateReport, sendEmails, cleanupImages } from "../../../lib/report";
@@ -52,7 +52,7 @@ export async function POST(req) {
     const { email, prenom, nom, dateNaissance, theme, leftPath, rightPath } = JSON.parse(requestData);
 
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
-    const openai   = getOpenAIClient();
+    const openai   = getGeminiClient();
     const resend   = getResendClient();
 
     const report = await generateReport(supabase, openai, prenom, dateNaissance, theme, leftPath, rightPath);
