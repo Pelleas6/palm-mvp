@@ -136,15 +136,14 @@ export default function Home() {
       });
       const data = await safeJson(res);
       if (!res.ok) {
-        console.error("API Error Response:", data);
-        setEmailError(data?.error || "Erreur lors de l'envoi du code.");
+        setEmailError(data?.error || `Erreur serveur : ${res.status} ${res.statusText}`);
         return;
       }
       setOtpSent(true);
       setOtpSuccess("Code envoyé. Vérifiez votre boîte mail.");
     } catch (err) {
       console.error("OTP Send Error:", err);
-      setEmailError("Erreur réseau: " + err.message);
+      setEmailError("Erreur de connexion au serveur (réseau).");
     } finally {
       setOtpLoading(false);
     }
@@ -162,8 +161,7 @@ export default function Home() {
       });
       const data = await safeJson(res);
       if (!res.ok) {
-        console.error("API Error Response Verify:", data);
-        setOtpError(data?.error || "Code incorrect.");
+        setOtpError(data?.error || `Erreur serveur : ${res.status} ${res.statusText}`);
         return;
       }
       setOtpVerified(true);
@@ -171,7 +169,7 @@ export default function Home() {
       setOtpError(null);
     } catch (err) {
       console.error("OTP Verify Error:", err);
-      setOtpError("Erreur réseau: " + err.message);
+      setOtpError("Erreur de connexion au serveur (réseau).");
     } finally {
       setOtpLoading(false);
     }
