@@ -601,7 +601,8 @@ export default function Home() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 12, color: theme.text, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 18 }}>Infos</div>
             {[
-              { label: "Comment ça marche", href: "#comment" },
+              { label: "Comment ça marche ?", href: "/comment-ca-marche" },
+              { label: "Questions fréquentes (FAQ)", href: "/faq" },
               { label: "Commencer mon analyse", href: "#form-card" },
               { label: "Mentions légales", href: "/mentions-legales" },
               { label: "Confidentialité", href: "/confidentialite" },
