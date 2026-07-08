@@ -45,9 +45,7 @@ const seoPages = [
   { label: "Ligne de vie", href: "/" },
   { label: "Ligne de cœur", href: "/ligne-de-coeur" },
   { label: "Ligne de tête", href: "/ligne-de-tete" },
-  { label: "Lecture complète", href: "/lecture-complete-des-lignes-de-la-main" },
-  { label: "Ligne de vie cassée", href: "/signification-ligne-de-vie-cassee" },
-  { label: "Ligne de vie courte", href: "/ligne-de-vie-courte" },
+  { label: "Main gauche et droite", href: "/lecture-main-gauche-droite" },
 ];
 
 export default function Home() {
