@@ -16,6 +16,7 @@ function getEnv(name) {
 }
 
 export async function POST(req) {
+  const redis = new Redis({ url: getEnv("KV_REST_API_URL"), token: getEnv("KV_REST_API_TOKEN") });
   const stripeSecret  = getEnv("STRIPE_SECRET_KEY");
   const webhookSecret = getEnv("STRIPE_WEBHOOK_SECRET");
   if (!stripeSecret || !webhookSecret) {

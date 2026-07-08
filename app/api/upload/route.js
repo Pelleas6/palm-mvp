@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Redis } from "@upstash/redis";
 import { getEnv } from "../../../lib/env";
 import { BUCKET } from "../../../lib/report";
 
@@ -36,6 +37,7 @@ function rnd(len = 10) {
 }
 
 export async function POST(req) {
+  const redis = new Redis({ url: getEnv("KV_REST_API_URL"), token: getEnv("KV_REST_API_TOKEN") });
   const sessionId = req.cookies.get("palm_session")?.value;
   if (!sessionId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   

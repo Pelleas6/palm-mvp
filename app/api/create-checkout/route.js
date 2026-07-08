@@ -11,13 +11,13 @@ import { createClient } from "@supabase/supabase-js";
 import { getEnv } from "../../../lib/env.js";
 import { mimeFromPath, BUCKET } from "../../../lib/report";
 
-const BASE_URL = "process.env.SITE_URL";
+const BASE_URL = getEnv("SITE_URL");
 const DELAY_SECONDS = 0;
 
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
   const resp = await openai.chat.completions.create({
-    model: "gpt-4.1",
-    max_tokens: 20,
+  model: "gpt-4o",
+  max_tokens: 20,
     messages: [{
       role: "user",
       content: [
@@ -37,11 +37,12 @@ async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
 }
 
 export async function POST(req) {
+  const redis = new Redis({ url: getEnv("KV_REST_API_URL"), token: getEnv("KV_REST_API_TOKEN") });
   const sessionId = req.cookies.get("palm_session")?.value;
   if (!sessionId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
   const origin = req.headers.get("origin") || req.headers.get("referer");
-  const allowedOrigin = getEnv("SITE_URL") || "process.env.SITE_URL";
+  const allowedOrigin = getEnv("SITE_URL");
   if (origin && !origin.startsWith(allowedOrigin.replace(/\/$/, "")) && !origin.startsWith("http://localhost:")) {
      return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
   }
@@ -54,11 +55,15 @@ export async function POST(req) {
     const { requestId, prenom, nom, dateNaissance, themeChoisi } = body;
     const requestData = await redis.get(`request:${requestId}`);
     if (!requestData) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-    const request = JSON.parse(requestData);
+    const request = typeof requestData === 'string' ? JSON.parse(requestData) : requestData;
+    
+    const sessionData = await redis.get(`session:${sessionId}`);
+    const session = typeof sessionData === 'string' ? JSON.parse(sessionData) : sessionData;
+    
     if (request.email !== session.email) return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
 
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"));
-    const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
+        const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
 
     const { data: leftData,  error: leftErr  } = await supabase.storage.from(BUCKET).download(request.leftPath);
     const { data: rightData, error: rightErr } = await supabase.storage.from(BUCKET).download(request.rightPath);
