@@ -43,6 +43,10 @@ export default function FAQPage() {
     {
       q: "Comment bien photographier ma main ?",
       a: "Pour une analyse précise, nous avons besoin d'une photo claire, de bonne qualité et bien éclairée de la paume de chaque main. Placez votre main à plat, les doigts légèrement écartés, sous une lumière naturelle de préférence."
+    },
+    {
+      q: "Est-ce que mes données sont sécurisées ?",
+      a: "La protection de votre vie privée est notre priorité absolue. Vos photos ne sont utilisées que pour générer votre analyse, et aucune donnée personnelle ne sera partagée, publiée ou conservée au-delà de la durée nécessaire à votre service. L'ensemble du processus est sécurisé."
     }
   ];
 
