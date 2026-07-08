@@ -141,8 +141,9 @@ export default function Home() {
       }
       setOtpSent(true);
       setOtpSuccess("Code envoyé. Vérifiez votre boîte mail.");
-    } catch {
-      setEmailError("Erreur réseau. Réessayez.");
+    } catch (err) {
+      console.error("OTP Send Error:", err);
+      setEmailError("Erreur réseau: " + err.message);
     } finally {
       setOtpLoading(false);
     }
@@ -166,8 +167,9 @@ export default function Home() {
       setOtpVerified(true);
       setOtpSuccess("Email vérifié");
       setOtpError(null);
-    } catch {
-      setOtpError("Erreur réseau. Réessayez.");
+    } catch (err) {
+      console.error("OTP Verify Error:", err);
+      setOtpError("Erreur réseau: " + err.message);
     } finally {
       setOtpLoading(false);
     }
