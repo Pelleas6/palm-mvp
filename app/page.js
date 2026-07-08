@@ -136,6 +136,7 @@ export default function Home() {
       });
       const data = await safeJson(res);
       if (!res.ok) {
+        console.error("API Error Response:", data);
         setEmailError(data?.error || "Erreur lors de l'envoi du code.");
         return;
       }
@@ -161,6 +162,7 @@ export default function Home() {
       });
       const data = await safeJson(res);
       if (!res.ok) {
+        console.error("API Error Response Verify:", data);
         setOtpError(data?.error || "Code incorrect.");
         return;
       }

@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getEnv } from "../../../lib/env.js";
 import { mimeFromPath, BUCKET } from "../../../lib/report";
 
-const BASE_URL = getEnv("SITE_URL");
+const BASE_URL = getEnv("SITE_URL") || "https://ma-ligne-de-vie.fr";
 const DELAY_SECONDS = 0;
 
 async function validateImages(openai, leftB64, rightB64, leftMime, rightMime) {
@@ -42,7 +42,7 @@ export async function POST(req) {
   if (!sessionId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
   const origin = req.headers.get("origin") || req.headers.get("referer");
-  const allowedOrigin = getEnv("SITE_URL");
+  const allowedOrigin = getEnv("SITE_URL") || "https://ma-ligne-de-vie.fr";
   if (origin && !origin.startsWith(allowedOrigin.replace(/\/$/, "")) && !origin.startsWith("http://localhost:")) {
      return NextResponse.json({ error: "Forbidden origin" }, { status: 403 });
   }
@@ -63,7 +63,7 @@ export async function POST(req) {
     if (request.email !== session.email) return NextResponse.json({ error: "Unauthorized." }, { status: 403 });
 
     const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"));
-        const openai   = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
+    const openai = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
 
     const { data: leftData,  error: leftErr  } = await supabase.storage.from(BUCKET).download(request.leftPath);
     const { data: rightData, error: rightErr } = await supabase.storage.from(BUCKET).download(request.rightPath);
