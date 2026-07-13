@@ -383,20 +383,22 @@ export default function Home() {
               <div style={{ minWidth: 58, height: 58, borderRadius: 20, display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${theme.goldLight}, #fff)`, border: `1px solid ${theme.border}`, color: theme.goldDark, fontSize: 24 }}>✦</div>
             </div>
 
-            <div id="confiance" style={{ background: `linear-gradient(135deg, ${theme.sageLight}, #fff)`, borderRadius: 18, padding: "14px 16px", marginBottom: 20, border: `1px solid ${theme.sageBorder}` }}>
-              <div style={{ display: "grid", gap: 8, fontSize: 12, color: theme.text }}>
-                {[
-                  ["Paiement", "sécurisé"],
-                  ["Photos", "supprimées après analyse"],
-                  ["Lecture", "personnalisée, non générique"],
-                ].map(([label, value]) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                    <span style={{ color: theme.textLight }}>{label}</span>
-                    <span style={{ fontWeight: 800, color: theme.sageDark, textAlign: "right" }}>{value}</span>
-                  </div>
-                ))}
+            <a href="/confidentialite" style={{ textDecoration: "none", color: "inherit" }} className="focusable">
+              <div id="confiance" style={{ background: `linear-gradient(135deg, ${theme.sageLight}, #fff)`, borderRadius: 18, padding: "14px 16px", marginBottom: 20, border: `1px solid ${theme.sageBorder}` }}>
+                <div style={{ display: "grid", gap: 8, fontSize: 12, color: theme.text }}>
+                  {[
+                    ["Paiement", "sécurisé"],
+                    ["Photos", "supprimées après analyse"],
+                    ["Lecture", "personnalisée, non générique"],
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                      <span style={{ color: theme.textLight }}>{label}</span>
+                      <span style={{ fontWeight: 800, color: theme.sageDark, textAlign: "right" }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            </a>
 
             <form onSubmit={handleSubmit}>
               <div className="nameGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
