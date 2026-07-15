@@ -1,0 +1,154 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { createPulseCache, getWorldPulse } from "../lib/world-pulse.js";
+
+const FIXED_NOW = "2026-07-15T12:00:00.000Z";
+const FIVE_MINUTES_AND_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 301_000).toISOString();
+
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function textResponse(body, status = 200, contentType = "application/rss+xml") {
+  return new Response(body, {
+    status,
+    headers: { "content-type": contentType },
+  });
+}
+
+test("getWorldPulse returns GDELT as the primary source and deduplicates article links", async () => {
+  const cache = createPulseCache();
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(String(url));
+    return jsonResponse({
+      articles: [
+        {
+          url: "https://example.com/world/economy",
+          title: "Global economy and energy markets react",
+          domain: "example.com",
+          sourcecountry: "United States",
+          language: "English",
+          seendate: "20260715115900",
+          socialimage: "https://example.com/img.jpg",
+        },
+        {
+          url: "https://example.com/world/economy",
+          title: "Duplicate economy article",
+          domain: "example.com",
+          sourcecountry: "United States",
+          language: "English",
+          seendate: "20260715115800",
+        },
+      ],
+    });
+  };
+
+  const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
+
+  assert.equal(payload.state, "gdelt_ok");
+  assert.equal(payload.stateLabel, "GDELT OK");
+  assert.equal(payload.source.active, "gdelt");
+  assert.equal(payload.source.cached, false);
+  assert.equal(payload.counts.articles, 1);
+  assert.equal(payload.counts.domains, 1);
+  assert.equal(payload.counts.labels, 1);
+  assert.equal(payload.articles[0].label, "Économie");
+  assert.equal(payload.articles[0].labelType, "classification estimative");
+  assert.equal(calls.length, 1);
+});
+
+test("getWorldPulse serves a fresh server cache for at least five minutes", async () => {
+  const cache = createPulseCache();
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return jsonResponse({
+      articles: [
+        {
+          url: "https://cache.example/article",
+          title: "Technology signal from cache",
+          domain: "cache.example",
+          sourcecountry: "France",
+          language: "French",
+          seendate: "20260715115800",
+        },
+      ],
+    });
+  };
+
+  const first = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
+  const second = await getWorldPulse({ cache, fetchImpl, now: () => new Date(Date.parse(FIXED_NOW) + 299_000) });
+  const third = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIVE_MINUTES_AND_ONE_SECOND) });
+
+  assert.equal(first.source.cached, false);
+  assert.equal(second.source.cached, true);
+  assert.equal(second.cache.status, "hit");
+  assert.equal(second.freshnessSeconds, 299);
+  assert.equal(third.source.cached, false);
+  assert.equal(calls, 2);
+});
+
+test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates RSS links", async () => {
+  const cache = createPulseCache();
+  const calls = [];
+  const rss = `<?xml version="1.0"?><rss><channel>
+    <item><title>Climate and conflict update</title><link>https://rss.example/world-1</link><pubDate>Wed, 15 Jul 2026 11:55:00 GMT</pubDate><description>Public report.</description></item>
+    <item><title>Duplicate link</title><link>https://rss.example/world-1</link><pubDate>Wed, 15 Jul 2026 11:54:00 GMT</pubDate></item>
+  </channel></rss>`;
+  const fetchImpl = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes("gdeltproject")) {
+      const error = new Error("The operation was aborted");
+      error.name = "AbortError";
+      throw error;
+    }
+    return textResponse(rss);
+  };
+
+  const payload = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "Mock RSS", url: "https://rss.example/feed.xml", language: "French" }],
+  });
+
+  assert.equal(payload.state, "rss_fallback");
+  assert.equal(payload.stateLabel, "RSS_FALLBACK OK");
+  assert.equal(payload.source.active, "rss_fallback");
+  assert.equal(payload.source.cached, false);
+  assert.equal(payload.source.primaryError.reason, "Timeout GDELT");
+  assert.equal(payload.counts.articles, 1);
+  assert.equal(payload.articles[0].domain, "rss.example");
+  assert.equal(payload.articles[0].sourceCountry, "RSS public");
+  assert.equal(payload.articles[0].label, "Climat");
+  assert.equal(calls.length, 2);
+});
+
+test("getWorldPulse returns unavailable with documented causes when both GDELT and RSS fail", async () => {
+  const cache = createPulseCache();
+  const fetchImpl = async (url) => {
+    if (String(url).includes("gdeltproject")) return textResponse("not-json", 502, "text/plain");
+    return textResponse("", 503);
+  };
+
+  const payload = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "Mock RSS", url: "https://rss.example/feed.xml", language: "French" }],
+  });
+
+  assert.equal(payload.state, "unavailable");
+  assert.equal(payload.stateLabel, "Indisponible");
+  assert.equal(payload.source.active, "none");
+  assert.equal(payload.counts.articles, 0);
+  assert.deepEqual(payload.articles, []);
+  assert.ok(payload.error.causes.some((cause) => cause.source === "gdelt"));
+  assert.ok(payload.error.causes.some((cause) => cause.source === "rss_fallback"));
+  assert.match(payload.notice, /Aucune donnée de démonstration/i);
+});

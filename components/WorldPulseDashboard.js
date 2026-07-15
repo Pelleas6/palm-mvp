@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const REFRESH_MS = 10 * 60 * 1000;
 const COLORS = ["#3ed6c3", "#f5bd4f", "#ff6f61", "#83a8ff", "#8ee37d", "#d783ff", "#ff9868"];
-const EMPTY_COUNTS = { articles: 0, domains: 0, countries: 0, languages: 0 };
+const EMPTY_COUNTS = { articles: 0, domains: 0, countries: 0, languages: 0, labels: 0 };
 
 function hashString(value) {
   const input = String(value || "gdelt");
@@ -27,11 +27,20 @@ function formatDate(value) {
 }
 
 function relativeStateLabel(state) {
-  if (state === "ok") return "Flux actif";
-  if (state === "empty") return "Aucun résultat";
-  if (state === "unavailable") return "Source indisponible";
+  if (state === "gdelt_ok" || state === "ok") return "GDELT OK";
+  if (state === "rss_fallback") return "RSS_FALLBACK OK";
+  if (state === "empty") return "GDELT OK · aucun résultat";
+  if (state === "unavailable") return "Indisponible";
   if (state === "error") return "Erreur locale";
-  return "Connexion GDELT";
+  return "Connexion aux sources";
+}
+
+function formatFreshness(seconds) {
+  if (!Number.isFinite(seconds)) return "—";
+  if (seconds < 60) return `${Math.max(0, seconds)} s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes} min ${rest} s` : `${minutes} min`;
 }
 
 function useGdeltPulse() {
@@ -54,7 +63,7 @@ function useGdeltPulse() {
             error: { reason: `Réponse locale illisible (${response.status})` },
             articles: [],
             counts: EMPTY_COUNTS,
-            groupings: { domains: [], countries: [], languages: [] },
+            groupings: { domains: [], countries: [], languages: [], labels: [] },
           });
           return;
         }
@@ -66,7 +75,7 @@ function useGdeltPulse() {
           error: { reason: "Impossible de joindre l'endpoint local /api/gdelt", detail: String(error?.message || error) },
           articles: [],
           counts: EMPTY_COUNTS,
-          groupings: { domains: [], countries: [], languages: [] },
+          groupings: { domains: [], countries: [], languages: [], labels: [] },
         });
       } finally {
         if (active) setLoading(false);
@@ -109,18 +118,18 @@ function SignalField({ articles, state, loading }) {
   );
 
   return (
-    <div className="signal-field" aria-label="Carte de particules représentant les articles GDELT reçus">
+    <div className="signal-field" aria-label="Carte de particules représentant les articles reçus">
       <div className="field-grid" aria-hidden="true" />
       {loading && particles.length === 0 ? (
         <div className="state-copy">
           <div className="loader" aria-hidden="true" />
-          <strong>Interrogation de GDELT en cours</strong>
-          <span>Aucun point n'est dessiné avant retour de la source.</span>
+          <strong>Interrogation de GDELT puis RSS secours si besoin</strong>
+          <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
         </div>
       ) : null}
       {!loading && particles.length === 0 ? (
         <div className="state-copy">
-          <strong>{state === "unavailable" ? "GDELT indisponible" : "Aucun signal exploitable"}</strong>
+          <strong>{state === "unavailable" ? "Sources indisponibles" : "Aucun signal exploitable"}</strong>
           <span>La visualisation reste vide tant qu'aucun article réel n'est reçu.</span>
         </div>
       ) : null}
@@ -171,16 +180,16 @@ function CountList({ title, items, emptyLabel }) {
   );
 }
 
-function ArticleStream({ articles, state }) {
+function ArticleStream({ articles, state, sourceName }) {
   return (
     <aside className="panel stream-panel">
       <div className="panel-heading">
         <p>Flux brut normalisé</p>
-        <h2>Articles GDELT</h2>
+        <h2>Articles reçus</h2>
       </div>
       {articles.length === 0 ? (
         <div className="stream-empty">
-          <strong>{state === "unavailable" ? "Source non disponible" : "Aucun article à afficher"}</strong>
+          <strong>{state === "unavailable" ? "Sources non disponibles" : "Aucun article à afficher"}</strong>
           <span>Cette zone n'utilise pas de contenu de démonstration.</span>
         </div>
       ) : null}
@@ -188,11 +197,11 @@ function ArticleStream({ articles, state }) {
         {articles.slice(0, 12).map((article) => (
           <a key={article.id} className="article-row" href={article.url} target="_blank" rel="noreferrer">
             <span className="article-meta">
-              {formatDate(article.seenAt)} · {article.domain}
+              {formatDate(article.seenAt)} · {article.domain} · {article.sourceType || sourceName}
             </span>
             <strong>{article.title}</strong>
             <span className="article-foot">
-              {article.sourceCountry} · {article.language}
+              {article.label || "Autre signal"} · {article.labelType || "classification estimative"} · {article.sourceCountry} · {article.language}
             </span>
           </a>
         ))}
@@ -205,9 +214,13 @@ export default function WorldPulseDashboard() {
   const { payload, loading } = useGdeltPulse();
   const articles = Array.isArray(payload.articles) ? payload.articles : [];
   const counts = payload.counts || EMPTY_COUNTS;
-  const groupings = payload.groupings || { domains: [], countries: [], languages: [] };
-  const isDataReady = payload.state === "ok";
-  const stateLabel = relativeStateLabel(payload.state);
+  const groupings = payload.groupings || { domains: [], countries: [], languages: [], labels: [] };
+  const hasRealData = payload.state === "gdelt_ok" || payload.state === "rss_fallback" || payload.state === "ok" || payload.state === "empty";
+  const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
+  const sourceName = payload.source?.name || "Source en attente";
+  const activeSource = loading ? "Interrogation" : sourceName;
+  const sourceMetric = payload.source?.active === "gdelt" ? "GDELT" : payload.source?.active === "rss_fallback" ? "RSS" : payload.source?.active === "none" ? "Aucune" : "—";
+  const freshness = formatFreshness(payload.freshnessSeconds);
   const latestSeenAt = articles
     .map((article) => article.seenAt)
     .filter(Boolean)
@@ -218,27 +231,29 @@ export default function WorldPulseDashboard() {
     <main className="pulse-shell">
       <section className="top-strip" aria-label="Synthèse du tableau de bord">
         <div className="title-block">
-          <p className="eyebrow">Monitor mondial · GDELT DOC API · fenêtre 24h</p>
+          <p className="eyebrow">Monitor mondial · GDELT primaire · RSS secours · cache serveur ≥5 min</p>
           <h1>Le Pouls du Monde</h1>
           <p>
-            Tableau de bord expérimental des signaux médiatiques mondiaux. Les points, listes et compteurs sont calculés
-            uniquement depuis les articles retournés par GDELT côté serveur.
+            Tableau de bord expérimental des signaux médiatiques mondiaux. Les points, listes, compteurs et labels sont
+            calculés uniquement depuis des articles réels retournés côté serveur par GDELT ou, en secours, par RSS public.
           </p>
         </div>
         <div className={`status-panel state-${payload.state || "loading"}`}>
           <span className="status-dot" aria-hidden="true" />
           <div>
             <strong>{loading ? "Actualisation" : stateLabel}</strong>
-            <span>{isDataReady ? `Dernier article : ${formatDate(latestSeenAt)}` : payload.error?.reason || "En attente de données réelles"}</span>
+            <span>
+              Source active : {activeSource} · Généré : {formatDate(payload.generatedAt)} · Fraîcheur : {freshness}
+            </span>
           </div>
         </div>
       </section>
 
-      <section className="metric-grid" aria-label="Compteurs issus de GDELT">
-        <Metric label="Articles" value={isDataReady ? counts.articles : "—"} hint="articles[] uniques" />
-        <Metric label="Domaines média" value={isDataReady ? counts.domains : "—"} hint="domaines distincts top 8" />
-        <Metric label="Pays sources" value={isDataReady ? counts.countries : "—"} hint="sourcecountry" />
-        <Metric label="Langues" value={isDataReady ? counts.languages : "—"} hint="language" />
+      <section className="metric-grid" aria-label="Synthèse source et cache">
+        <Metric label="Articles" value={loading ? "—" : counts.articles} hint="liens uniques" />
+        <Metric label="Source active" value={loading ? "—" : sourceMetric} hint={sourceName} />
+        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : "généré maintenant"} />
+        <Metric label="Labels" value={loading ? "—" : counts.labels} hint="classification estimative" />
       </section>
 
       <section className="main-grid">
@@ -248,17 +263,17 @@ export default function WorldPulseDashboard() {
               <p>Champ de signaux</p>
               <h2>Particules médiatiques</h2>
             </div>
-            <span>{isDataReady ? `${articles.length} particules réelles` : "visualisation suspendue"}</span>
+            <span>{hasRealData ? `${articles.length} particules réelles` : "visualisation suspendue"}</span>
           </div>
           <SignalField articles={articles} state={payload.state} loading={loading} />
         </article>
-        <ArticleStream articles={articles} state={payload.state} />
+        <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
       </section>
 
-      <section className="bottom-grid" aria-label="Regroupements dérivés de la réponse GDELT">
+      <section className="bottom-grid" aria-label="Regroupements dérivés des articles reçus">
         <CountList title="Pays sources" items={groupings.countries || []} emptyLabel="Aucun pays source reçu." />
         <CountList title="Domaines média" items={groupings.domains || []} emptyLabel="Aucun domaine reçu." />
-        <CountList title="Langues" items={groupings.languages || []} emptyLabel="Aucune langue reçue." />
+        <CountList title="Labels estimatifs" items={groupings.labels || []} emptyLabel="Aucun label calculé." />
         <section className="panel mini-panel trace-panel">
           <h2>Traçabilité</h2>
           <dl>
@@ -267,12 +282,28 @@ export default function WorldPulseDashboard() {
               <dd>{stateLabel}</dd>
             </div>
             <div>
+              <dt>Source active</dt>
+              <dd>{activeSource}</dd>
+            </div>
+            <div>
               <dt>Généré</dt>
               <dd>{formatDate(payload.generatedAt)}</dd>
             </div>
             <div>
-              <dt>Statut source</dt>
-              <dd>{payload.source?.status || "—"}</dd>
+              <dt>Fraîcheur</dt>
+              <dd>{freshness}</dd>
+            </div>
+            <div>
+              <dt>Articles</dt>
+              <dd>{loading ? "—" : counts.articles}</dd>
+            </div>
+            <div>
+              <dt>Dernier article</dt>
+              <dd>{formatDate(latestSeenAt)}</dd>
+            </div>
+            <div>
+              <dt>Cache</dt>
+              <dd>{payload.cache?.status || "—"}</dd>
             </div>
             <div>
               <dt>Requête</dt>
@@ -396,7 +427,8 @@ export default function WorldPulseDashboard() {
           background: var(--warn);
           box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.12);
         }
-        .state-ok .status-dot { background: var(--ok); box-shadow: 0 0 0 8px rgba(142, 227, 125, 0.12); }
+        .state-gdelt_ok .status-dot, .state-ok .status-dot { background: var(--ok); box-shadow: 0 0 0 8px rgba(142, 227, 125, 0.12); }
+        .state-rss_fallback .status-dot { background: var(--warn); box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.16); }
         .state-unavailable .status-dot, .state-error .status-dot { background: var(--danger); box-shadow: 0 0 0 8px rgba(255, 111, 97, 0.12); }
 
         .metric-grid, .bottom-grid {
