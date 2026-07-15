@@ -3,8 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 
 const REFRESH_MS = 10 * 60 * 1000;
-const COLORS = ["#3ed6c3", "#f5bd4f", "#ff6f61", "#83a8ff", "#8ee37d", "#d783ff", "#ff9868"];
-const EMPTY_COUNTS = { articles: 0, domains: 0, countries: 0, languages: 0, labels: 0 };
+const LABEL_COLORS = {
+  Climat: "#3ed6c3",
+  Conflit: "#ff6f61",
+  Économie: "#f5bd4f",
+  Santé: "#8ee37d",
+  Énergie: "#ff9868",
+  Migration: "#d783ff",
+  Élections: "#83a8ff",
+  Technologie: "#65d7ff",
+  "Autre signal": "#b5c7bf",
+};
+const FALLBACK_LABEL_COLOR = "#b5c7bf";
+const EMPTY_COUNTS = { articles: 0, domains: 0, countries: 0, languages: 0, labels: 0, localized: 0, unlocalized: 0 };
 
 function hashString(value) {
   const input = String(value || "gdelt");
@@ -41,6 +52,36 @@ function formatFreshness(seconds) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return rest ? `${minutes} min ${rest} s` : `${minutes} min`;
+}
+
+function colorForLabel(label) {
+  return LABEL_COLORS[label] || FALLBACK_LABEL_COLOR;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function WorldMapBackdrop() {
+  return (
+    <svg className="world-map" viewBox="0 0 1000 500" role="img" aria-label="Carte du monde vectorielle sans image distante" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="landGlow" x1="0%" x2="100%" y1="0%" y2="100%">
+          <stop offset="0%" stopColor="#25483f" />
+          <stop offset="100%" stopColor="#10241f" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="1000" height="500" rx="28" className="map-ocean" />
+      <path className="map-land" d="M112 167 151 133 215 123 258 151 274 194 247 232 269 274 238 298 191 286 166 250 122 232 87 196Z" />
+      <path className="map-land" d="M267 292 310 318 334 363 320 423 287 468 260 430 247 370Z" />
+      <path className="map-land" d="M443 153 487 129 546 147 565 183 537 220 477 215 441 188Z" />
+      <path className="map-land" d="M512 228 554 217 602 245 623 306 594 382 548 387 520 326 493 283Z" />
+      <path className="map-land" d="M560 155 638 129 743 151 835 184 880 238 839 277 734 255 676 287 615 249 584 201Z" />
+      <path className="map-land" d="M784 337 851 349 882 388 840 426 777 407 747 364Z" />
+      <path className="map-land muted-land" d="M248 75 304 52 343 80 303 109Z" />
+      <path className="map-line" d="M500 18V482M42 250H958M70 125H930M70 375H930" />
+    </svg>
+  );
 }
 
 function useGdeltPulse() {
@@ -104,30 +145,53 @@ function Metric({ label, value, hint }) {
 }
 
 function SignalField({ articles, state, loading }) {
-  const particles = useMemo(
-    () =>
-      articles.map((article, index) => {
-        const seed = hashString(article.id || article.url || article.title || index);
-        const left = 5 + (seed % 9000) / 100;
-        const top = 8 + (Math.floor(seed / 97) % 8200) / 100;
-        const size = 9 + (Math.floor(seed / 131) % 16);
-        const color = COLORS[seed % COLORS.length];
-        return { ...article, left, top, size, color, delay: `${(index % 12) * 0.08}s` };
-      }),
-    [articles]
-  );
+  const { particles, unlocalized } = useMemo(() => {
+    let missingLocation = 0;
+    const localized = [];
+
+    articles.forEach((article, index) => {
+      const location = article?.sourceLocation;
+      if (!location || !Number.isFinite(location.x) || !Number.isFinite(location.y)) {
+        missingLocation += 1;
+        return;
+      }
+
+      const seed = hashString(article.id || article.url || article.title || index);
+      const jitterX = ((seed % 700) - 350) / 100;
+      const jitterY = ((Math.floor(seed / 97) % 620) - 310) / 100;
+      const size = 11 + (Math.floor(seed / 131) % 11);
+      localized.push({
+        ...article,
+        left: clamp(location.x + jitterX, 4, 96),
+        top: clamp(location.y + jitterY, 8, 88),
+        size,
+        color: colorForLabel(article.label),
+        delay: `${(index % 12) * 0.08}s`,
+        location,
+      });
+    });
+
+    return { particles: localized, unlocalized: missingLocation };
+  }, [articles]);
 
   return (
-    <div className="signal-field" aria-label="Carte de particules représentant les articles reçus">
+    <div className="signal-field" aria-label="Carte du monde des articles localisés par pays source média">
+      <WorldMapBackdrop />
       <div className="field-grid" aria-hidden="true" />
-      {loading && particles.length === 0 ? (
+      {loading && articles.length === 0 ? (
         <div className="state-copy">
           <div className="loader" aria-hidden="true" />
           <strong>Interrogation de GDELT puis RSS secours si besoin</strong>
           <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
         </div>
       ) : null}
-      {!loading && particles.length === 0 ? (
+      {!loading && articles.length > 0 && particles.length === 0 ? (
+        <div className="state-copy compact-state">
+          <strong>Aucune source localisable sur la carte</strong>
+          <span>Les articles réels restent comptés hors carte pour ne pas inventer de position.</span>
+        </div>
+      ) : null}
+      {!loading && articles.length === 0 ? (
         <div className="state-copy">
           <strong>{state === "unavailable" ? "Sources indisponibles" : "Aucun signal exploitable"}</strong>
           <span>La visualisation reste vide tant qu'aucun article réel n'est reçu.</span>
@@ -150,11 +214,18 @@ function SignalField({ articles, state, loading }) {
             target="_blank"
             rel="noreferrer"
             style={style}
-            title={`${particle.title} — ${particle.domain}`}
-            aria-label={`${particle.title} (${particle.domain})`}
+            title={`${particle.title} — ${particle.domain} — source ${particle.location.label} — ${particle.label}`}
+            aria-label={`${particle.title} (${particle.domain}), source localisée : ${particle.location.label}, label : ${particle.label}`}
           />
         );
       })}
+      {unlocalized > 0 ? (
+        <div className="unlocalized-badge" aria-label={`${unlocalized} articles sans localisation fiable`}>
+          <span>Hors carte</span>
+          <strong>{unlocalized}</strong>
+          <small>source non localisée</small>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -201,7 +272,7 @@ function ArticleStream({ articles, state, sourceName }) {
             </span>
             <strong>{article.title}</strong>
             <span className="article-foot">
-              {article.label || "Autre signal"} · {article.labelType || "classification estimative"} · {article.sourceCountry} · {article.language}
+              {article.label || "Autre signal"} · {article.labelType || "classification estimative"} · {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · {article.language}
             </span>
           </a>
         ))}
@@ -213,8 +284,10 @@ function ArticleStream({ articles, state, sourceName }) {
 export default function WorldPulseDashboard() {
   const { payload, loading } = useGdeltPulse();
   const articles = Array.isArray(payload.articles) ? payload.articles : [];
-  const counts = payload.counts || EMPTY_COUNTS;
-  const groupings = payload.groupings || { domains: [], countries: [], languages: [], labels: [] };
+  const counts = { ...EMPTY_COUNTS, ...(payload.counts || {}) };
+  const groupings = payload.groupings || { domains: [], countries: [], locations: [], languages: [], labels: [] };
+  const localizedCount = counts.localized;
+  const unlocalizedCount = counts.unlocalized;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -251,19 +324,21 @@ export default function WorldPulseDashboard() {
 
       <section className="metric-grid" aria-label="Synthèse source et cache">
         <Metric label="Articles" value={loading ? "—" : counts.articles} hint="liens uniques" />
+        <Metric label="Points carte" value={loading ? "—" : localizedCount} hint="pays source fiable" />
+        <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="sans localisation inventée" />
         <Metric label="Source active" value={loading ? "—" : sourceMetric} hint={sourceName} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : "généré maintenant"} />
-        <Metric label="Labels" value={loading ? "—" : counts.labels} hint="classification estimative" />
+        <Metric label="Labels" value={loading ? "—" : counts.labels} hint="couleurs des points" />
       </section>
 
       <section className="main-grid">
         <article className="panel map-panel">
           <div className="panel-heading map-heading">
             <div>
-              <p>Champ de signaux</p>
-              <h2>Particules médiatiques</h2>
+              <p>Carte géographique</p>
+              <h2>Sources média localisées</h2>
             </div>
-            <span>{hasRealData ? `${articles.length} particules réelles` : "visualisation suspendue"}</span>
+            <span>{hasRealData ? `${localizedCount} points carte · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
           </div>
           <SignalField articles={articles} state={payload.state} loading={loading} />
         </article>
@@ -272,6 +347,7 @@ export default function WorldPulseDashboard() {
 
       <section className="bottom-grid" aria-label="Regroupements dérivés des articles reçus">
         <CountList title="Pays sources" items={groupings.countries || []} emptyLabel="Aucun pays source reçu." />
+        <CountList title="Localisations carte" items={groupings.locations || []} emptyLabel="Aucune source localisable." />
         <CountList title="Domaines média" items={groupings.domains || []} emptyLabel="Aucun domaine reçu." />
         <CountList title="Labels estimatifs" items={groupings.labels || []} emptyLabel="Aucun label calculé." />
         <section className="panel mini-panel trace-panel">
@@ -296,6 +372,14 @@ export default function WorldPulseDashboard() {
             <div>
               <dt>Articles</dt>
               <dd>{loading ? "—" : counts.articles}</dd>
+            </div>
+            <div>
+              <dt>Localisés carte</dt>
+              <dd>{loading ? "—" : localizedCount}</dd>
+            </div>
+            <div>
+              <dt>Hors carte</dt>
+              <dd>{loading ? "—" : unlocalizedCount}</dd>
             </div>
             <div>
               <dt>Dernier article</dt>
@@ -491,24 +575,52 @@ export default function WorldPulseDashboard() {
           overflow: hidden;
           border: 1px solid var(--line-strong);
           background:
-            radial-gradient(circle at center, rgba(62, 214, 195, 0.12), transparent 32%),
+            radial-gradient(circle at 48% 45%, rgba(62, 214, 195, 0.13), transparent 35%),
+            radial-gradient(circle at 70% 55%, rgba(131, 168, 255, 0.09), transparent 30%),
             linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 45%),
             #07110f;
+        }
+        .world-map {
+          position: absolute;
+          inset: clamp(18px, 3vw, 34px);
+          width: calc(100% - clamp(36px, 6vw, 68px));
+          height: calc(100% - clamp(36px, 6vw, 68px));
+          opacity: 0.92;
+          filter: drop-shadow(0 0 36px rgba(62, 214, 195, 0.08));
+        }
+        .map-ocean {
+          fill: rgba(3, 12, 11, 0.48);
+          stroke: rgba(157, 191, 179, 0.16);
+          stroke-width: 1.2;
+        }
+        .map-land {
+          fill: url(#landGlow);
+          stroke: rgba(157, 191, 179, 0.42);
+          stroke-width: 1.8;
+          vector-effect: non-scaling-stroke;
+        }
+        .muted-land { opacity: 0.54; }
+        .map-line {
+          fill: none;
+          stroke: rgba(157, 191, 179, 0.08);
+          stroke-width: 1;
+          vector-effect: non-scaling-stroke;
         }
         .field-grid {
           position: absolute;
           inset: 0;
-          opacity: 0.52;
+          opacity: 0.38;
           background-image:
-            linear-gradient(rgba(157, 191, 179, 0.12) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(157, 191, 179, 0.12) 1px, transparent 1px);
+            linear-gradient(rgba(157, 191, 179, 0.11) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(157, 191, 179, 0.11) 1px, transparent 1px);
           background-size: 52px 52px;
-          mask-image: radial-gradient(circle at center, black 0 45%, transparent 82%);
+          mask-image: radial-gradient(circle at center, black 0 50%, transparent 86%);
         }
         .signal-field::before, .signal-field::after {
           content: "";
           position: absolute;
-          border: 1px solid rgba(157, 191, 179, 0.18);
+          pointer-events: none;
+          border: 1px solid rgba(157, 191, 179, 0.16);
           border-radius: 999px;
           inset: 18%;
         }
@@ -516,21 +628,30 @@ export default function WorldPulseDashboard() {
 
         .particle {
           position: absolute;
-          z-index: 2;
+          z-index: 3;
           display: block;
           min-width: 12px;
           min-height: 12px;
           transform: translate(-50%, -50%);
+          border: 1px solid rgba(255, 255, 255, 0.76);
           border-radius: 999px;
           background: var(--particle-color);
-          box-shadow: 0 0 0 6px color-mix(in srgb, var(--particle-color) 16%, transparent), 0 0 24px var(--particle-color);
+          box-shadow: 0 0 0 7px color-mix(in srgb, var(--particle-color) 16%, transparent), 0 0 28px var(--particle-color);
           animation: pulseFloat 3.6s ease-in-out infinite;
           animation-delay: var(--particle-delay);
         }
-        .particle:hover { z-index: 4; transform: translate(-50%, -50%) scale(1.45); }
+        .particle::after {
+          content: "";
+          position: absolute;
+          inset: -10px;
+          border-radius: inherit;
+          border: 1px solid color-mix(in srgb, var(--particle-color) 28%, transparent);
+        }
+        .particle:hover { z-index: 5; transform: translate(-50%, -50%) scale(1.45); }
 
         .state-copy {
           position: absolute;
+          z-index: 4;
           inset: 0;
           display: grid;
           place-content: center;
@@ -538,7 +659,9 @@ export default function WorldPulseDashboard() {
           text-align: center;
           color: var(--muted);
           padding: 24px;
+          background: radial-gradient(circle at center, rgba(7, 17, 15, 0.72), transparent 48%);
         }
+        .compact-state { inset: auto 18px 18px auto; max-width: 360px; place-content: start; text-align: left; background: rgba(7, 17, 15, 0.72); border: 1px solid var(--line); }
         .state-copy strong { color: var(--ink); font-size: 1.3rem; }
         .loader {
           width: 42px;
@@ -549,6 +672,22 @@ export default function WorldPulseDashboard() {
           border-radius: 999px;
           animation: spin 0.9s linear infinite;
         }
+        .unlocalized-badge {
+          position: absolute;
+          z-index: 4;
+          right: 16px;
+          top: 16px;
+          display: grid;
+          gap: 2px;
+          min-width: 128px;
+          padding: 12px 14px;
+          border: 1px solid rgba(245, 189, 79, 0.32);
+          background: rgba(20, 24, 18, 0.82);
+          color: var(--warn);
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+        }
+        .unlocalized-badge span, .unlocalized-badge small { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; }
+        .unlocalized-badge strong { color: var(--warn); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
 
         .stream-panel { max-height: 780px; overflow: hidden; }
         .article-list {

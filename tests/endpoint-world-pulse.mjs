@@ -103,7 +103,7 @@ async function runNextScenario(value) {
     env: {
       ...process.env,
       WORLD_PULSE_GDELT_ENDPOINT: `http://127.0.0.1:${mockPort}/gdelt`,
-      WORLD_PULSE_RSS_FEEDS: `Mock RSS|http://127.0.0.1:${mockPort}/rss`,
+      WORLD_PULSE_RSS_FEEDS: `Mock RSS|http://127.0.0.1:${mockPort}/rss|France`,
       WORLD_PULSE_GDELT_TIMEOUT_MS: "200",
       WORLD_PULSE_RSS_TIMEOUT_MS: "200",
     },
@@ -135,16 +135,23 @@ try {
   assert.equal(gdelt.source.active, "GDELT");
   assert.equal(gdelt.cache.ttlSeconds, 300);
   assert.equal(gdelt.counts.articles, 1);
+  assert.equal(gdelt.counts.localized, 1);
+  assert.equal(gdelt.counts.unlocalized, 0);
   assert.equal(gdelt.articles[0].label, "Économie");
-  console.log(`GDELT success: state=${gdelt.state} articles=${gdelt.counts.articles} source=${gdelt.source.active} ttl=${gdelt.cache.ttlSeconds}s`);
+  assert.equal(gdelt.articles[0].sourceLocation?.code, "FR");
+  console.log(`GDELT success: state=${gdelt.state} articles=${gdelt.counts.articles} localized=${gdelt.counts.localized} source=${gdelt.source.active} ttl=${gdelt.cache.ttlSeconds}s`);
 
   const rss = await runNextScenario("rss");
   assert.equal(rss.state, "partial");
   assert.equal(rss.source.active, "RSS_FALLBACK");
   assert.equal(rss.cache.ttlSeconds, 300);
   assert.equal(rss.counts.articles, 1);
+  assert.equal(rss.counts.localized, 1);
+  assert.equal(rss.counts.unlocalized, 0);
   assert.equal(rss.articles[0].label, "Climat");
-  console.log(`RSS fallback: state=${rss.state} articles=${rss.counts.articles} source=${rss.source.active} ttl=${rss.cache.ttlSeconds}s`);
+  assert.equal(rss.articles[0].sourceCountry, "France");
+  assert.equal(rss.articles[0].sourceLocation?.code, "FR");
+  console.log(`RSS fallback: state=${rss.state} articles=${rss.counts.articles} localized=${rss.counts.localized} source=${rss.source.active} ttl=${rss.cache.ttlSeconds}s`);
 
   const unavailable = await runNextScenario("unavailable");
   assert.equal(unavailable.state, "unavailable");

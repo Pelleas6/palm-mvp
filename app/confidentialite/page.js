@@ -108,8 +108,8 @@ export default function ConfidentialitePage() {
       <div style={topbar}>
         <div style={topbarInner}>
           <a href="/" style={brand}>
-            <span style={{ fontSize: 22 }}>🌿</span>
-            <span style={brandTitle}>Ligne de Vie</span>
+            <span style={{ fontSize: 22 }}>◉</span>
+            <span style={brandTitle}>Le Pouls du Monde</span>
           </a>
 
           <a href="/" style={backBtn}>
@@ -120,49 +120,43 @@ export default function ConfidentialitePage() {
 
       <div style={contentPad}>
         <div style={card}>
-          <div style={k}>✦ Données & confidentialité</div>
+          <div style={k}>GDELT · Données & confidentialité</div>
           <h1 style={h1}>Politique de confidentialité</h1>
           <p style={p}>
-            Cette page explique comment les informations transmises via le formulaire sont utilisées, stockées et protégées.
+            Cette page décrit le fonctionnement des données pour le tableau de bord « Le Pouls du Monde ».
           </p>
-          <div style={badge}>Photos supprimées après analyse</div>
+          <div style={badge}>Aucune donnée nominative demandée par le tableau de bord</div>
 
           <h2 style={h2}>Données collectées</h2>
           <p style={p}>
-            Lors d’une demande d’analyse, nous pouvons collecter :
-            <br />• Prénom et nom
-            <br />• Adresse email
-            <br />• Date de naissance
-            <br />• Thème de lecture choisi
-            <br />• Deux photographies (main gauche / main droite)
+            Le tableau de bord ne demande ni compte utilisateur, ni formulaire nominatif, ni fichier personnel.
+            La consultation peut générer des journaux techniques standards liés à l’hébergement et à la sécurité
+            (adresse IP, agent navigateur, horodatage, URL appelée).
           </p>
 
           <h2 style={h2}>Finalité</h2>
           <p style={p}>
-            Ces données sont utilisées uniquement pour :
-            <br />• traiter la demande de lecture de mains,
-            <br />• produire et transmettre le rapport par email,
-            <br />• assurer le bon fonctionnement et la sécurité du service.
+            Les informations techniques éventuelles servent uniquement à afficher le tableau de bord, appeler l’endpoint
+            local GDELT, diagnostiquer les erreurs et protéger le service contre les abus.
           </p>
 
-          <h2 style={h2}>Stockage et suppression des photos</h2>
+          <h2 style={h2}>Stockage applicatif</h2>
           <p style={p}>
-            Les photographies sont stockées de manière temporaire le temps du traitement. Elles sont ensuite supprimées après analyse.
+            Le tableau de bord affiche des données publiques issues de GDELT et ne stocke pas de dossier utilisateur dans
+            l’application. Les journaux techniques de l’hébergeur suivent les durées et règles propres à l’infrastructure utilisée.
           </p>
 
           <h2 style={h2}>Durée de conservation</h2>
           <p style={p}>
-            Les informations nécessaires au suivi de la demande (ex : email, date de demande, thème choisi) peuvent être conservées
-            pendant une durée limitée à des fins de support et de traçabilité, puis supprimées.
-            <br />
-            Durées exactes : à compléter selon ta politique finale.
+            Les éventuels journaux techniques sont conservés pour une durée limitée aux besoins de sécurité, de diagnostic
+            et de supervision du service.
           </p>
 
           <h2 style={h2}>Sous-traitants techniques</h2>
           <p style={p}>
-            Le service peut s’appuyer sur des prestataires techniques pour fonctionner (hébergement, stockage, traitement). Exemple :
-            hébergement via Vercel et stockage via Supabase. Ces prestataires n’accèdent aux données que dans la mesure nécessaire à
-            l’exécution du service.
+            Le service peut s’appuyer sur des prestataires techniques pour l’hébergement et la récupération de données publiques,
+            notamment Vercel pour l’exécution web et GDELT pour les articles indexés. Ces prestataires interviennent uniquement
+            dans le cadre technique nécessaire au fonctionnement du tableau de bord.
           </p>
 
           <h2 style={h2}>Sécurité</h2>

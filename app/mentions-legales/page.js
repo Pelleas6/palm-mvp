@@ -95,8 +95,8 @@ export default function MentionsLegalesPage() {
       <div style={topbar}>
         <div style={topbarInner}>
           <a href="/" style={brand}>
-            <span style={{ fontSize: 22 }}>🌿</span>
-            <span style={brandTitle}>Ligne de Vie</span>
+            <span style={{ fontSize: 22 }}>◉</span>
+            <span style={brandTitle}>Le Pouls du Monde</span>
           </a>
 
           <a href="/" style={backBtn}>
@@ -107,7 +107,7 @@ export default function MentionsLegalesPage() {
 
       <div style={contentPad}>
         <div style={card}>
-          <div style={k}>✦ Informations légales</div>
+          <div style={k}>GDELT · Informations légales</div>
           <h1 style={h1}>Mentions légales</h1>
 
           <p style={p}>
@@ -135,15 +135,15 @@ export default function MentionsLegalesPage() {
 
           <h2 style={h2}>Service proposé</h2>
           <p style={p}>
-            Le site propose une lecture de mains (chiromancie) à partir de photographies transmises par l’utilisateur,
-            afin de produire une lecture personnalisée orientée selon un thème choisi.
+            Le site propose un tableau de bord expérimental des signaux médiatiques mondiaux. Les articles, compteurs
+            et regroupements affichés sont construits depuis les données publiques retournées par GDELT côté serveur.
           </p>
 
           <h2 style={h2}>Responsabilité</h2>
           <p style={p}>
-            L’éditeur s’efforce de fournir un service sérieux et soigné. L’utilisateur reste néanmoins responsable
-            de l’usage qu’il fait des contenus délivrés. Le service repose sur une démarche d’interprétation
-            et ne constitue pas une expertise officielle.
+            L’éditeur s’efforce de présenter des informations sourcées et traçables. Les données proviennent de services
+            tiers publics et peuvent être incomplètes, indisponibles ou retardées. Le tableau de bord ne constitue pas
+            une recommandation, une alerte officielle ou une expertise journalistique.
           </p>
 
           <h2 style={h2}>Propriété intellectuelle</h2>

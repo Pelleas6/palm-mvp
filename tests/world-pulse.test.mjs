@@ -57,8 +57,17 @@ test("getWorldPulse returns GDELT as the primary source and deduplicates article
   assert.equal(payload.counts.articles, 1);
   assert.equal(payload.counts.domains, 1);
   assert.equal(payload.counts.labels, 1);
+  assert.equal(payload.counts.localized, 1);
+  assert.equal(payload.counts.unlocalized, 0);
   assert.equal(payload.articles[0].label, "Économie");
   assert.equal(payload.articles[0].labelType, "classification estimative");
+  assert.deepEqual(payload.articles[0].sourceLocation, {
+    label: "États-Unis",
+    code: "US",
+    x: 22,
+    y: 42,
+    basis: "sourceCountry",
+  });
   assert.equal(calls.length, 1);
 });
 
@@ -114,7 +123,7 @@ test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates R
     cache,
     fetchImpl,
     now: () => new Date(FIXED_NOW),
-    rssFeeds: [{ name: "Mock RSS", url: "https://rss.example/feed.xml", language: "French" }],
+    rssFeeds: [{ name: "Mock RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
   });
 
   assert.equal(payload.state, "partial");
@@ -124,9 +133,35 @@ test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates R
   assert.equal(payload.source.primaryError.reason, "Timeout GDELT");
   assert.equal(payload.counts.articles, 1);
   assert.equal(payload.articles[0].domain, "rss.example");
-  assert.equal(payload.articles[0].sourceCountry, "RSS public");
+  assert.equal(payload.articles[0].sourceCountry, "France");
+  assert.equal(payload.articles[0].sourceLocation?.code, "FR");
   assert.equal(payload.articles[0].label, "Climat");
   assert.equal(calls.length, 2);
+});
+
+test("getWorldPulse counts real articles without reliable source location outside the map", async () => {
+  const cache = createPulseCache();
+  const fetchImpl = async () => jsonResponse({
+    articles: [
+      {
+        url: "https://unknown.example/article",
+        title: "Health signal from an unknown source region",
+        domain: "unknown.example",
+        sourcecountry: "Atlantis",
+        language: "English",
+        seendate: "20260715115900",
+      },
+    ],
+  });
+
+  const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
+
+  assert.equal(payload.state, "ok");
+  assert.equal(payload.counts.articles, 1);
+  assert.equal(payload.counts.localized, 0);
+  assert.equal(payload.counts.unlocalized, 1);
+  assert.equal(payload.articles[0].sourceCountry, "Atlantis");
+  assert.equal(payload.articles[0].sourceLocation, null);
 });
 
 test("getWorldPulse returns unavailable with documented causes when both GDELT and RSS fail", async () => {
