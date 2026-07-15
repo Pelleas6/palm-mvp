@@ -1,14 +1,12 @@
 export const metadata = {
-  title: "Lecture de Mains",
-  description: "Analyse énergétique personnalisée",
+  title: "Le Pouls du Monde | Palm",
+  description: "Tableau de bord GDELT des signaux médiatiques mondiaux.",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="fr">
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
