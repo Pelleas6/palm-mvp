@@ -215,11 +215,11 @@ export default function WorldPulseDashboard() {
   const articles = Array.isArray(payload.articles) ? payload.articles : [];
   const counts = payload.counts || EMPTY_COUNTS;
   const groupings = payload.groupings || { domains: [], countries: [], languages: [], labels: [] };
-  const hasRealData = payload.state === "gdelt_ok" || payload.state === "rss_fallback" || payload.state === "ok" || payload.state === "empty";
+  const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
   const activeSource = loading ? "Interrogation" : sourceName;
-  const sourceMetric = payload.source?.active === "gdelt" ? "GDELT" : payload.source?.active === "rss_fallback" ? "RSS" : payload.source?.active === "none" ? "Aucune" : "—";
+  const sourceMetric = payload.source?.active === "GDELT" ? "GDELT" : payload.source?.active === "RSS_FALLBACK" ? "RSS" : payload.source?.active === "none" ? "Aucune" : "—";
   const freshness = formatFreshness(payload.freshnessSeconds);
   const latestSeenAt = articles
     .map((article) => article.seenAt)
@@ -427,8 +427,8 @@ export default function WorldPulseDashboard() {
           background: var(--warn);
           box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.12);
         }
-        .state-gdelt_ok .status-dot, .state-ok .status-dot { background: var(--ok); box-shadow: 0 0 0 8px rgba(142, 227, 125, 0.12); }
-        .state-rss_fallback .status-dot { background: var(--warn); box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.16); }
+        .state-ok .status-dot { background: var(--ok); box-shadow: 0 0 0 8px rgba(142, 227, 125, 0.12); }
+        .state-partial .status-dot { background: var(--warn); box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.16); }
         .state-unavailable .status-dot, .state-error .status-dot { background: var(--danger); box-shadow: 0 0 0 8px rgba(255, 111, 97, 0.12); }
 
         .metric-grid, .bottom-grid {

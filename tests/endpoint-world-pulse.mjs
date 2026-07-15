@@ -131,16 +131,16 @@ async function runNextScenario(value) {
 
 try {
   const gdelt = await runNextScenario("gdelt");
-  assert.equal(gdelt.state, "gdelt_ok");
-  assert.equal(gdelt.source.active, "gdelt");
+  assert.equal(gdelt.state, "ok");
+  assert.equal(gdelt.source.active, "GDELT");
   assert.equal(gdelt.cache.ttlSeconds, 300);
   assert.equal(gdelt.counts.articles, 1);
   assert.equal(gdelt.articles[0].label, "Économie");
   console.log(`GDELT success: state=${gdelt.state} articles=${gdelt.counts.articles} source=${gdelt.source.active} ttl=${gdelt.cache.ttlSeconds}s`);
 
   const rss = await runNextScenario("rss");
-  assert.equal(rss.state, "rss_fallback");
-  assert.equal(rss.source.active, "rss_fallback");
+  assert.equal(rss.state, "partial");
+  assert.equal(rss.source.active, "RSS_FALLBACK");
   assert.equal(rss.cache.ttlSeconds, 300);
   assert.equal(rss.counts.articles, 1);
   assert.equal(rss.articles[0].label, "Climat");
@@ -150,8 +150,8 @@ try {
   assert.equal(unavailable.state, "unavailable");
   assert.equal(unavailable.source.active, "none");
   assert.equal(unavailable.counts.articles, 0);
-  assert.ok(unavailable.error.causes.some((cause) => cause.source === "gdelt"));
-  assert.ok(unavailable.error.causes.some((cause) => cause.source === "rss_fallback"));
+  assert.ok(unavailable.error.causes.some((cause) => cause.source === "GDELT"));
+  assert.ok(unavailable.error.causes.some((cause) => cause.source === "RSS_FALLBACK"));
   console.log(`Unavailable: state=${unavailable.state} articles=${unavailable.counts.articles} causes=${unavailable.error.causes.length}`);
 
   console.log("Endpoint scenarios PASS");

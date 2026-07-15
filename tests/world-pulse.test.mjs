@@ -50,9 +50,9 @@ test("getWorldPulse returns GDELT as the primary source and deduplicates article
 
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
-  assert.equal(payload.state, "gdelt_ok");
-  assert.equal(payload.stateLabel, "GDELT OK");
-  assert.equal(payload.source.active, "gdelt");
+  assert.equal(payload.state, "ok");
+  assert.equal(payload.stateLabel, "OK — GDELT");
+  assert.equal(payload.source.active, "GDELT");
   assert.equal(payload.source.cached, false);
   assert.equal(payload.counts.articles, 1);
   assert.equal(payload.counts.domains, 1);
@@ -117,9 +117,9 @@ test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates R
     rssFeeds: [{ name: "Mock RSS", url: "https://rss.example/feed.xml", language: "French" }],
   });
 
-  assert.equal(payload.state, "rss_fallback");
-  assert.equal(payload.stateLabel, "RSS_FALLBACK OK");
-  assert.equal(payload.source.active, "rss_fallback");
+  assert.equal(payload.state, "partial");
+  assert.equal(payload.stateLabel, "Partiel — RSS_FALLBACK");
+  assert.equal(payload.source.active, "RSS_FALLBACK");
   assert.equal(payload.source.cached, false);
   assert.equal(payload.source.primaryError.reason, "Timeout GDELT");
   assert.equal(payload.counts.articles, 1);
@@ -148,7 +148,7 @@ test("getWorldPulse returns unavailable with documented causes when both GDELT a
   assert.equal(payload.source.active, "none");
   assert.equal(payload.counts.articles, 0);
   assert.deepEqual(payload.articles, []);
-  assert.ok(payload.error.causes.some((cause) => cause.source === "gdelt"));
-  assert.ok(payload.error.causes.some((cause) => cause.source === "rss_fallback"));
+  assert.ok(payload.error.causes.some((cause) => cause.source === "GDELT"));
+  assert.ok(payload.error.causes.some((cause) => cause.source === "RSS_FALLBACK"));
   assert.match(payload.notice, /Aucune donnée de démonstration/i);
 });
