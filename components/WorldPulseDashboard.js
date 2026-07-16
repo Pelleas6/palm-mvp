@@ -22,6 +22,17 @@ const EMPTY_COUNTS = {
   articleParticles: 0,
   mapPoints: 0,
   unavailableSources: 0,
+  rssArticles: 0,
+  rssMediaSources: 0,
+  rssKnownMediaCountries: 0,
+  rssCategories: 0,
+  rssClassifiedArticles: 0,
+  rssUnclassifiedArticles: 0,
+  rssClassificationCoveragePct: 0,
+  gdeltNgramsDocuments: 0,
+  gdeltNgramsCategories: 0,
+  gdeltNgramsUnclassifiedDocuments: 0,
+  gdeltNgramsClassificationCoveragePct: 0,
 };
 const WORLD_FEATURE = feature(worldAtlas, worldAtlas.objects.countries);
 const WORLD_VIEWBOX_WIDTH = 1000;
@@ -60,6 +71,10 @@ function formatFreshness(seconds) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return rest ? `${minutes} min ${rest} s` : `${minutes} min`;
+}
+
+function formatPercent(value) {
+  return Number.isFinite(value) ? `${value}%` : "—";
 }
 
 function colorForLabel(label) {
@@ -167,17 +182,17 @@ function Metric({ label, value, hint }) {
 
 function SignalLegend({ visibleLabel }) {
   return (
-    <div className="signal-legend" aria-label="Légende des couleurs des catégories de signaux">
+    <div className="signal-legend" aria-label="Registre déterministe des catégories de signaux RSS et GDELT">
       <div className="signal-legend-head">
-        <span>Légende couleurs</span>
+        <span>Registre déterministe</span>
         <strong>{visibleLabel}</strong>
-        <small>repère média 6-8px · particule article 3-5px</small>
+        <small>12 catégories thématiques · « À classifier » reste hors taxonomie</small>
       </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
           <li key={item.label}>
             <i aria-hidden="true" style={{ "--legend-color": item.color }} />
-            <span>{item.label}</span>
+            <span>{item.label}{item.thematic === false ? " · hors taxonomie" : ""}</span>
           </li>
         ))}
       </ul>
@@ -363,13 +378,14 @@ function SourceHealth({ items }) {
 }
 
 function GlobalTrends({ trends }) {
-  const labels = Array.isArray(trends?.labels) ? trends.labels : [];
+  const labels = Array.isArray(trends?.categories) ? trends.categories : (Array.isArray(trends?.labels) ? trends.labels : []);
   const titles = Array.isArray(trends?.topTitles) ? trends.topTitles : [];
+  const coverage = Number(trends?.classification?.coveragePct || 0);
   return (
     <section className="panel mini-panel trace-panel" aria-label="Tendances globales GDELT Web N-Grams">
       <h2>Tendances GDELT Web N-Grams</h2>
       <p className="muted">
-        TOC {trends?.timestamp || "non chargé"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} document(s).
+        TOC {trends?.timestamp || "non chargé"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} document(s) · couverture {formatPercent(coverage)}.
       </p>
       {labels.length > 0 ? (
         <div className="count-list">
@@ -409,7 +425,7 @@ function ArticleStream({ articles, state, sourceName }) {
             </span>
             <strong>{article.title}</strong>
             <span className="article-foot">
-              {article.label || "Autre signal"} · {article.labelType || "classification estimative"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · événement non géolocalisé par ce tableau · {article.language}
+              {article.label || "À classifier"} · {article.labelType || "à classifier"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · événement non géolocalisé par ce tableau · {article.language}
             </span>
           </a>
         ))}
@@ -425,16 +441,21 @@ export default function WorldPulseDashboard() {
   const mediaMarkers = Array.isArray(payload.mediaMarkers) ? payload.mediaMarkers : legacyMapPoints;
   const articleParticles = Array.isArray(payload.articleParticles) ? payload.articleParticles : [];
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
-  const globalTrends = payload.globalTrends || { documents: 0, labels: [], topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
+  const globalTrends = payload.globalTrends || { documents: 0, labels: [], categories: [], thematicCategories: [], classification: { coveragePct: 0, unclassified: 0 }, topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
   const payloadCounts = payload.counts || {};
   const counts = { ...EMPTY_COUNTS, ...payloadCounts };
-  const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [] };
+  const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [], rssCategories: [], gdeltNgramsCategories: [] };
+  const dataScopes = payload.dataScopes || {};
+  const rssScope = dataScopes.rss || { period: "RSS public · cache ≥15 min", classificationCoveragePct: counts.rssClassificationCoveragePct };
+  const gdeltScope = dataScopes.gdeltNgrams || { period: `cycle ${globalTrends.cycleMinutes || 15} min`, classificationCoveragePct: counts.gdeltNgramsClassificationCoveragePct };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
   const visibleMediaCount = countFromPayload(payloadCounts, "mediaMarkers", mediaMarkers.length);
   const visibleArticleParticleCount = countFromPayload(payloadCounts, "articleParticles", articleParticles.length);
-  const totalMediaCount = Math.max(countFromPayload(payloadCounts, "mediaSources", counts.mediaSources), visibleMediaCount);
-  const visibleMediaLabel = loading ? "— repères médias" : `${visibleMediaCount}/${totalMediaCount} repères médias · ${visibleArticleParticleCount} particules articles`;
+  const totalMediaCount = Math.max(countFromPayload(payloadCounts, "rssMediaSources", counts.rssMediaSources), visibleMediaCount);
+  const rssCoverage = countFromPayload(payloadCounts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
+  const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
+  const visibleMediaLabel = loading ? "— repères médias RSS" : `${visibleMediaCount}/${totalMediaCount} repères médias RSS · ${visibleArticleParticleCount} particules articles RSS`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -470,14 +491,14 @@ export default function WorldPulseDashboard() {
       </section>
 
       <section className="metric-grid" aria-label="Synthèse source et cache">
-        <Metric label="Articles" value={loading ? "—" : counts.articles} hint="liens uniques" />
-        <Metric label="Médias" value={loading ? "—" : counts.mediaSources} hint="sources agrégées" />
-        <Metric label="Repères médias" value={loading ? "—" : `${visibleMediaCount}/${totalMediaCount}`} hint="6-8px, source agrégée" />
-        <Metric label="Particules articles" value={loading ? "—" : visibleArticleParticleCount} hint="3-5px, articles localisés" />
-        <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="sans localisation inventée" />
-        <Metric label="Source active" value={loading ? "—" : sourceMetric} hint={sourceName} />
-        <Metric label="Docs tendances" value={loading ? "—" : (globalTrends.documents || 0)} hint="GDELT Web N-Grams TOC" />
-        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : "généré maintenant"} />
+        <Metric label="Articles RSS" value={loading ? "—" : counts.rssArticles} hint="RSS public · liens uniques collectés · max 50/cache ≥15 min" />
+        <Metric label="Médias RSS uniques" value={loading ? "—" : counts.rssMediaSources} hint="RSS public · sources agrégées par média" />
+        <Metric label="Pays médias connus" value={loading ? "—" : counts.rssKnownMediaCountries} hint="RSS public · sourceCountry déclaré, sans invention" />
+        <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
+        <Metric label="À classifier RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Articles RSS sans correspondance déterministe" />
+        <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
+        <Metric label="Catégories GDELT" value={loading ? "—" : counts.gdeltNgramsCategories} hint={`GDELT N-Grams · documents TOC · couverture ${formatPercent(gdeltCoverage)}`} />
+        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
 
       <section className="main-grid">
@@ -487,24 +508,25 @@ export default function WorldPulseDashboard() {
               <p>Carte géographique</p>
               <h2>Sources média localisées</h2>
             </div>
-            <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles source localisés · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
+            <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles RSS avec pays média localisable · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
           </div>
           <SignalField mediaMarkers={mediaMarkers} articleParticles={articleParticles} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
           <SignalLegend visibleLabel={visibleMediaLabel} />
           <p className="map-note">
-            Les grands repères représentent les médias sources localisés (6-8px) et les petites particules représentent les articles reçus (3-5px). Ils ne prétendent pas localiser l'événement raconté par l'article.
+            Les grands repères représentent les médias RSS localisés (6-8px) et les petites particules représentent les articles RSS reçus (3-5px). Ils ne prétendent pas localiser l'événement raconté par l'article.
           </p>
         </article>
         <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
       </section>
 
-      <section className="bottom-grid" aria-label="Regroupements dérivés des articles reçus">
-        <CountList title="Médias sources" items={groupings.mediaSources || []} emptyLabel="Aucun média source reçu." />
-        <CountList title="Régions sources" items={groupings.sourceRegions || []} emptyLabel="Aucune région source reçue." />
-        <CountList title="Pays sources" items={groupings.countries || []} emptyLabel="Aucun pays source reçu." />
-        <CountList title="Localisations carte" items={groupings.locations || []} emptyLabel="Aucune source localisable." />
-        <CountList title="Domaines média" items={groupings.domains || []} emptyLabel="Aucun domaine reçu." />
-        <CountList title="Labels estimatifs" items={groupings.labels || []} emptyLabel="Aucun label calculé." />
+      <section className="bottom-grid" aria-label="Regroupements RSS et GDELT séparés">
+        <CountList title="Médias RSS" items={groupings.mediaSources || []} emptyLabel="Aucun média RSS reçu." />
+        <CountList title="Régions RSS" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
+        <CountList title="Pays médias RSS" items={groupings.countries || []} emptyLabel="Aucun pays média RSS reçu." />
+        <CountList title="Localisations carte RSS" items={groupings.locations || []} emptyLabel="Aucune source RSS localisable." />
+        <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
+        <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." />
+        <CountList title="Catégories GDELT N-Grams" items={groupings.gdeltNgramsCategories || []} emptyLabel="Aucune catégorie GDELT N-Grams calculée." />
         <GlobalTrends trends={globalTrends} />
         <section className="panel mini-panel trace-panel">
           <h2>Traçabilité</h2>
@@ -526,8 +548,32 @@ export default function WorldPulseDashboard() {
               <dd>{freshness}</dd>
             </div>
             <div>
-              <dt>Articles</dt>
-              <dd>{loading ? "—" : counts.articles}</dd>
+              <dt>Articles RSS</dt>
+              <dd>{loading ? "—" : counts.rssArticles}</dd>
+            </div>
+            <div>
+              <dt>Médias RSS uniques</dt>
+              <dd>{loading ? "—" : counts.rssMediaSources}</dd>
+            </div>
+            <div>
+              <dt>Pays médias connus</dt>
+              <dd>{loading ? "—" : counts.rssKnownMediaCountries}</dd>
+            </div>
+            <div>
+              <dt>Catégories RSS</dt>
+              <dd>{loading ? "—" : counts.rssCategories}</dd>
+            </div>
+            <div>
+              <dt>À classifier RSS</dt>
+              <dd>{loading ? "—" : `${counts.rssUnclassifiedArticles} · couverture ${formatPercent(rssCoverage)}`}</dd>
+            </div>
+            <div>
+              <dt>Docs GDELT N-Grams</dt>
+              <dd>{loading ? "—" : counts.gdeltNgramsDocuments}</dd>
+            </div>
+            <div>
+              <dt>Catégories GDELT</dt>
+              <dd>{loading ? "—" : `${counts.gdeltNgramsCategories} · couverture ${formatPercent(gdeltCoverage)}`}</dd>
             </div>
             <div>
               <dt>Localisés carte</dt>
@@ -547,7 +593,7 @@ export default function WorldPulseDashboard() {
             </div>
             <div>
               <dt>Requête</dt>
-              <dd>{payload.query || "—"}</dd>
+              <dd>{payload.query ? `${payload.query} · canari GDELT DOC uniquement` : "—"}</dd>
             </div>
           </dl>
           {payload.error?.detail ? <p className="raw-error">{payload.error.detail}</p> : null}

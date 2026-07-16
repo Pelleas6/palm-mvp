@@ -7,7 +7,7 @@ import {
   getWorldPulseSourceHealthSnapshot,
   responseHeadersForPayload,
 } from "../lib/world-pulse.js";
-import { WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
+import { WORLD_PULSE_SIGNAL_CATEGORIES, WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
 
 const FIXED_NOW = "2026-07-15T12:00:00.000Z";
 const FIFTEEN_MINUTES_MINUS_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 899_000).toISOString();
@@ -42,16 +42,39 @@ function ngramsTocResponse(entries = [
   return textResponse(entries.map((entry) => JSON.stringify(entry)).join("\n"), 200, "application/x-ndjson");
 }
 
-test("world pulse legend exposes the six approved signal categories", () => {
+test("world pulse legend exposes the deterministic taxonomy plus explicit unclassified bucket", () => {
+  assert.deepEqual(WORLD_PULSE_SIGNAL_CATEGORIES.map((item) => item.label), [
+    "Conflit/tension",
+    "Politique/élections",
+    "Économie/marchés",
+    "Climat/environnement",
+    "Santé",
+    "Science/technologie",
+    "Sécurité/défense",
+    "Justice/société",
+    "Culture/médias",
+    "Sport",
+    "Catastrophes/météo",
+    "Énergie/transport",
+  ]);
   assert.deepEqual(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.label), [
     "Conflit/tension",
-    "Technologie",
-    "Élections",
-    "Climat",
+    "Politique/élections",
+    "Économie/marchés",
+    "Climat/environnement",
     "Santé",
-    "Autre signal",
+    "Science/technologie",
+    "Sécurité/défense",
+    "Justice/société",
+    "Culture/médias",
+    "Sport",
+    "Catastrophes/météo",
+    "Énergie/transport",
+    "À classifier",
   ]);
-  assert.equal(new Set(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.color)).size, 6);
+  assert.equal(new Set(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.color)).size, 13);
+  assert.ok(!WORLD_PULSE_SIGNAL_LEGEND.some((item) => item.label === "Autre signal"));
+  assert.equal(WORLD_PULSE_SIGNAL_LEGEND.at(-1).thematic, false);
   for (const item of WORLD_PULSE_SIGNAL_LEGEND) {
     assert.equal(colorForWorldPulseSignalLabel(item.label), item.color);
   }
@@ -89,15 +112,26 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(payload.source.cached, false);
   assert.equal(payload.cache.ttlSeconds, 900);
   assert.equal(payload.counts.articles, 2);
+  assert.equal(payload.counts.rssArticles, 2);
   assert.equal(payload.counts.mediaSources, 1);
+  assert.equal(payload.counts.rssMediaSources, 1);
+  assert.equal(payload.counts.rssKnownMediaCountries, 1);
+  assert.equal(payload.counts.rssCategories, 2);
+  assert.equal(payload.counts.rssUnclassifiedArticles, 0);
+  assert.equal(payload.counts.rssClassificationCoveragePct, 100);
+  assert.equal(payload.counts.gdeltNgramsDocuments, 2);
+  assert.equal(payload.counts.gdeltNgramsCategories, 2);
   assert.equal(payload.articles[0].sourceType, "Mock RSS");
   assert.equal(payload.articles[0].sourceLocation?.code, "FR");
   assert.deepEqual(payload.articles.map((article) => article.title).sort(), ["Climate update", "Election signal"]);
+  assert.deepEqual(payload.dataScopes.rss.source, "RSS_PUBLIC");
+  assert.deepEqual(payload.dataScopes.gdeltNgrams.source, "GDELT_WEB_NGRAMS_TOC");
   assert.equal(payload.globalTrends.source, "GDELT_WEB_NGRAMS_TOC");
   assert.equal(payload.globalTrends.cycleMinutes, 15);
   assert.equal(payload.globalTrends.delayMinutes, 5);
   assert.equal(payload.globalTrends.documents, 2);
-  assert.ok(payload.globalTrends.labels.some((item) => item.label === "Technologie"));
+  assert.ok(payload.globalTrends.categories.some((item) => item.label === "Climat/environnement"));
+  assert.ok(payload.globalTrends.categories.some((item) => item.label === "Politique/élections"));
   assert.ok(calls.some((href) => href.includes("rss.example")));
   assert.ok(calls.some((href) => href.includes(".toc.json.gz")));
   assert.ok(calls.some((href) => href.includes("20260715114600.toc.json.gz")), "GDELT Web N-Grams TOC must target the real :01/:16/:31/:46 publication minute, not the unavailable quarter-hour boundary");
@@ -107,6 +141,39 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   const ngramsHealth = payload.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC");
   assert.equal(rssHealth.state, "OK");
   assert.equal(ngramsHealth.state, "OK");
+});
+
+test("unmatched RSS articles and GDELT N-Grams documents stay explicit À classifier with coverage", async () => {
+  const cache = createPulseCache();
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("rss.example")) {
+      return rssResponse([rssItem({ title: "Local bulletin", link: "https://rss.example/local-bulletin", description: "Neighbourhood note" })]);
+    }
+    if (href.includes("weblegacy/ngrams")) {
+      return ngramsTocResponse([
+        { ID: 1, date: "2026-07-15T11:45:00.000Z", lang: "en", title: "Daily local bulletin", url: "https://toc.example/local" },
+      ]);
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  const payload = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "Local RSS", url: "https://rss.example/feed.xml", language: "English", sourceCountry: "United States" }],
+  });
+
+  assert.equal(payload.articles[0].label, "À classifier");
+  assert.equal(payload.articles[0].classified, false);
+  assert.equal(payload.counts.rssCategories, 0);
+  assert.equal(payload.counts.rssUnclassifiedArticles, 1);
+  assert.equal(payload.counts.rssClassificationCoveragePct, 0);
+  assert.equal(payload.globalTrends.classification.unclassified, 1);
+  assert.equal(payload.globalTrends.classification.coveragePct, 0);
+  assert.ok(payload.groupings.rssCategories.some((item) => item.label === "À classifier"));
+  assert.ok(payload.groupings.gdeltNgramsCategories.some((item) => item.label === "À classifier"));
 });
 
 test("GDELT Web N-Grams TOC accepts real article titles mentioning rate limits without flagging the source as rate limited", async () => {

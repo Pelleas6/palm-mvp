@@ -143,7 +143,10 @@ try {
   assert.equal(rss.payload.counts.articles, 1);
   assert.equal(rss.payload.counts.localized, 1);
   assert.equal(rss.payload.counts.unlocalized, 0);
-  assert.equal(rss.payload.articles[0].label, "Climat");
+  assert.equal(rss.payload.articles[0].label, "Climat/environnement");
+  assert.equal(rss.payload.counts.rssArticles, 1);
+  assert.equal(rss.payload.counts.gdeltNgramsDocuments, 2);
+  assert.equal(rss.payload.counts.rssClassificationCoveragePct, 100);
   assert.equal(rss.payload.articles[0].sourceCountry, "France");
   assert.equal(rss.payload.articles[0].sourceLocation?.code, "FR");
   assert.equal(rss.payload.globalTrends.documents, 2);
