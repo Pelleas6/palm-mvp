@@ -268,6 +268,36 @@ test("getWorldPulse caps public RSS to five articles per media and 50 globally w
   assert.ok(payload.mediaMarkers.some((marker) => marker.location.code === "CA"));
 });
 
+test("getWorldPulse disperses media markers and article particles when source coordinates are close", async () => {
+  const cache = createPulseCache();
+  const feeds = [
+    { name: "Near UK", region: "Europe", url: "https://near-uk.example/rss.xml", language: "English", sourceCountry: "United Kingdom" },
+    { name: "Near France", region: "Europe", url: "https://near-fr.example/rss.xml", language: "French", sourceCountry: "France" },
+    { name: "Near Germany", region: "Europe", url: "https://near-de.example/rss.xml", language: "German", sourceCountry: "Germany" },
+  ];
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+    const feed = feeds.find((item) => href === item.url);
+    if (!feed) throw new Error(`unexpected fetch ${href}`);
+    return rssResponse([rssItem({ title: `Technology signal from ${feed.name}`, link: `${feed.url.replace("/rss.xml", "")}/article` })]);
+  };
+
+  const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW), rssFeeds: feeds });
+  const distance = (left, right) => Math.hypot(left.x - right.x, left.y - right.y);
+  const minMediaDistance = Math.min(...payload.mediaMarkers.flatMap((left, leftIndex) => (
+    payload.mediaMarkers.slice(leftIndex + 1).map((right) => distance(left, right))
+  )));
+  const minParticleDistance = Math.min(...payload.articleParticles.flatMap((left, leftIndex) => (
+    payload.articleParticles.slice(leftIndex + 1).map((right) => distance(left, right))
+  )));
+
+  assert.equal(payload.mediaMarkers.length, 3);
+  assert.equal(payload.articleParticles.length, 3);
+  assert.ok(minMediaDistance >= 4.5, `media markers too close: ${minMediaDistance}`);
+  assert.ok(minParticleDistance >= 4.5, `article particles too close: ${minParticleDistance}`);
+});
+
 test("source health snapshot reads in-memory cache only and performs zero external fetch", async () => {
   const cache = createPulseCache();
   let calls = 0;

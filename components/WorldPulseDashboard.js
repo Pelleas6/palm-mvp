@@ -71,6 +71,11 @@ function formatArticleCount(count) {
   return `${safeCount} article${safeCount > 1 ? "s" : ""}`;
 }
 
+function countFromPayload(payloadCounts, key, fallback = 0) {
+  const value = payloadCounts?.[key];
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -421,13 +426,14 @@ export default function WorldPulseDashboard() {
   const articleParticles = Array.isArray(payload.articleParticles) ? payload.articleParticles : [];
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
   const globalTrends = payload.globalTrends || { documents: 0, labels: [], topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
-  const counts = { ...EMPTY_COUNTS, ...(payload.counts || {}) };
+  const payloadCounts = payload.counts || {};
+  const counts = { ...EMPTY_COUNTS, ...payloadCounts };
   const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [] };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
-  const visibleMediaCount = counts.mediaMarkers || mediaMarkers.length;
-  const visibleArticleParticleCount = counts.articleParticles || articleParticles.length;
-  const totalMediaCount = Math.max(counts.mediaSources || 0, visibleMediaCount);
+  const visibleMediaCount = countFromPayload(payloadCounts, "mediaMarkers", mediaMarkers.length);
+  const visibleArticleParticleCount = countFromPayload(payloadCounts, "articleParticles", articleParticles.length);
+  const totalMediaCount = Math.max(countFromPayload(payloadCounts, "mediaSources", counts.mediaSources), visibleMediaCount);
   const visibleMediaLabel = loading ? "— repères médias" : `${visibleMediaCount}/${totalMediaCount} repères médias · ${visibleArticleParticleCount} particules articles`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
