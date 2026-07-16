@@ -79,7 +79,7 @@ test("world pulse legend exposes the deterministic taxonomy plus explicit unclas
     "Sport",
     "Catastrophes/météo",
     "Énergie/transport",
-    "À classifier",
+    "Non déterminé",
   ]);
   assert.equal(new Set(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.color)).size, 13);
   assert.ok(!WORLD_PULSE_SIGNAL_LEGEND.some((item) => item.label === "Autre signal"));
@@ -242,7 +242,7 @@ test("GDELT Web N-Grams missing-TOC checks are rate gated to one external reques
   assert.equal(gated.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC").state, "STALE");
 });
 
-test("unmatched RSS articles and GDELT N-Grams documents stay explicit À classifier with coverage", async () => {
+test("unmatched RSS articles and GDELT N-Grams documents stay explicit Non déterminé with coverage", async () => {
   const cache = createPulseCache();
   const fetchImpl = async (url) => {
     const href = String(url);
@@ -264,15 +264,15 @@ test("unmatched RSS articles and GDELT N-Grams documents stay explicit À classi
     rssFeeds: [{ name: "Local RSS", url: "https://rss.example/feed.xml", language: "English", sourceCountry: "United States" }],
   });
 
-  assert.equal(payload.articles[0].label, "À classifier");
+  assert.equal(payload.articles[0].label, "Non déterminé");
   assert.equal(payload.articles[0].classified, false);
   assert.equal(payload.counts.rssCategories, 0);
   assert.equal(payload.counts.rssUnclassifiedArticles, 1);
   assert.equal(payload.counts.rssClassificationCoveragePct, 0);
   assert.equal(payload.globalTrends.classification.unclassified, 1);
   assert.equal(payload.globalTrends.classification.coveragePct, 0);
-  assert.ok(payload.groupings.rssCategories.some((item) => item.label === "À classifier"));
-  assert.ok(payload.groupings.gdeltNgramsCategories.some((item) => item.label === "À classifier"));
+  assert.ok(payload.groupings.rssCategories.some((item) => item.label === "Non déterminé"));
+  assert.ok(payload.groupings.gdeltNgramsCategories.some((item) => item.label === "Non déterminé"));
 });
 
 test("GDELT Web N-Grams TOC accepts real article titles mentioning rate limits without flagging the source as rate limited", async () => {

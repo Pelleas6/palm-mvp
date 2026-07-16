@@ -5,6 +5,8 @@ import { geoEquirectangular, geoGraticule10, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
 import { WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
+import { SOURCE_COUNTRY_REGISTRY } from "../lib/world-pulse-geography.js";
+import { WORLD_PULSE_FILTER_ALL, deriveWorldPulseExploration } from "../lib/world-pulse-exploration.js";
 
 const REFRESH_MS = 10 * 60 * 1000;
 const EMPTY_COUNTS = {
@@ -46,8 +48,12 @@ const WORLD_VIEWBOX_WIDTH = 1000;
 const WORLD_VIEWBOX_HEIGHT = 500;
 const WORLD_PROJECTION = geoEquirectangular().fitExtent([[8, 8], [992, 492]], { type: "Sphere" });
 const WORLD_PATH = geoPath(WORLD_PROJECTION);
+const COUNTRY_CODE_BY_NUMERIC = new Map(SOURCE_COUNTRY_REGISTRY.map((country) => [country.isoNumeric, country.code]));
 const WORLD_COUNTRY_PATHS = WORLD_FEATURE.features
-  .map((country, index) => ({ id: country.id || index, d: WORLD_PATH(country) }))
+  .map((country, index) => {
+    const isoNumeric = String(country.id || "").padStart(3, "0");
+    return { id: country.id || index, code: COUNTRY_CODE_BY_NUMERIC.get(isoNumeric) || null, d: WORLD_PATH(country) };
+  })
   .filter((country) => country.d);
 const WORLD_GRATICULE_PATH = WORLD_PATH(geoGraticule10());
 const WORLD_SPHERE_PATH = WORLD_PATH({ type: "Sphere" });
@@ -102,7 +108,27 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function WorldMapBackdrop() {
+function WorldMapBackdrop({ availableCountryCodes = [], selectedCountryCode = null, onSelectCountry = () => {} }) {
+  const selectableCodes = new Set(availableCountryCodes);
+  function countryInteractionProps(country) {
+    if (!country.code || !selectableCodes.has(country.code)) return {};
+    const selected = selectedCountryCode === country.code;
+    const select = () => onSelectCountry(country.code);
+    return {
+      role: "button",
+      tabIndex: 0,
+      onClick: select,
+      onKeyDown: (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          select();
+        }
+      },
+      "aria-label": `Lire les signaux du pays média ISO ${country.code}`,
+      className: `map-land map-country-button${selected ? " selected-country" : ""}`,
+    };
+  }
+
   return (
     <svg
       className="world-map"
@@ -120,9 +146,10 @@ function WorldMapBackdrop() {
       <rect x="0" y="0" width="1000" height="500" rx="28" className="map-ocean" />
       <path className="map-sphere" d={WORLD_SPHERE_PATH} />
       <path className="map-line" d={WORLD_GRATICULE_PATH} />
-      {WORLD_COUNTRY_PATHS.map((country) => (
-        <path key={country.id} className="map-land" d={country.d} />
-      ))}
+      {WORLD_COUNTRY_PATHS.map((country) => {
+        const interactionProps = countryInteractionProps(country);
+        return <path key={country.id} className={interactionProps.className || "map-land"} d={country.d} {...interactionProps} />;
+      })}
     </svg>
   );
 }
@@ -207,7 +234,7 @@ function SignalLegend({ visibleLabel }) {
       <div className="signal-legend-head">
         <span>Registre déterministe</span>
         <strong>{visibleLabel}</strong>
-        <small>12 catégories thématiques · « À classifier » reste hors taxonomie</small>
+        <small>12 catégories thématiques · « Non déterminé » reste hors taxonomie utile</small>
       </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
@@ -221,7 +248,7 @@ function SignalLegend({ visibleLabel }) {
   );
 }
 
-function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading }) {
+function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry }) {
   const markers = useMemo(() => (
     mediaMarkers.map((point, index) => ({
       ...point,
@@ -275,12 +302,19 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       "--particle-delay": point.delay,
       "--particle-safe-offset": `${safeOffset}px`,
     };
-    const Tag = point.url ? "a" : "span";
-    const linkProps = point.url ? { href: point.url, target: "_blank", rel: "noreferrer" } : { role: "button", tabIndex: 0 };
+    const selectionType = point.kind === "media" ? "marker" : point.kind === "article-cluster" ? "cluster" : "article";
+    const isPanelPoint = point.kind === "media" || point.kind === "article-cluster";
+    const isSelected = selectedPoint?.type === selectionType && selectedPoint?.id === point.id;
+    const Tag = isPanelPoint ? "button" : point.url ? "a" : "button";
+    const linkProps = isPanelPoint
+      ? { type: "button", onClick: () => onSelectPoint({ type: selectionType, id: point.id }), "aria-pressed": isSelected }
+      : point.url
+        ? { href: point.url, target: "_blank", rel: "noreferrer" }
+        : { type: "button", onClick: () => onSelectPoint({ type: selectionType, id: point.id }), "aria-pressed": isSelected };
     return (
       <Tag
         key={`${point.kind}-${point.id}`}
-        className={`particle ${className}`}
+        className={`particle ${className}${isSelected ? " selected-particle" : ""}`}
         {...linkProps}
         style={style}
         title={tooltip}
@@ -302,7 +336,11 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
 
   return (
     <div className="signal-field" aria-label="Carte du monde des sources médias localisées : repères médias et particules articles">
-      <WorldMapBackdrop />
+      <WorldMapBackdrop
+        availableCountryCodes={availableCountryCodes}
+        selectedCountryCode={selectedPoint?.type === "country" ? selectedPoint.code : null}
+        onSelectCountry={(code) => onSelectCountry({ type: "country", code })}
+      />
       <div className="field-grid" aria-hidden="true" />
       {loading && !hasVisiblePoints ? (
         <div className="state-copy">
@@ -354,6 +392,147 @@ function CountList({ title, items, emptyLabel }) {
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function FilterSelect({ label, value, items, onChange }) {
+  return (
+    <label className="filter-select">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value={WORLD_PULSE_FILTER_ALL}>Tous</option>
+        {items.map((item) => (
+          <option key={`${label}-${item.value}`} value={item.value}>
+            {item.code ? `${item.label} (${item.code})` : item.label} · {item.count}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function hasActiveFilters(filters) {
+  return Object.values(filters || {}).some((value) => value && value !== WORLD_PULSE_FILTER_ALL);
+}
+
+function FilterControls({ filters, options, resultCount, totalCount, onChange, onReset }) {
+  const active = hasActiveFilters(filters);
+  return (
+    <section className="panel filter-panel" aria-label="Filtres RSS réinitialisables">
+      <div className="panel-heading">
+        <div>
+          <p>Exploration RSS</p>
+          <h2>Filtres cohérents carte · liste · compteurs</h2>
+        </div>
+        <span>{resultCount}/{totalCount} article(s) affichés</span>
+      </div>
+      <div className="filter-grid">
+        <FilterSelect label="Région" value={filters.region} items={options.regions || []} onChange={(value) => onChange("region", value)} />
+        <FilterSelect label="Pays média ISO" value={filters.country} items={options.countries || []} onChange={(value) => onChange("country", value)} />
+        <FilterSelect label="Source" value={filters.source} items={options.sources || []} onChange={(value) => onChange("source", value)} />
+        <FilterSelect label="Catégorie" value={filters.category} items={options.categories || []} onChange={(value) => onChange("category", value)} />
+        <button type="button" className="reset-filters" onClick={onReset} disabled={!active}>
+          Réinitialiser
+        </button>
+      </div>
+      <p className="map-note">
+        Les filtres s'appliquent uniquement aux articles RSS déjà reçus : aucune requête externe navigateur, aucune donnée de démonstration.
+      </p>
+    </section>
+  );
+}
+
+function TimeWindowCard({ title, window }) {
+  return (
+    <div className={`time-card ${window.complete ? "complete" : "incomplete"}`}>
+      <span>{title}</span>
+      <strong>{window.count}</strong>
+      <small>{window.message}</small>
+    </div>
+  );
+}
+
+function TemporalPanel({ timeWindows, nonDetermined, categories }) {
+  return (
+    <section className="panel temporal-panel" aria-label="Lecture temporelle RSS et couverture de classification">
+      <div className="panel-heading">
+        <div>
+          <p>Dates RSS réelles</p>
+          <h2>Lecture temporelle et taxonomie</h2>
+        </div>
+        <span>{timeWindows.validDateCount} date(s) · {timeWindows.missingDateCount} sans date</span>
+      </div>
+      <div className="time-grid">
+        <TimeWindowCard title="Dernières 6 h" window={timeWindows.last6h} />
+        <TimeWindowCard title="Dernières 24 h" window={timeWindows.last24h} />
+        <div className="time-card coverage-card">
+          <span>Couverture catégories</span>
+          <strong>{nonDetermined.coveragePct}%</strong>
+          <small>{nonDetermined.notice}</small>
+        </div>
+      </div>
+      <p className="map-note">Référence : dernier article daté {formatDate(timeWindows.referenceSeenAt)} · {timeWindows.notice}</p>
+      {nonDetermined.examples.length > 0 ? (
+        <p className="map-note">Exemples {nonDetermined.label} : {nonDetermined.examples.map((item) => item.title).join(" · ")}</p>
+      ) : null}
+      <div className="category-chips" aria-label="Répartition des catégories filtrées">
+        {categories.length === 0 ? <span>Aucune catégorie RSS dans le filtre actif.</span> : categories.map((item) => (
+          <span key={item.label} className={item.thematic ? "" : "non-thematic"}>{item.label} · {item.count}{item.thematic ? "" : " · hors taxonomie"}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReadingPanel({ selection }) {
+  return (
+    <section className="panel reading-panel" aria-label="Panneau de lecture des repères carte">
+      <div className="panel-heading">
+        <div>
+          <p>Lecture au clic ou clavier</p>
+          <h2>{selection?.label || "Sélectionnez un repère, un pays ou un cluster"}</h2>
+        </div>
+        <span>{selection ? `${selection.articleCount} article(s)` : "en attente"}</span>
+      </div>
+      {!selection ? (
+        <div className="stream-empty">
+          <strong>Aucune sélection active</strong>
+          <span>Les pays média colorés, les repères média et les clusters sont focusables au clavier. La lecture reste fondée sur le pays média ISO vérifié.</span>
+        </div>
+      ) : (
+        <div className="reading-content">
+          <p className="map-note">{selection.basis}</p>
+          <dl>
+            <div>
+              <dt>Pays média ISO vérifié</dt>
+              <dd>{selection.sourceCountries.map((country) => `${country.label}${country.code ? ` (${country.code})` : ""}`).join(", ") || "—"}</dd>
+            </div>
+            <div>
+              <dt>Médias concernés</dt>
+              <dd>{selection.mediaNames.join(", ") || "—"}</dd>
+            </div>
+            <div>
+              <dt>Dernière heure reçue</dt>
+              <dd>{formatDate(selection.latestSeenAt)}</dd>
+            </div>
+          </dl>
+          <div className="reading-sublist">
+            <strong>Catégories</strong>
+            {selection.categories.map((item) => (
+              <span key={item.label}>{item.label} · {item.count}{item.thematic ? "" : " · hors taxonomie"}</span>
+            ))}
+          </div>
+          <div className="reading-sublist">
+            <strong>Derniers titres</strong>
+            {selection.latestTitles.map((item) => (
+              <a key={`${item.id}-${item.title}`} href={item.url || "#"} target="_blank" rel="noreferrer">
+                {formatDate(item.seenAt)} · {item.mediaName} · {item.title}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -484,7 +663,7 @@ function ArticleStream({ articles, state, sourceName }) {
             </span>
             <strong>{article.title}</strong>
             <span className="article-foot">
-              {article.label || "À classifier"} · {article.labelType || "à classifier"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · événement non géolocalisé par ce tableau · {article.language}
+              {article.label || "Non déterminé"} · {article.labelType || "non déterminé"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · événement non géolocalisé par ce tableau · {article.language}
             </span>
           </a>
         ))}
@@ -495,27 +674,68 @@ function ArticleStream({ articles, state, sourceName }) {
 
 export default function WorldPulseDashboard({ initialPayload = null }) {
   const { payload, loading } = useGdeltPulse(initialPayload);
-  const articles = Array.isArray(payload.articles) ? payload.articles : [];
-  const legacyMapPoints = Array.isArray(payload.mapPoints) ? payload.mapPoints : [];
-  const mediaMarkers = Array.isArray(payload.mediaMarkers) ? payload.mediaMarkers : legacyMapPoints;
-  const articleParticles = Array.isArray(payload.articleParticles) ? payload.articleParticles : [];
-  const articleClusters = Array.isArray(payload.articleClusters) ? payload.articleClusters : [];
+  const [filters, setFilters] = useState({
+    region: WORLD_PULSE_FILTER_ALL,
+    country: WORLD_PULSE_FILTER_ALL,
+    source: WORLD_PULSE_FILTER_ALL,
+    category: WORLD_PULSE_FILTER_ALL,
+  });
+  const [selectedPoint, setSelectedPoint] = useState(null);
+  const rawArticles = Array.isArray(payload.articles) ? payload.articles : [];
+  const exploration = useMemo(() => deriveWorldPulseExploration(payload, filters, selectedPoint), [payload, filters, selectedPoint]);
+  const articles = exploration.articles;
+  const mediaMarkers = exploration.mediaMarkers;
+  const articleParticles = exploration.articleParticles;
+  const articleClusters = exploration.articleClusters;
+  const offMapArticles = exploration.offMapArticles;
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
   const globalTrends = payload.globalTrends || { documents: 0, labels: [], categories: [], thematicCategories: [], classification: { coveragePct: 0, unclassified: 0 }, topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
   const payloadCounts = payload.counts || {};
-  const counts = { ...EMPTY_COUNTS, ...payloadCounts };
-  const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [], rssCategories: [], gdeltNgramsCategories: [], offMapReasons: [] };
+  const counts = {
+    ...EMPTY_COUNTS,
+    ...payloadCounts,
+    articles: exploration.counts.articles,
+    rssArticles: exploration.counts.articles,
+    rssMediaSources: exploration.counts.mediaSources,
+    rssKnownMediaCountries: exploration.counts.countries,
+    rssCategories: exploration.categories.filter((item) => item.thematic).length,
+    rssClassifiedArticles: exploration.counts.rssClassifiedArticles,
+    rssUnclassifiedArticles: exploration.counts.rssUnclassifiedArticles,
+    rssClassificationCoveragePct: exploration.nonDetermined.coveragePct,
+    localized: articleParticles.length,
+    unlocalized: offMapArticles.length,
+    mediaMarkers: mediaMarkers.length,
+    articleParticles: articleParticles.length,
+    articleClusters: articleClusters.length,
+    articleVisiblePoints: articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length,
+    offMapArticles: offMapArticles.length,
+  };
+  const groupings = {
+    domains: [],
+    mediaSources: [],
+    countries: [],
+    sourceRegions: [],
+    locations: [],
+    languages: [],
+    labels: [],
+    rssCategories: [],
+    gdeltNgramsCategories: [],
+    offMapReasons: [],
+    ...(payload.groupings || {}),
+    ...exploration.groupings,
+    gdeltNgramsCategories: payload.groupings?.gdeltNgramsCategories || [],
+  };
   const dataScopes = payload.dataScopes || {};
   const rssScope = dataScopes.rss || { period: "RSS public · cache ≥15 min", classificationCoveragePct: counts.rssClassificationCoveragePct };
   const gdeltScope = dataScopes.gdeltNgrams || { period: `cycle ${globalTrends.cycleMinutes || 15} min`, classificationCoveragePct: counts.gdeltNgramsClassificationCoveragePct };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
-  const visibleMediaCount = countFromPayload(payloadCounts, "mediaMarkers", mediaMarkers.length);
-  const visibleArticleParticleCount = countFromPayload(payloadCounts, "articleParticles", articleParticles.length);
-  const visibleArticleClusterCount = countFromPayload(payloadCounts, "articleClusters", articleClusters.length);
-  const visibleArticlePointCount = countFromPayload(payloadCounts, "articleVisiblePoints", articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length);
-  const totalMediaCount = Math.max(countFromPayload(payloadCounts, "rssMediaSources", counts.rssMediaSources), visibleMediaCount);
-  const rssCoverage = countFromPayload(payloadCounts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
+  const visibleMediaCount = mediaMarkers.length;
+  const visibleArticleParticleCount = articleParticles.length;
+  const visibleArticleClusterCount = articleClusters.length;
+  const visibleArticlePointCount = articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length;
+  const totalMediaCount = Math.max(counts.rssMediaSources, visibleMediaCount);
+  const rssCoverage = countFromPayload(counts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
   const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
   const visibleMediaLabel = loading ? "— repères médias RSS" : `${visibleMediaCount}/${totalMediaCount} repères médias RSS · ${visibleArticleParticleCount} particules RSS · ${visibleArticleClusterCount} clusters · ${unlocalizedCount} hors carte`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
@@ -529,6 +749,21 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
     .filter(Boolean)
     .sort()
     .at(-1);
+
+  function updateFilter(name, value) {
+    setFilters((current) => ({ ...current, [name]: value || WORLD_PULSE_FILTER_ALL }));
+    setSelectedPoint(null);
+  }
+
+  function resetFilters() {
+    setFilters({
+      region: WORLD_PULSE_FILTER_ALL,
+      country: WORLD_PULSE_FILTER_ALL,
+      source: WORLD_PULSE_FILTER_ALL,
+      category: WORLD_PULSE_FILTER_ALL,
+    });
+    setSelectedPoint(null);
+  }
 
   return (
     <main className="pulse-shell">
@@ -560,11 +795,26 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Clusters articles" value={loading ? "—" : counts.articleClusters} hint="Même pays média + même catégorie + proximité" />
         <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="Pays média source non vérifié ou placement impossible" />
         <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
-        <Metric label="À classifier RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Articles RSS sans correspondance déterministe" />
+        <Metric label="Non déterminé RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Hors taxonomie utile · aucun mot-clé déterministe" />
         <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
         <Metric label="Catégories GDELT" value={loading ? "—" : counts.gdeltNgramsCategories} hint={`GDELT N-Grams · documents TOC · couverture ${formatPercent(gdeltCoverage)}`} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
+
+      <FilterControls
+        filters={exploration.filters}
+        options={exploration.filterOptions}
+        resultCount={articles.length}
+        totalCount={rawArticles.length}
+        onChange={updateFilter}
+        onReset={resetFilters}
+      />
+
+      <TemporalPanel
+        timeWindows={exploration.timeWindows}
+        nonDetermined={exploration.nonDetermined}
+        categories={exploration.categories}
+      />
 
       <section className="main-grid">
         <article className="panel map-panel">
@@ -575,13 +825,27 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             </div>
             <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles RSS avec pays média vérifié` : "visualisation suspendue"}</span>
           </div>
-          <SignalField mediaMarkers={mediaMarkers} articleParticles={articleParticles} articleClusters={articleClusters} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
+          <SignalField
+            mediaMarkers={mediaMarkers}
+            articleParticles={articleParticles}
+            articleClusters={articleClusters}
+            unlocalized={unlocalizedCount}
+            state={payload.state}
+            loading={loading}
+            availableCountryCodes={exploration.availableCountryCodes}
+            selectedPoint={selectedPoint}
+            onSelectPoint={setSelectedPoint}
+            onSelectCountry={setSelectedPoint}
+          />
           <SignalLegend visibleLabel={visibleMediaLabel} />
           <p className="map-note">
             Les grands repères représentent les médias RSS localisés (6-8px), les petites particules représentent les articles RSS avec pays média source vérifié (3-5px), et les bulles regroupent seulement des particules proches de même pays et même catégorie. Ils ne prétendent jamais localiser l'événement raconté par l'article.
           </p>
         </article>
-        <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
+        <aside className="side-stack">
+          <ReadingPanel selection={exploration.selection} />
+          <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
+        </aside>
       </section>
 
       <section className="bottom-grid" aria-label="Regroupements RSS et GDELT séparés">
@@ -630,7 +894,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <dd>{loading ? "—" : counts.rssCategories}</dd>
             </div>
             <div>
-              <dt>À classifier RSS</dt>
+              <dt>Non déterminé RSS</dt>
               <dd>{loading ? "—" : `${counts.rssUnclassifiedArticles} · couverture ${formatPercent(rssCoverage)}`}</dd>
             </div>
             <div>
@@ -814,11 +1078,114 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .metric-card small { font-size: 0.78rem; }
 
+        .filter-panel, .temporal-panel {
+          margin-bottom: 18px;
+        }
+        .filter-panel .panel-heading > span,
+        .temporal-panel .panel-heading > span,
+        .reading-panel .panel-heading > span {
+          color: var(--muted);
+          font-size: 0.8rem;
+          border: 1px solid var(--line);
+          padding: 8px 10px;
+          white-space: nowrap;
+        }
+        .filter-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(150px, 1fr)) auto;
+          gap: 12px;
+          align-items: end;
+        }
+        .filter-select {
+          display: grid;
+          gap: 7px;
+        }
+        .filter-select span {
+          color: var(--subtle);
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          font-weight: 800;
+        }
+        .filter-select select,
+        .reset-filters {
+          min-height: 42px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--ink);
+          padding: 0 12px;
+          font: inherit;
+        }
+        .filter-select option { color: #07110f; }
+        .reset-filters {
+          cursor: pointer;
+          color: var(--accent);
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+        .reset-filters:disabled {
+          cursor: not-allowed;
+          color: var(--subtle);
+          opacity: 0.58;
+        }
+        .time-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+        }
+        .time-card {
+          display: grid;
+          gap: 8px;
+          min-height: 132px;
+          padding: 14px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.035);
+        }
+        .time-card span,
+        .time-card small {
+          color: var(--muted);
+          line-height: 1.45;
+        }
+        .time-card span {
+          font-size: 0.72rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+        .time-card strong {
+          color: var(--ink);
+          font-size: clamp(2rem, 4vw, 3.2rem);
+          line-height: 0.95;
+          font-variant-numeric: tabular-nums;
+        }
+        .time-card.incomplete { border-color: rgba(245, 189, 79, 0.34); }
+        .time-card.complete { border-color: rgba(142, 227, 125, 0.28); }
+        .category-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 14px;
+        }
+        .category-chips span {
+          padding: 7px 10px;
+          border: 1px solid var(--line);
+          color: var(--muted);
+          background: rgba(255, 255, 255, 0.03);
+          font-size: 0.78rem;
+        }
+        .category-chips .non-thematic { border-color: rgba(245, 189, 79, 0.28); color: var(--warn); }
+
         .main-grid {
           display: grid;
           grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.75fr);
           gap: 18px;
           margin-bottom: 18px;
+        }
+        .side-stack {
+          display: grid;
+          gap: 18px;
+          align-content: start;
         }
 
         .panel { padding: 20px; }
@@ -879,6 +1246,18 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           stroke-width: 0.62;
           vector-effect: non-scaling-stroke;
         }
+        .map-country-button {
+          cursor: pointer;
+          fill: color-mix(in srgb, var(--accent) 18%, #25483f);
+          stroke: rgba(62, 214, 195, 0.58);
+        }
+        .map-country-button:hover,
+        .map-country-button:focus-visible,
+        .selected-country {
+          fill: color-mix(in srgb, var(--accent) 34%, #25483f);
+          stroke: var(--accent);
+          outline: none;
+        }
         .muted-land { opacity: 0.54; }
         .map-line {
           fill: none;
@@ -910,12 +1289,16 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           position: absolute;
           z-index: 3;
           display: block;
+          padding: 0;
+          border: 0;
+          cursor: pointer;
           transform: translate(-50%, -50%);
           border-radius: 999px;
           background: var(--particle-color);
           animation: pulseFloat 3.6s ease-in-out infinite;
           animation-delay: var(--particle-delay);
         }
+        button.particle { appearance: none; }
         .media-marker {
           z-index: 4;
           border: 1px solid color-mix(in srgb, var(--particle-color) 78%, var(--ink));
@@ -952,6 +1335,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border: 1px solid color-mix(in srgb, var(--particle-color) 30%, transparent);
         }
         .particle:hover { z-index: 5; transform: translate(-50%, -50%) scale(1.45); }
+        .selected-particle {
+          z-index: 6;
+          outline: 2px solid var(--ink);
+          outline-offset: 5px;
+        }
         .particle-tooltip {
           position: absolute;
           z-index: 6;
@@ -1049,6 +1437,55 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           gap: 8px;
         }
         .stream-empty strong { color: var(--ink); }
+
+        .reading-panel {
+          overflow: hidden;
+        }
+        .reading-content {
+          display: grid;
+          gap: 14px;
+        }
+        .reading-content dl {
+          display: grid;
+          gap: 10px;
+          margin: 0;
+        }
+        .reading-content dl div {
+          display: grid;
+          gap: 4px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid var(--line);
+        }
+        .reading-content dt {
+          color: var(--subtle);
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          font-weight: 800;
+        }
+        .reading-content dd {
+          margin: 0;
+          color: var(--ink);
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+        }
+        .reading-sublist {
+          display: grid;
+          gap: 8px;
+          padding: 12px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.03);
+        }
+        .reading-sublist strong { color: var(--ink); }
+        .reading-sublist span,
+        .reading-sublist a {
+          color: var(--muted);
+          font-size: 0.82rem;
+          line-height: 1.35;
+          overflow-wrap: anywhere;
+          text-decoration: none;
+        }
+        .reading-sublist a:hover { color: var(--ink); }
 
         .mini-panel { min-height: 250px; box-shadow: none; }
         .muted { color: var(--muted); line-height: 1.55; }
@@ -1193,6 +1630,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         @media (max-width: 1080px) {
           .top-strip, .main-grid { grid-template-columns: 1fr; }
           .metric-grid, .bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .time-grid { grid-template-columns: 1fr; }
           .stream-panel { max-height: none; }
           .article-list { max-height: none; }
         }
@@ -1200,8 +1639,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         @media (max-width: 680px) {
           .pulse-shell { width: min(100% - 20px, 1480px); padding-top: 10px; }
           .title-block, .status-panel, .panel, .metric-card { border-radius: 0; }
-          .metric-grid, .bottom-grid { grid-template-columns: 1fr; }
-          .top-strip, .main-grid, .metric-grid, .bottom-grid { gap: 10px; margin-bottom: 10px; }
+          .metric-grid, .bottom-grid, .filter-grid { grid-template-columns: 1fr; }
+          .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 320px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .signal-field { min-height: 0; aspect-ratio: 2 / 1; }
