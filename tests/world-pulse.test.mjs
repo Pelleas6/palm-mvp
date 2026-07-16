@@ -100,12 +100,41 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.ok(payload.globalTrends.labels.some((item) => item.label === "Technologie"));
   assert.ok(calls.some((href) => href.includes("rss.example")));
   assert.ok(calls.some((href) => href.includes(".toc.json.gz")));
+  assert.ok(calls.some((href) => href.includes("20260715114600.toc.json.gz")), "GDELT Web N-Grams TOC must target the real :01/:16/:31/:46 publication minute, not the unavailable quarter-hour boundary");
   assert.ok(!calls.some((href) => href.includes("api/v2/doc")));
 
   const rssHealth = payload.sourceHealth.find((entry) => entry.source === "Mock RSS");
   const ngramsHealth = payload.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC");
   assert.equal(rssHealth.state, "OK");
   assert.equal(ngramsHealth.state, "OK");
+});
+
+test("GDELT Web N-Grams TOC accepts real article titles mentioning rate limits without flagging the source as rate limited", async () => {
+  const cache = createPulseCache();
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("rss.example")) {
+      return rssResponse([rssItem({ title: "Technology signal", link: "https://rss.example/rate-limit-context" })]);
+    }
+    if (href.includes("weblegacy/ngrams")) {
+      return ngramsTocResponse([
+        { ID: 1, date: "2026-07-15T11:46:00.000Z", lang: "en", title: "Rate limit rules change for technology platforms", url: "https://toc.example/rate-limit-rules" },
+      ]);
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  const payload = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "Mock RSS", url: "https://rss.example/feed.xml", language: "English", sourceCountry: "United States" }],
+  });
+
+  const ngramsHealth = payload.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC");
+  assert.equal(ngramsHealth.state, "OK");
+  assert.equal(payload.globalTrends.documents, 1);
+  assert.equal(payload.globalTrends.topTitles[0].title, "Rate limit rules change for technology platforms");
 });
 
 test("getWorldPulse serves a shared server cache for at least 15 minutes and suppresses repeated external calls across 20 close loads", async () => {
