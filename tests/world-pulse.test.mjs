@@ -89,7 +89,7 @@ test("world pulse legend exposes the deterministic taxonomy plus explicit unclas
   }
 });
 
-test("getWorldPulse uses public RSS as the operational source, dedupes canonical URLs and normalized titles, and reads GDELT Web N-Grams TOC for trends", async () => {
+test("getWorldPulse uses public RSS as the operational source, dedupes canonical URLs and normalized titles, and reads GDELT Web N-Grams TOC with the audited safe lag", async () => {
   const cache = createPulseCache();
   const calls = [];
   const fetchImpl = async (url) => {
@@ -137,13 +137,13 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.deepEqual(payload.dataScopes.gdeltNgrams.source, "GDELT_WEB_NGRAMS_TOC");
   assert.equal(payload.globalTrends.source, "GDELT_WEB_NGRAMS_TOC");
   assert.equal(payload.globalTrends.cycleMinutes, 15);
-  assert.equal(payload.globalTrends.delayMinutes, 5);
+  assert.equal(payload.globalTrends.delayMinutes, 105);
   assert.equal(payload.globalTrends.documents, 2);
   assert.ok(payload.globalTrends.categories.some((item) => item.label === "Climat/environnement"));
   assert.ok(payload.globalTrends.categories.some((item) => item.label === "Politique/élections"));
   assert.ok(calls.some((href) => href.includes("rss.example")));
   assert.ok(calls.some((href) => href.includes(".toc.json.gz")));
-  assert.ok(calls.some((href) => href.includes("20260715114600.toc.json.gz")), "GDELT Web N-Grams TOC must target the real :01/:16/:31/:46 publication minute, not the unavailable quarter-hour boundary");
+  assert.ok(calls.some((href) => href.includes("20260715101600.toc.json.gz")), "GDELT Web N-Grams TOC must target the audited slow publication lag on real :01/:16/:31/:46 minutes, not the unavailable current-hour boundary");
   assert.ok(!calls.some((href) => href.includes("api/v2/doc")));
 
   const rssHealth = payload.sourceHealth.find((entry) => entry.source === "Mock RSS");
@@ -424,6 +424,59 @@ test("GDELT DOC canary detects rate limiting even on HTTP 200 and respects the o
   assert.equal(firstCanary.state, "RATE_LIMITED");
   assert.equal(firstCanary.http, 200);
   assert.equal(secondCanary.state, "RATE_LIMITED");
+});
+
+test("GDELT DOC canary honors Retry-After backoff and keeps the canary request minimal", async () => {
+  const cache = createPulseCache();
+  let gdeltDocCalls = 0;
+  const gdeltDocUrls = [];
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("rss.example")) {
+      return rssResponse([rssItem({ title: `Canary backoff ${gdeltDocCalls}`, link: `https://rss.example/backoff-${gdeltDocCalls}` })]);
+    }
+    if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+    if (href.includes("api/v2/doc")) {
+      gdeltDocCalls += 1;
+      gdeltDocUrls.push(href);
+      return new Response("Rate limit", {
+        status: 429,
+        headers: {
+          "content-type": "text/plain",
+          "retry-after": "7200",
+        },
+      });
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  const first = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    gdeltCanaryDelayMs: 0,
+    awaitGdeltCanary: true,
+    rssFeeds: [{ name: "Canary Retry RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+  cache.expiresAt = 0;
+  const second = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(Date.parse(FIXED_NOW) + 61 * 60 * 1000),
+    gdeltCanaryDelayMs: 0,
+    awaitGdeltCanary: true,
+    rssFeeds: [{ name: "Canary Retry RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+
+  const firstCanary = first.sourceHealth.find((entry) => entry.source === "GDELT 2.0 DOC API canary");
+  const secondCanary = second.sourceHealth.find((entry) => entry.source === "GDELT 2.0 DOC API canary");
+  assert.equal(gdeltDocCalls, 1, "Retry-After must prevent a second DOC API request after only 61 minutes");
+  assert.equal(new URL(gdeltDocUrls[0]).searchParams.get("maxrecords"), "1");
+  assert.equal(new URL(gdeltDocUrls[0]).searchParams.get("timespan"), "15m");
+  assert.equal(firstCanary.state, "RATE_LIMITED");
+  assert.equal(firstCanary.nextAttemptAt, "2026-07-15T14:00:00.000Z");
+  assert.equal(secondCanary.state, "RATE_LIMITED");
+  assert.equal(secondCanary.nextAttemptAt, "2026-07-15T14:00:00.000Z");
 });
 
 test("GDELT DOC canary uses a thirty-second default timeout", async () => {

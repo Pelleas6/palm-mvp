@@ -361,7 +361,7 @@ function CountList({ title, items, emptyLabel }) {
 function healthStateLabel(state) {
   const labels = {
     OK: "OK",
-    RATE_LIMITED: "Rate limit",
+    RATE_LIMITED: "Limité",
     TIMEOUT: "Timeout",
     HTTP_ERROR: "HTTP KO",
     INVALID_RESPONSE: "Réponse KO",
@@ -409,7 +409,11 @@ function SourceHealth({ items }) {
             <span>{item.xml ? "OK" : "—"}</span>
             <span>{item.articles ?? 0}</span>
             <span>{item.recent ? "oui" : "non"}</span>
-            <span>{healthStateLabel(item.state)}</span>
+            <span className="health-state-cell">
+              <strong>{healthStateLabel(item.state)}</strong>
+              {item.nextAttemptAt ? <small>Prochaine tentative : {formatDate(item.nextAttemptAt)}</small> : null}
+              {item.detail ? <small>{item.detail}</small> : null}
+            </span>
           </div>
         ))}
       </div>
@@ -1142,7 +1146,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .source-health-row {
           display: grid;
-          grid-template-columns: minmax(150px, 1.2fr) minmax(110px, 0.75fr) minmax(260px, 1.8fr) 70px 86px 80px 78px 92px;
+          grid-template-columns: minmax(150px, 1.2fr) minmax(110px, 0.75fr) minmax(260px, 1.8fr) 70px 86px 80px 78px minmax(160px, 1fr);
           gap: 10px;
           align-items: center;
           min-width: 980px;
@@ -1153,6 +1157,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           font-size: 0.78rem;
         }
         .source-health-row a { color: var(--ink); overflow-wrap: anywhere; text-decoration: none; }
+        .health-state-cell { display: flex; flex-direction: column; gap: 4px; }
+        .health-state-cell strong { font-size: 0.82rem; }
+        .health-state-cell small { color: var(--muted); line-height: 1.35; }
         .source-health-head {
           color: var(--subtle);
           font-weight: 800;
