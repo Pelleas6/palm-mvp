@@ -4,3 +4,5 @@ node_modules/
 *.bak-*
 app/**/*.bak-*
 node_modules/\n.next/\n.env*\n*.bak-*\napp/**/*.bak-*
+/local_hash
+/remote_hash
