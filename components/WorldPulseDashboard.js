@@ -18,11 +18,15 @@ const EMPTY_COUNTS = {
   labels: 0,
   localized: 0,
   unlocalized: 0,
+  mediaMarkers: 0,
+  articleParticles: 0,
   mapPoints: 0,
   unavailableSources: 0,
 };
 const WORLD_FEATURE = feature(worldAtlas, worldAtlas.objects.countries);
-const WORLD_PROJECTION = geoEquirectangular().fitExtent([[24, 22], [976, 478]], { type: "Sphere" });
+const WORLD_VIEWBOX_WIDTH = 1000;
+const WORLD_VIEWBOX_HEIGHT = 500;
+const WORLD_PROJECTION = geoEquirectangular().fitExtent([[8, 8], [992, 492]], { type: "Sphere" });
 const WORLD_PATH = geoPath(WORLD_PROJECTION);
 const WORLD_COUNTRY_PATHS = WORLD_FEATURE.features
   .map((country, index) => ({ id: country.id || index, d: WORLD_PATH(country) }))
@@ -72,7 +76,13 @@ function clamp(value, min, max) {
 
 function WorldMapBackdrop() {
   return (
-    <svg className="world-map" viewBox="0 0 1000 500" role="img" aria-label="Carte du monde Natural Earth projetée en SVG" preserveAspectRatio="xMidYMid meet">
+    <svg
+      className="world-map"
+      viewBox={`0 0 ${WORLD_VIEWBOX_WIDTH} ${WORLD_VIEWBOX_HEIGHT}`}
+      role="img"
+      aria-label="Carte du monde Natural Earth projetée en SVG, monde complet visible"
+      preserveAspectRatio="xMidYMid meet"
+    >
       <defs>
         <linearGradient id="landGlow" x1="0%" x2="100%" y1="0%" y2="100%">
           <stop offset="0%" stopColor="#25483f" />
@@ -155,7 +165,7 @@ function SignalLegend({ visibleLabel }) {
       <div className="signal-legend-head">
         <span>Légende couleurs</span>
         <strong>{visibleLabel}</strong>
-        <small>1 média = 1 point</small>
+        <small>repère média 6-8px · particule article 3-5px</small>
       </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
@@ -169,75 +179,95 @@ function SignalLegend({ visibleLabel }) {
   );
 }
 
-function SignalField({ mapPoints, unlocalized, state, loading }) {
-  const particles = useMemo(() => (
-    mapPoints.map((point, index) => ({
+function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loading }) {
+  const markers = useMemo(() => (
+    mediaMarkers.map((point, index) => ({
       ...point,
+      kind: "media",
       left: clamp(point.x, 4, 96),
       top: clamp(point.y, 8, 88),
-      size: point.size || 16,
+      size: point.size || 8,
       color: colorForLabel(point.label),
       delay: `${(index % 12) * 0.08}s`,
     }))
-  ), [mapPoints]);
+  ), [mediaMarkers]);
+  const particles = useMemo(() => (
+    articleParticles.map((point, index) => ({
+      ...point,
+      kind: "article",
+      left: clamp(point.x, 4, 96),
+      top: clamp(point.y, 8, 88),
+      size: point.size || 4,
+      color: colorForLabel(point.label),
+      delay: `${((index + 4) % 18) * 0.06}s`,
+    }))
+  ), [articleParticles]);
+  const hasVisiblePoints = markers.length > 0 || particles.length > 0;
+
+  function renderPoint(point, className) {
+    const safeOffset = Math.ceil((point.size || 8) / 2 + 10);
+    const sourceCountry = point.sourceCountry || point.location?.label || "Non précisé";
+    const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : "1 article";
+    const typeLabel = point.kind === "media" ? "Repère média" : "Particule article";
+    const titlePart = point.kind === "article" && point.title ? ` — ${point.title}` : "";
+    const tooltip = `${typeLabel} — ${point.mediaName}${titlePart} — pays source : ${sourceCountry} — ${countLabel} — catégorie : ${point.label}`;
+    const style = {
+      left: `clamp(${safeOffset}px, ${point.left}%, calc(100% - ${safeOffset}px))`,
+      top: `clamp(${safeOffset}px, ${point.top}%, calc(100% - ${safeOffset}px))`,
+      width: `${point.size}px`,
+      height: `${point.size}px`,
+      "--particle-color": point.color,
+      "--particle-delay": point.delay,
+      "--particle-safe-offset": `${safeOffset}px`,
+    };
+    return (
+      <a
+        key={`${point.kind}-${point.id}`}
+        className={`particle ${className}`}
+        href={point.url || "#"}
+        target="_blank"
+        rel="noreferrer"
+        style={style}
+        title={tooltip}
+        aria-label={`${typeLabel}, ${point.mediaName}, pays source : ${sourceCountry}, ${countLabel}, catégorie : ${point.label}`}
+      >
+        <span className="particle-tooltip" role="tooltip">
+          <strong>{point.mediaName}</strong>
+          <span>{typeLabel}</span>
+          {point.title ? <span>{point.title}</span> : null}
+          <span>Pays source : {sourceCountry}</span>
+          <span>{countLabel}</span>
+          <span>Catégorie : {point.label}</span>
+        </span>
+      </a>
+    );
+  }
 
   return (
-    <div className="signal-field" aria-label="Carte du monde des médias sources localisés, un point agrégé par média">
+    <div className="signal-field" aria-label="Carte du monde des sources médias localisées : repères médias et particules articles">
       <WorldMapBackdrop />
       <div className="field-grid" aria-hidden="true" />
-      {loading && particles.length === 0 ? (
+      {loading && !hasVisiblePoints ? (
         <div className="state-copy">
           <div className="loader" aria-hidden="true" />
           <strong>Interrogation de GDELT puis RSS secours si besoin</strong>
           <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
         </div>
       ) : null}
-      {!loading && mapPoints.length === 0 && unlocalized > 0 ? (
+      {!loading && !hasVisiblePoints && unlocalized > 0 ? (
         <div className="state-copy compact-state">
           <strong>Aucune source localisable sur la carte</strong>
           <span>Les articles réels restent comptés hors carte pour ne pas inventer de position.</span>
         </div>
       ) : null}
-      {!loading && mapPoints.length === 0 && unlocalized === 0 ? (
+      {!loading && !hasVisiblePoints && unlocalized === 0 ? (
         <div className="state-copy">
           <strong>{state === "unavailable" ? "Sources indisponibles" : "Aucun signal exploitable"}</strong>
           <span>La visualisation reste vide tant qu'aucun article réel n'est reçu.</span>
         </div>
       ) : null}
-      {particles.map((particle) => {
-        const safeOffset = Math.ceil((particle.size || 16) / 2 + 12);
-        const sourceCountry = particle.sourceCountry || particle.location?.label || "Non précisé";
-        const articleCount = formatArticleCount(particle.articleCount);
-        const tooltip = `${particle.mediaName} — pays source : ${sourceCountry} — ${articleCount} — catégorie : ${particle.label}`;
-        const style = {
-          left: `clamp(${safeOffset}px, ${particle.left}%, calc(100% - ${safeOffset}px))`,
-          top: `clamp(${safeOffset}px, ${particle.top}%, calc(100% - ${safeOffset}px))`,
-          width: `${particle.size}px`,
-          height: `${particle.size}px`,
-          "--particle-color": particle.color,
-          "--particle-delay": particle.delay,
-          "--particle-safe-offset": `${safeOffset}px`,
-        };
-        return (
-          <a
-            key={particle.id}
-            className="particle"
-            href={particle.url || "#"}
-            target="_blank"
-            rel="noreferrer"
-            style={style}
-            title={tooltip}
-            aria-label={`${particle.mediaName}, pays source : ${sourceCountry}, ${articleCount}, catégorie : ${particle.label}`}
-          >
-            <span className="particle-tooltip" role="tooltip">
-              <strong>{particle.mediaName}</strong>
-              <span>Pays source : {sourceCountry}</span>
-              <span>{articleCount}</span>
-              <span>Catégorie : {particle.label}</span>
-            </span>
-          </a>
-        );
-      })}
+      {particles.map((particle) => renderPoint(particle, "article-particle"))}
+      {markers.map((marker) => renderPoint(marker, "media-marker"))}
       {unlocalized > 0 ? (
         <div className="unlocalized-badge" aria-label={`${unlocalized} articles sans localisation fiable`}>
           <span>Hors carte</span>
@@ -352,15 +382,18 @@ function ArticleStream({ articles, state, sourceName }) {
 export default function WorldPulseDashboard() {
   const { payload, loading } = useGdeltPulse();
   const articles = Array.isArray(payload.articles) ? payload.articles : [];
-  const mapPoints = Array.isArray(payload.mapPoints) ? payload.mapPoints : [];
+  const legacyMapPoints = Array.isArray(payload.mapPoints) ? payload.mapPoints : [];
+  const mediaMarkers = Array.isArray(payload.mediaMarkers) ? payload.mediaMarkers : legacyMapPoints;
+  const articleParticles = Array.isArray(payload.articleParticles) ? payload.articleParticles : [];
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
   const counts = { ...EMPTY_COUNTS, ...(payload.counts || {}) };
   const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [] };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
-  const visibleMediaCount = mapPoints.length;
+  const visibleMediaCount = counts.mediaMarkers || mediaMarkers.length;
+  const visibleArticleParticleCount = counts.articleParticles || articleParticles.length;
   const totalMediaCount = Math.max(counts.mediaSources || 0, visibleMediaCount);
-  const visibleMediaLabel = loading ? "— médias visibles" : `${visibleMediaCount}/${totalMediaCount} médias visibles`;
+  const visibleMediaLabel = loading ? "— repères médias" : `${visibleMediaCount}/${totalMediaCount} repères médias · ${visibleArticleParticleCount} particules articles`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -398,7 +431,8 @@ export default function WorldPulseDashboard() {
       <section className="metric-grid" aria-label="Synthèse source et cache">
         <Metric label="Articles" value={loading ? "—" : counts.articles} hint="liens uniques" />
         <Metric label="Médias" value={loading ? "—" : counts.mediaSources} hint="sources agrégées" />
-        <Metric label="Médias visibles" value={loading ? "—" : `${visibleMediaCount}/${totalMediaCount}`} hint="1 média = 1 point" />
+        <Metric label="Repères médias" value={loading ? "—" : `${visibleMediaCount}/${totalMediaCount}`} hint="6-8px, source agrégée" />
+        <Metric label="Particules articles" value={loading ? "—" : visibleArticleParticleCount} hint="3-5px, articles localisés" />
         <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="sans localisation inventée" />
         <Metric label="Source active" value={loading ? "—" : sourceMetric} hint={sourceName} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : "généré maintenant"} />
@@ -413,10 +447,10 @@ export default function WorldPulseDashboard() {
             </div>
             <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles source localisés · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
           </div>
-          <SignalField mapPoints={mapPoints} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
+          <SignalField mediaMarkers={mediaMarkers} articleParticles={articleParticles} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
           <SignalLegend visibleLabel={visibleMediaLabel} />
           <p className="map-note">
-            Les points représentent les médias sources localisés : un point agrégé par média, dimensionné par nombre d'articles. Ils ne prétendent pas localiser l'événement raconté par l'article.
+            Les grands repères représentent les médias sources localisés (6-8px) et les petites particules représentent les articles reçus (3-5px). Ils ne prétendent pas localiser l'événement raconté par l'article.
           </p>
         </article>
         <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
@@ -664,9 +698,9 @@ export default function WorldPulseDashboard() {
         }
         .world-map {
           position: absolute;
-          inset: clamp(18px, 3vw, 34px);
-          width: calc(100% - clamp(36px, 6vw, 68px));
-          height: calc(100% - clamp(36px, 6vw, 68px));
+          inset: clamp(8px, 2vw, 18px);
+          width: calc(100% - clamp(16px, 4vw, 36px));
+          height: calc(100% - clamp(16px, 4vw, 36px));
           opacity: 0.92;
           filter: drop-shadow(0 0 36px rgba(62, 214, 195, 0.08));
         }
@@ -718,22 +752,32 @@ export default function WorldPulseDashboard() {
           position: absolute;
           z-index: 3;
           display: block;
-          min-width: 12px;
-          min-height: 12px;
           transform: translate(-50%, -50%);
-          border: 1px solid rgba(255, 255, 255, 0.76);
           border-radius: 999px;
           background: var(--particle-color);
-          box-shadow: 0 0 0 7px color-mix(in srgb, var(--particle-color) 16%, transparent), 0 0 28px var(--particle-color);
           animation: pulseFloat 3.6s ease-in-out infinite;
           animation-delay: var(--particle-delay);
+        }
+        .media-marker {
+          z-index: 4;
+          border: 1px solid color-mix(in srgb, var(--particle-color) 78%, var(--ink));
+          box-shadow: 0 0 0 5px color-mix(in srgb, var(--particle-color) 18%, transparent), 0 0 22px var(--particle-color);
+        }
+        .article-particle {
+          z-index: 3;
+          border: none;
+          opacity: 0.92;
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 24%, transparent), 0 0 11px var(--particle-color);
         }
         .particle::after {
           content: "";
           position: absolute;
-          inset: -10px;
+          inset: -7px;
           border-radius: inherit;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 28%, transparent);
+        }
+        .media-marker::after {
+          inset: -10px;
+          border: 1px solid color-mix(in srgb, var(--particle-color) 30%, transparent);
         }
         .particle:hover { z-index: 5; transform: translate(-50%, -50%) scale(1.45); }
         .particle-tooltip {

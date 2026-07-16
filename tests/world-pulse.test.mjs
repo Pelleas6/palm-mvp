@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createPulseCache, getWorldPulse } from "../lib/world-pulse.js";
-import { WORLD_PULSE_SIGNAL_LEGEND } from "../lib/world-pulse-signals.js";
+import { WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
 
 const FIXED_NOW = "2026-07-15T12:00:00.000Z";
 const FIVE_MINUTES_AND_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 301_000).toISOString();
@@ -31,6 +31,9 @@ test("world pulse legend exposes the six approved signal categories", () => {
     "Autre signal",
   ]);
   assert.equal(new Set(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.color)).size, 6);
+  for (const item of WORLD_PULSE_SIGNAL_LEGEND) {
+    assert.equal(colorForWorldPulseSignalLabel(item.label), item.color);
+  }
 });
 
 test("getWorldPulse returns GDELT as the primary source and deduplicates article links", async () => {
@@ -152,7 +155,7 @@ test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates R
   assert.equal(calls.length, 2);
 });
 
-test("getWorldPulse limits each media to five articles and exposes one deterministic map point per media", async () => {
+test("getWorldPulse limits each media to five articles and exposes separate deterministic media markers and article particles", async () => {
   const cache = createPulseCache();
   const repeatedMedia = Array.from({ length: 7 }, (_, index) => ({
     url: `https://example.com/world-${index}`,
@@ -176,6 +179,8 @@ test("getWorldPulse limits each media to five articles and exposes one determini
 
   assert.equal(payload.counts.articles, 7);
   assert.equal(payload.counts.mediaSources, 2);
+  assert.equal(payload.counts.mediaMarkers, 2);
+  assert.equal(payload.counts.articleParticles, 7);
   assert.equal(payload.counts.mapPoints, 2);
   assert.equal(payload.counts.localized, 7);
   assert.equal(payload.counts.unlocalized, 0);
@@ -184,11 +189,66 @@ test("getWorldPulse limits each media to five articles and exposes one determini
   const anotherPoint = payload.mapPoints.find((point) => point.mediaName === "another.example");
   assert.equal(examplePoint.articleCount, 5);
   assert.equal(anotherPoint.articleCount, 2);
+  assert.ok(examplePoint.size >= 6 && examplePoint.size <= 8);
+  assert.ok(anotherPoint.size >= 6 && anotherPoint.size <= 8);
   assert.equal(examplePoint.location.code, "FR");
   assert.equal(examplePoint.sourceCountry, "France");
   assert.equal(examplePoint.label, "Climat");
-  assert.equal(examplePoint.positioning, "media_source_location");
+  assert.equal(examplePoint.positioning, "media_source_marker");
   assert.notEqual(`${examplePoint.x},${examplePoint.y}`, `${anotherPoint.x},${anotherPoint.y}`);
+  assert.equal(payload.articleParticles.length, 7);
+  assert.ok(payload.articleParticles.every((particle) => particle.size >= 3 && particle.size <= 5));
+  assert.ok(new Set(payload.articleParticles.map((particle) => `${particle.x},${particle.y}`)).size > 1);
+  assert.ok(payload.articleParticles.every((particle) => particle.positioning === "article_source_particle"));
+});
+
+test("getWorldPulse exposes 11 media markers and 50 article particles for the full RSS source matrix", async () => {
+  const cache = createPulseCache();
+  const feeds = [
+    ["BBC News World", "United Kingdom"],
+    ["France 24 Monde", "France"],
+    ["Deutsche Welle Top Stories", "Germany"],
+    ["Africanews", "Republic of Congo"],
+    ["Al Jazeera", "Qatar"],
+    ["The Hindu International", "India"],
+    ["NHK World", "Japan"],
+    ["ABC Australia World", "Australia"],
+    ["NPR World", "United States"],
+    ["CBC World", "Canada"],
+    ["Agência Brasil", "Brazil"],
+  ].map(([name, sourceCountry], index) => ({
+    name,
+    region: "Fixture",
+    url: `https://feed-${index}.example/rss.xml`,
+    language: "English",
+    sourceCountry,
+  }));
+  const fetchImpl = async (url) => {
+    if (String(url).includes("gdeltproject")) {
+      const error = new Error("The operation was aborted");
+      error.name = "AbortError";
+      throw error;
+    }
+    const feedIndex = Number(String(url).match(/feed-(\d+)/)?.[1] || 0);
+    const items = Array.from({ length: 5 }, (_, itemIndex) => `
+      <item><title>Technology climate signal ${feedIndex}-${itemIndex}</title><link>https://feed-${feedIndex}.example/world-${itemIndex}</link><pubDate>Wed, 15 Jul 2026 11:${String(50 + itemIndex).padStart(2, "0")}:00 GMT</pubDate><description>Public report.</description></item>`).join("");
+    return textResponse(`<?xml version="1.0"?><rss><channel>${items}</channel></rss>`);
+  };
+
+  const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW), rssFeeds: feeds });
+
+  assert.equal(payload.counts.articles, 50);
+  assert.equal(payload.counts.mediaSources, 11);
+  assert.equal(payload.counts.mediaMarkers, 11);
+  assert.equal(payload.counts.articleParticles, 50);
+  assert.equal(payload.mapPoints.length, 11);
+  assert.equal(payload.mediaMarkers.length, 11);
+  assert.equal(payload.articleParticles.length, 50);
+  assert.ok(payload.mediaMarkers.every((marker) => marker.size >= 6 && marker.size <= 8));
+  assert.ok(payload.articleParticles.every((particle) => particle.size >= 3 && particle.size <= 5));
+  assert.ok(payload.articleParticles.every((particle) => particle.x >= 4 && particle.x <= 96 && particle.y >= 8 && particle.y <= 88));
+  assert.ok(payload.mediaMarkers.some((marker) => marker.location.code === "AU"));
+  assert.ok(payload.mediaMarkers.some((marker) => marker.location.code === "CA"));
 });
 
 test("getWorldPulse records RSS source health and caps fallback articles per feed", async () => {
