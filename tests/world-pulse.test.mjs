@@ -231,6 +231,41 @@ test("GDELT DOC canary detects rate limiting even on HTTP 200 and respects the o
   assert.equal(secondCanary.state, "RATE_LIMITED");
 });
 
+test("GDELT DOC canary uses a thirty-second default timeout", async () => {
+  const cache = createPulseCache();
+  const timeoutCalls = [];
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  globalThis.setTimeout = (callback, timeoutMs, ...args) => {
+    timeoutCalls.push(timeoutMs);
+    return originalSetTimeout(callback, timeoutMs, ...args);
+  };
+  globalThis.clearTimeout = (timer) => originalClearTimeout(timer);
+
+  try {
+    await getWorldPulse({
+      cache,
+      fetchImpl: async (url) => {
+        const href = String(url);
+        if (href.includes("rss.example")) return rssResponse([rssItem({ title: "Canary timeout signal", link: "https://rss.example/canary-timeout" })]);
+        if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+        if (href.includes("api/v2/doc")) return textResponse("Your query has been rate limited by GDELT", 200, "text/plain");
+        throw new Error(`unexpected fetch ${href}`);
+      },
+      now: () => new Date(FIXED_NOW),
+      gdeltCanaryDelayMs: 0,
+      awaitGdeltCanary: true,
+      rssFeeds: [{ name: "Canary Timeout RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+    });
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+
+  assert.ok(timeoutCalls.filter((timeoutMs) => timeoutMs === 2500).length >= 2, "RSS and Web N-Grams keep lightweight 2.5s fetch timeouts");
+  assert.equal(timeoutCalls.at(-1), 30_000, "GDELT DOC canary default timeout must be 30s");
+});
+
 test("getWorldPulse caps public RSS to five articles per media and 50 globally while preserving media markers and article particles", async () => {
   const cache = createPulseCache();
   const feeds = Array.from({ length: 11 }, (_, index) => ({
