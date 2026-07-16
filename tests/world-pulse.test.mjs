@@ -139,6 +139,88 @@ test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates R
   assert.equal(calls.length, 2);
 });
 
+test("getWorldPulse limits each media to five articles and exposes one deterministic map point per media", async () => {
+  const cache = createPulseCache();
+  const repeatedMedia = Array.from({ length: 7 }, (_, index) => ({
+    url: `https://example.com/world-${index}`,
+    title: `Climate and economy signal ${index}`,
+    domain: "example.com",
+    sourcecountry: "France",
+    language: "French",
+    seendate: `20260715115${index}00`,
+  }));
+  const secondMedia = Array.from({ length: 2 }, (_, index) => ({
+    url: `https://another.example/world-${index}`,
+    title: `Conflict signal ${index}`,
+    domain: "another.example",
+    sourcecountry: "France",
+    language: "French",
+    seendate: `20260715114${index}00`,
+  }));
+  const fetchImpl = async () => jsonResponse({ articles: [...repeatedMedia, ...secondMedia] });
+
+  const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
+
+  assert.equal(payload.counts.articles, 7);
+  assert.equal(payload.counts.mediaSources, 2);
+  assert.equal(payload.counts.mapPoints, 2);
+  assert.equal(payload.counts.localized, 7);
+  assert.equal(payload.counts.unlocalized, 0);
+
+  const examplePoint = payload.mapPoints.find((point) => point.mediaName === "example.com");
+  const anotherPoint = payload.mapPoints.find((point) => point.mediaName === "another.example");
+  assert.equal(examplePoint.articleCount, 5);
+  assert.equal(anotherPoint.articleCount, 2);
+  assert.equal(examplePoint.location.code, "FR");
+  assert.equal(examplePoint.positioning, "media_source_location");
+  assert.notEqual(`${examplePoint.x},${examplePoint.y}`, `${anotherPoint.x},${anotherPoint.y}`);
+});
+
+test("getWorldPulse records RSS source health and caps fallback articles per feed", async () => {
+  const cache = createPulseCache();
+  const rss = `<?xml version="1.0"?><rss><channel>${Array.from({ length: 6 }, (_, index) => `
+    <item><title>World health update ${index}</title><link>https://rss-ok.example/world-${index}</link><pubDate>Wed, 15 Jul 2026 11:5${index}:00 GMT</pubDate><description>Public report.</description></item>`).join("")}
+  </channel></rss>`;
+  const fetchImpl = async (url) => {
+    if (String(url).includes("gdeltproject")) {
+      const error = new Error("The operation was aborted");
+      error.name = "AbortError";
+      throw error;
+    }
+    if (String(url).includes("rss-fail.example")) return textResponse("service down", 503, "text/plain");
+    return textResponse(rss);
+  };
+
+  const payload = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [
+      { name: "RSS OK", region: "Europe", url: "https://rss-ok.example/feed.xml", language: "French", sourceCountry: "France" },
+      { name: "RSS KO", region: "Africa", url: "https://rss-fail.example/feed.xml", language: "French", sourceCountry: "Kenya" },
+    ],
+  });
+
+  assert.equal(payload.state, "partial");
+  assert.equal(payload.counts.articles, 5);
+  assert.equal(payload.counts.mapPoints, 1);
+  assert.equal(payload.mapPoints[0].mediaName, "RSS OK");
+  assert.equal(payload.mapPoints[0].articleCount, 5);
+
+  const gdeltHealth = payload.sourceHealth.find((entry) => entry.source === "GDELT 2.0 DOC API");
+  const okHealth = payload.sourceHealth.find((entry) => entry.source === "RSS OK");
+  const failHealth = payload.sourceHealth.find((entry) => entry.source === "RSS KO");
+  assert.equal(gdeltHealth.state, "timeout");
+  assert.equal(okHealth.region, "Europe");
+  assert.equal(okHealth.http, 200);
+  assert.equal(okHealth.xml, true);
+  assert.equal(okHealth.articles, 6);
+  assert.equal(okHealth.recent, true);
+  assert.equal(okHealth.state, "ok");
+  assert.equal(failHealth.http, 503);
+  assert.equal(failHealth.state, "http_error");
+});
+
 test("getWorldPulse counts real articles without reliable source location outside the map", async () => {
   const cache = createPulseCache();
   const fetchImpl = async () => jsonResponse({

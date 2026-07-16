@@ -2,14 +2,19 @@
   "name": "palm-mvp",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
+    "test": "node --test tests/*.test.mjs",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
+    "d3-geo": "^3.1.1",
     "next": "14.2.3",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   }
 }
