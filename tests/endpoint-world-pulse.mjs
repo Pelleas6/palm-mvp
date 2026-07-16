@@ -36,57 +36,46 @@ async function waitFor(url, timeoutMs = 20_000) {
   throw lastError || new Error(`Timeout waiting for ${url}`);
 }
 
-let mode = "gdelt";
+let mode = "rss";
+let counts = { rss: 0, ngrams: 0, gdeltDoc: 0 };
+
 const mockServer = createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
 
-  if (url.pathname === "/gdelt") {
-    if (mode === "gdelt") {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({
-        articles: [
-          {
-            url: "https://gdelt.example/economy?utm_source=test",
-            title: "Global technology signal",
-            domain: "gdelt.example",
-            sourcecountry: "France",
-            language: "French",
-            seendate: "20260715120000",
-          },
-          {
-            url: "https://gdelt.example/economy",
-            title: "Duplicate economy signal",
-            domain: "gdelt.example",
-            sourcecountry: "France",
-            language: "French",
-            seendate: "20260715115900",
-          },
-        ],
-      }));
-      return;
-    }
-    if (mode === "rss") {
-      await sleep(650);
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ articles: [] }));
-      return;
-    }
-    res.writeHead(502, { "content-type": "text/plain" });
-    res.end("gdelt down");
-    return;
-  }
-
   if (url.pathname === "/rss") {
+    counts.rss += 1;
     if (mode === "rss") {
       res.writeHead(200, { "content-type": "application/rss+xml" });
       res.end(`<?xml version="1.0"?><rss><channel>
-        <item><title>Climate fallback signal</title><link>https://rss.example/climate</link><pubDate>Wed, 15 Jul 2026 12:01:00 GMT</pubDate><description>Real RSS item.</description></item>
-        <item><title>Duplicate fallback signal</title><link>https://rss.example/climate?utm_campaign=dup</link><pubDate>Wed, 15 Jul 2026 12:00:00 GMT</pubDate></item>
+        <item><title>Climate fallback signal</title><link>https://rss.example/climate?utm_campaign=test</link><pubDate>Wed, 15 Jul 2026 12:01:00 GMT</pubDate><description>Real RSS item.</description></item>
+        <item><title>Climate fallback signal</title><link>https://mirror.example/climate-copy</link><pubDate>Wed, 15 Jul 2026 12:00:00 GMT</pubDate></item>
       </channel></rss>`);
       return;
     }
     res.writeHead(503, { "content-type": "text/plain" });
     res.end("rss down");
+    return;
+  }
+
+  if (url.pathname.startsWith("/ngrams/")) {
+    counts.ngrams += 1;
+    if (mode === "rss") {
+      res.writeHead(200, { "content-type": "application/x-ndjson" });
+      res.end([
+        JSON.stringify({ ID: 1, date: "2026-07-15T11:45:00.000Z", lang: "en", title: "Technology signal", url: "https://toc.example/tech" }),
+        JSON.stringify({ ID: 2, date: "2026-07-15T11:45:00.000Z", lang: "fr", title: "Election signal", url: "https://toc.example/election" }),
+      ].join("\n"));
+      return;
+    }
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("not-json-lines");
+    return;
+  }
+
+  if (url.pathname === "/gdelt") {
+    counts.gdeltDoc += 1;
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("Your query has been rate limited by GDELT");
     return;
   }
 
@@ -97,15 +86,18 @@ const mockPort = await listen(mockServer);
 
 async function runNextScenario(value) {
   mode = value;
+  counts = { rss: 0, ngrams: 0, gdeltDoc: 0 };
   const nextPort = await getFreePort();
   const next = spawn("./node_modules/.bin/next", ["start", "-H", "127.0.0.1", "-p", String(nextPort)], {
     cwd: process.cwd(),
     env: {
       ...process.env,
       WORLD_PULSE_GDELT_ENDPOINT: `http://127.0.0.1:${mockPort}/gdelt`,
-      WORLD_PULSE_RSS_FEEDS: `Mock RSS|http://127.0.0.1:${mockPort}/rss|France`,
-      WORLD_PULSE_GDELT_TIMEOUT_MS: "200",
-      WORLD_PULSE_RSS_TIMEOUT_MS: "200",
+      WORLD_PULSE_RSS_FEEDS: `Mock RSS|http://127.0.0.1:${mockPort}/rss|France|French|Europe`,
+      WORLD_PULSE_NGRAMS_BASE_URL: `http://127.0.0.1:${mockPort}/ngrams`,
+      WORLD_PULSE_GDELT_CANARY_DELAY_MS: "600000",
+      WORLD_PULSE_RSS_TIMEOUT_MS: "500",
+      WORLD_PULSE_NGRAMS_TIMEOUT_MS: "500",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -119,7 +111,21 @@ async function runNextScenario(value) {
     const response = await fetch(`http://127.0.0.1:${nextPort}/api/gdelt`, { cache: "no-store" });
     const payload = await response.json();
     assert.equal(response.status, 200);
-    return payload;
+
+    const beforeHealthCounts = { ...counts };
+    const healthResponse = await fetch(`http://127.0.0.1:${nextPort}/api/gdelt/health`, { cache: "no-store" });
+    const health = await healthResponse.json();
+    assert.equal(healthResponse.status, 200);
+    assert.deepEqual(counts, beforeHealthCounts, "health endpoint must not call external sources");
+
+    const beforePageCounts = { ...counts };
+    const pageResponse = await fetch(`http://127.0.0.1:${nextPort}/sante-sources`, { cache: "no-store" });
+    const pageHtml = await pageResponse.text();
+    assert.equal(pageResponse.status, 200);
+    assert.match(pageHtml, /Lecture mémoire uniquement/);
+    assert.deepEqual(counts, beforePageCounts, "health page must not call external sources");
+
+    return { payload, health, counts: { ...counts } };
   } finally {
     next.kill("SIGTERM");
     await new Promise((resolve) => next.once("exit", resolve));
@@ -130,36 +136,30 @@ async function runNextScenario(value) {
 }
 
 try {
-  const gdelt = await runNextScenario("gdelt");
-  assert.equal(gdelt.state, "ok");
-  assert.equal(gdelt.source.active, "GDELT");
-  assert.equal(gdelt.cache.ttlSeconds, 300);
-  assert.equal(gdelt.counts.articles, 1);
-  assert.equal(gdelt.counts.localized, 1);
-  assert.equal(gdelt.counts.unlocalized, 0);
-  assert.equal(gdelt.articles[0].label, "Technologie");
-  assert.equal(gdelt.articles[0].sourceLocation?.code, "FR");
-  console.log(`GDELT success: state=${gdelt.state} articles=${gdelt.counts.articles} localized=${gdelt.counts.localized} source=${gdelt.source.active} ttl=${gdelt.cache.ttlSeconds}s`);
-
   const rss = await runNextScenario("rss");
-  assert.equal(rss.state, "partial");
-  assert.equal(rss.source.active, "RSS_FALLBACK");
-  assert.equal(rss.cache.ttlSeconds, 300);
-  assert.equal(rss.counts.articles, 1);
-  assert.equal(rss.counts.localized, 1);
-  assert.equal(rss.counts.unlocalized, 0);
-  assert.equal(rss.articles[0].label, "Climat");
-  assert.equal(rss.articles[0].sourceCountry, "France");
-  assert.equal(rss.articles[0].sourceLocation?.code, "FR");
-  console.log(`RSS fallback: state=${rss.state} articles=${rss.counts.articles} localized=${rss.counts.localized} source=${rss.source.active} ttl=${rss.cache.ttlSeconds}s`);
+  assert.equal(rss.payload.state, "ok");
+  assert.equal(rss.payload.source.active, "RSS_PUBLIC");
+  assert.equal(rss.payload.cache.ttlSeconds, 900);
+  assert.equal(rss.payload.counts.articles, 1);
+  assert.equal(rss.payload.counts.localized, 1);
+  assert.equal(rss.payload.counts.unlocalized, 0);
+  assert.equal(rss.payload.articles[0].label, "Climat");
+  assert.equal(rss.payload.articles[0].sourceCountry, "France");
+  assert.equal(rss.payload.articles[0].sourceLocation?.code, "FR");
+  assert.equal(rss.payload.globalTrends.documents, 2);
+  assert.ok(rss.health.items.some((entry) => entry.source === "Mock RSS" && entry.state === "OK"));
+  assert.equal(rss.counts.rss, 1);
+  assert.equal(rss.counts.ngrams, 1);
+  assert.equal(rss.counts.gdeltDoc, 0);
+  console.log(`RSS primary: state=${rss.payload.state} articles=${rss.payload.counts.articles} localized=${rss.payload.counts.localized} source=${rss.payload.source.active} ttl=${rss.payload.cache.ttlSeconds}s trends=${rss.payload.globalTrends.documents}`);
 
   const unavailable = await runNextScenario("unavailable");
-  assert.equal(unavailable.state, "unavailable");
-  assert.equal(unavailable.source.active, "none");
-  assert.equal(unavailable.counts.articles, 0);
-  assert.ok(unavailable.error.causes.some((cause) => cause.source === "GDELT"));
-  assert.ok(unavailable.error.causes.some((cause) => cause.source === "RSS_FALLBACK"));
-  console.log(`Unavailable: state=${unavailable.state} articles=${unavailable.counts.articles} causes=${unavailable.error.causes.length}`);
+  assert.equal(unavailable.payload.state, "unavailable");
+  assert.equal(unavailable.payload.source.active, "none");
+  assert.equal(unavailable.payload.counts.articles, 0);
+  assert.ok(unavailable.payload.sourceHealth.some((entry) => entry.source === "Mock RSS" && entry.state === "HTTP_ERROR"));
+  assert.ok(unavailable.payload.sourceHealth.some((entry) => entry.source === "GDELT Web N-Grams TOC" && entry.state === "INVALID_RESPONSE"));
+  console.log(`Unavailable: state=${unavailable.payload.state} articles=${unavailable.payload.counts.articles} sourceHealth=${unavailable.payload.sourceHealth.length}`);
 
   console.log("Endpoint scenarios PASS");
 } finally {

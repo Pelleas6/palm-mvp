@@ -45,8 +45,9 @@ function formatDate(value) {
 }
 
 function relativeStateLabel(state) {
-  if (state === "gdelt_ok" || state === "ok") return "GDELT OK";
-  if (state === "rss_fallback") return "RSS_FALLBACK OK";
+  if (state === "gdelt_ok") return "GDELT OK";
+  if (state === "ok") return "RSS public OK";
+  if (state === "rss_fallback") return "RSS public OK";
   if (state === "empty") return "GDELT OK · aucun résultat";
   if (state === "unavailable") return "Indisponible";
   if (state === "error") return "Erreur locale";
@@ -250,7 +251,7 @@ function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loadi
       {loading && !hasVisiblePoints ? (
         <div className="state-copy">
           <div className="loader" aria-hidden="true" />
-          <strong>Interrogation de GDELT puis RSS secours si besoin</strong>
+          <strong>Interrogation RSS public puis tendances GDELT Web N-Grams</strong>
           <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
         </div>
       ) : null}
@@ -302,6 +303,13 @@ function CountList({ title, items, emptyLabel }) {
 
 function healthStateLabel(state) {
   const labels = {
+    OK: "OK",
+    RATE_LIMITED: "Rate limit",
+    TIMEOUT: "Timeout",
+    HTTP_ERROR: "HTTP KO",
+    INVALID_RESPONSE: "Réponse KO",
+    CACHE_STALE: "Cache stale",
+    NOT_CHECKED: "Non testé",
     ok: "OK",
     empty: "Vide",
     timeout: "Timeout",
@@ -324,7 +332,7 @@ function SourceHealth({ items }) {
         <span>{items.length} source(s) auditées</span>
       </div>
       <p className="map-note">
-        Matrice source | région | URL | HTTP | XML/JSON | articles | récent | état. Les compteurs reflètent les réponses réelles reçues côté serveur, sans données simulées.
+        Matrice source | région | URL | HTTP | XML/JSON | articles | récent | état. Cette section lit la mémoire serveur du dernier contrôle : elle ne déclenche aucune requête externe dédiée.
       </p>
       <div className="source-health-table" role="table">
         <div className="source-health-row source-health-head" role="row">
@@ -345,6 +353,32 @@ function SourceHealth({ items }) {
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function GlobalTrends({ trends }) {
+  const labels = Array.isArray(trends?.labels) ? trends.labels : [];
+  const titles = Array.isArray(trends?.topTitles) ? trends.topTitles : [];
+  return (
+    <section className="panel mini-panel trace-panel" aria-label="Tendances globales GDELT Web N-Grams">
+      <h2>Tendances GDELT Web N-Grams</h2>
+      <p className="muted">
+        TOC {trends?.timestamp || "non chargé"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} document(s).
+      </p>
+      {labels.length > 0 ? (
+        <div className="count-list">
+          {labels.slice(0, 5).map((item) => (
+            <div className="count-row" key={item.label}>
+              <div><span>{item.label}</span><strong>{item.count}</strong></div>
+              <i style={{ "--width": `${Math.min(100, Math.max(8, item.count * 12))}%` }} />
+            </div>
+          ))}
+        </div>
+      ) : <p className="muted">Aucune tendance GDELT Web N-Grams exploitable en mémoire.</p>}
+      {titles.length > 0 ? (
+        <p className="muted">Exemple : {titles[0].title}</p>
+      ) : null}
     </section>
   );
 }
@@ -386,6 +420,7 @@ export default function WorldPulseDashboard() {
   const mediaMarkers = Array.isArray(payload.mediaMarkers) ? payload.mediaMarkers : legacyMapPoints;
   const articleParticles = Array.isArray(payload.articleParticles) ? payload.articleParticles : [];
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
+  const globalTrends = payload.globalTrends || { documents: 0, labels: [], topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
   const counts = { ...EMPTY_COUNTS, ...(payload.counts || {}) };
   const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [] };
   const localizedCount = counts.localized;
@@ -398,7 +433,7 @@ export default function WorldPulseDashboard() {
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
   const activeSource = loading ? "Interrogation" : sourceName;
-  const sourceMetric = payload.source?.active === "GDELT" ? "GDELT" : payload.source?.active === "RSS_FALLBACK" ? "RSS" : payload.source?.active === "none" ? "Aucune" : "—";
+  const sourceMetric = payload.source?.active === "GDELT" ? "GDELT" : payload.source?.active === "RSS_PUBLIC" || payload.source?.active === "RSS_FALLBACK" ? "RSS" : payload.source?.active === "none" ? "Aucune" : "—";
   const freshness = formatFreshness(payload.freshnessSeconds);
   const latestSeenAt = articles
     .map((article) => article.seenAt)
@@ -410,11 +445,11 @@ export default function WorldPulseDashboard() {
     <main className="pulse-shell">
       <section className="top-strip" aria-label="Synthèse du tableau de bord">
         <div className="title-block">
-          <p className="eyebrow">Monitor mondial · GDELT primaire · RSS secours · cache serveur ≥5 min</p>
+          <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
           <h1>Le Pouls du Monde</h1>
           <p>
             Tableau de bord expérimental des signaux médiatiques mondiaux. Les points, listes, compteurs et labels sont
-            calculés uniquement depuis des articles réels retournés côté serveur par GDELT ou, en secours, par RSS public.
+            calculés depuis des articles réels RSS publics. Les tendances globales utilisent le TOC GDELT Web N-Grams ; GDELT DOC reste un canari technique limité.
           </p>
         </div>
         <div className={`status-panel state-${payload.state || "loading"}`}>
@@ -435,6 +470,7 @@ export default function WorldPulseDashboard() {
         <Metric label="Particules articles" value={loading ? "—" : visibleArticleParticleCount} hint="3-5px, articles localisés" />
         <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="sans localisation inventée" />
         <Metric label="Source active" value={loading ? "—" : sourceMetric} hint={sourceName} />
+        <Metric label="Docs tendances" value={loading ? "—" : (globalTrends.documents || 0)} hint="GDELT Web N-Grams TOC" />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : "généré maintenant"} />
       </section>
 
@@ -463,6 +499,7 @@ export default function WorldPulseDashboard() {
         <CountList title="Localisations carte" items={groupings.locations || []} emptyLabel="Aucune source localisable." />
         <CountList title="Domaines média" items={groupings.domains || []} emptyLabel="Aucun domaine reçu." />
         <CountList title="Labels estimatifs" items={groupings.labels || []} emptyLabel="Aucun label calculé." />
+        <GlobalTrends trends={globalTrends} />
         <section className="panel mini-panel trace-panel">
           <h2>Traçabilité</h2>
           <dl>
