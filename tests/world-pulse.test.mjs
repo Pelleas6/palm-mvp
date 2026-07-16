@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   createPulseCache,
@@ -13,6 +14,13 @@ import { WORLD_PULSE_SIGNAL_CATEGORIES, WORLD_PULSE_SIGNAL_LEGEND, colorForWorld
 const FIXED_NOW = "2026-07-15T12:00:00.000Z";
 const FIFTEEN_MINUTES_MINUS_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 899_000).toISOString();
 const FIFTEEN_MINUTES_PLUS_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 901_000).toISOString();
+
+test("world pulse geography keeps world-atlas visible to the Next/Vercel bundle", async () => {
+  const source = await readFile(new URL("../lib/world-pulse-geography.js", import.meta.url), "utf8");
+
+  assert.match(source, /import worldAtlas from "world-atlas\/countries-110m\.json" with \{ type: "json" \}/);
+  assert.doesNotMatch(source, /createRequire|require\("world-atlas\/countries-110m\.json"\)/);
+});
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
