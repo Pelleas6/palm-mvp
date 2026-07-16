@@ -1,3 +1,5 @@
+import Header from "../../components/Header";
+
 export const runtime = "nodejs";
 
 export default function MentionsLegalesPage() {
@@ -15,49 +17,6 @@ export default function MentionsLegalesPage() {
     backgroundColor: theme.bg,
     minHeight: "100vh",
     fontFamily: "Georgia, serif",
-  };
-
-  const topbar = {
-    position: "sticky",
-    top: 0,
-    zIndex: 50,
-    backgroundColor: "rgba(250,247,242,0.95)",
-    backdropFilter: "blur(8px)",
-    borderBottom: `1px solid ${theme.border}`,
-  };
-
-  const topbarInner = {
-    maxWidth: 900,
-    margin: "0 auto",
-    padding: "14px 18px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  };
-
-  const brand = {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    textDecoration: "none",
-  };
-
-  const brandTitle = {
-    fontWeight: 700,
-    fontSize: 18,
-    color: theme.text,
-    letterSpacing: "0.02em",
-  };
-
-  const backBtn = {
-    textDecoration: "none",
-    color: theme.sage,
-    fontSize: 13,
-    border: `1px solid ${theme.border}`,
-    backgroundColor: theme.card,
-    padding: "8px 12px",
-    borderRadius: 10,
   };
 
   const contentPad = {
@@ -91,19 +50,7 @@ export default function MentionsLegalesPage() {
 
   return (
     <div style={wrap}>
-      {/* Top bar */}
-      <div style={topbar}>
-        <div style={topbarInner}>
-          <a href="/" style={brand}>
-            <span style={{ fontSize: 22 }}>◉</span>
-            <span style={brandTitle}>Le Pouls du Monde</span>
-          </a>
-
-          <a href="/" style={backBtn}>
-            ← Retour à l’accueil
-          </a>
-        </div>
-      </div>
+      <Header />
 
       <div style={contentPad}>
         <div style={card}>

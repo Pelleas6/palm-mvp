@@ -20,9 +20,16 @@ const EMPTY_COUNTS = {
   unlocalized: 0,
   mediaMarkers: 0,
   articleParticles: 0,
+  articleClusters: 0,
+  articleVisiblePoints: 0,
+  offMapArticles: 0,
   mapPoints: 0,
   unavailableSources: 0,
+  rssArticlesFetched: 0,
   rssArticles: 0,
+  rssArticlesRendered: 0,
+  rssArticlesOffMap: 0,
+  rssArticlesTruncated: 0,
   rssMediaSources: 0,
   rssKnownMediaCountries: 0,
   rssCategories: 0,
@@ -200,7 +207,7 @@ function SignalLegend({ visibleLabel }) {
   );
 }
 
-function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loading }) {
+function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading }) {
   const markers = useMemo(() => (
     mediaMarkers.map((point, index) => ({
       ...point,
@@ -213,7 +220,7 @@ function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loadi
     }))
   ), [mediaMarkers]);
   const particles = useMemo(() => (
-    articleParticles.map((point, index) => ({
+    articleParticles.filter((point) => !point.clusterId).map((point, index) => ({
       ...point,
       kind: "article",
       left: clamp(point.x, 4, 96),
@@ -223,15 +230,28 @@ function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loadi
       delay: `${((index + 4) % 18) * 0.06}s`,
     }))
   ), [articleParticles]);
-  const hasVisiblePoints = markers.length > 0 || particles.length > 0;
+  const clusters = useMemo(() => (
+    articleClusters.map((point, index) => ({
+      ...point,
+      kind: "article-cluster",
+      mediaName: point.mediaNames?.join(", ") || point.location?.label || "Cluster articles",
+      left: clamp(point.x, 4, 96),
+      top: clamp(point.y, 8, 88),
+      size: point.size || 14,
+      color: colorForLabel(point.label),
+      delay: `${((index + 8) % 18) * 0.06}s`,
+    }))
+  ), [articleClusters]);
+  const hasVisiblePoints = markers.length > 0 || particles.length > 0 || clusters.length > 0;
 
   function renderPoint(point, className) {
     const safeOffset = Math.ceil((point.size || 8) / 2 + 10);
     const sourceCountry = point.sourceCountry || point.location?.label || "Non précisé";
-    const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : "1 article";
-    const typeLabel = point.kind === "media" ? "Repère média" : "Particule article";
+    const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : point.kind === "article-cluster" ? formatArticleCount(point.count) : "1 article";
+    const typeLabel = point.kind === "media" ? "Repère média" : point.kind === "article-cluster" ? "Cluster articles" : "Particule article";
     const titlePart = point.kind === "article" && point.title ? ` — ${point.title}` : "";
-    const tooltip = `${typeLabel} — ${point.mediaName}${titlePart} — pays source : ${sourceCountry} — ${countLabel} — catégorie : ${point.label}`;
+    const clusterTitles = point.kind === "article-cluster" && point.sampleTitles?.length ? ` — ${point.sampleTitles.join(" · ")}` : "";
+    const tooltip = `${typeLabel} — ${point.mediaName}${titlePart}${clusterTitles} — pays du média source : ${sourceCountry} — ${countLabel} — catégorie : ${point.label}`;
     const style = {
       left: `clamp(${safeOffset}px, ${point.left}%, calc(100% - ${safeOffset}px))`,
       top: `clamp(${safeOffset}px, ${point.top}%, calc(100% - ${safeOffset}px))`,
@@ -241,26 +261,28 @@ function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loadi
       "--particle-delay": point.delay,
       "--particle-safe-offset": `${safeOffset}px`,
     };
+    const Tag = point.url ? "a" : "span";
+    const linkProps = point.url ? { href: point.url, target: "_blank", rel: "noreferrer" } : { role: "button", tabIndex: 0 };
     return (
-      <a
+      <Tag
         key={`${point.kind}-${point.id}`}
         className={`particle ${className}`}
-        href={point.url || "#"}
-        target="_blank"
-        rel="noreferrer"
+        {...linkProps}
         style={style}
         title={tooltip}
-        aria-label={`${typeLabel}, ${point.mediaName}, pays source : ${sourceCountry}, ${countLabel}, catégorie : ${point.label}`}
+        aria-label={`${typeLabel}, ${point.mediaName}, pays du média source : ${sourceCountry}, ${countLabel}, catégorie : ${point.label}`}
       >
+        {point.kind === "article-cluster" ? <span className="cluster-count" aria-hidden="true">{point.count}</span> : null}
         <span className="particle-tooltip" role="tooltip">
           <strong>{point.mediaName}</strong>
           <span>{typeLabel}</span>
           {point.title ? <span>{point.title}</span> : null}
-          <span>Pays source : {sourceCountry}</span>
+          {point.sampleTitles?.length ? <span>{point.sampleTitles.join(" · ")}</span> : null}
+          <span>Pays du média source : {sourceCountry}</span>
           <span>{countLabel}</span>
           <span>Catégorie : {point.label}</span>
         </span>
-      </a>
+      </Tag>
     );
   }
 
@@ -288,12 +310,13 @@ function SignalField({ mediaMarkers, articleParticles, unlocalized, state, loadi
         </div>
       ) : null}
       {particles.map((particle) => renderPoint(particle, "article-particle"))}
+      {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
       {markers.map((marker) => renderPoint(marker, "media-marker"))}
       {unlocalized > 0 ? (
         <div className="unlocalized-badge" aria-label={`${unlocalized} articles sans localisation fiable`}>
           <span>Hors carte</span>
           <strong>{unlocalized}</strong>
-          <small>source non localisée</small>
+          <small>pays média non vérifié</small>
         </div>
       ) : null}
     </div>
@@ -440,11 +463,12 @@ export default function WorldPulseDashboard() {
   const legacyMapPoints = Array.isArray(payload.mapPoints) ? payload.mapPoints : [];
   const mediaMarkers = Array.isArray(payload.mediaMarkers) ? payload.mediaMarkers : legacyMapPoints;
   const articleParticles = Array.isArray(payload.articleParticles) ? payload.articleParticles : [];
+  const articleClusters = Array.isArray(payload.articleClusters) ? payload.articleClusters : [];
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
   const globalTrends = payload.globalTrends || { documents: 0, labels: [], categories: [], thematicCategories: [], classification: { coveragePct: 0, unclassified: 0 }, topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
   const payloadCounts = payload.counts || {};
   const counts = { ...EMPTY_COUNTS, ...payloadCounts };
-  const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [], rssCategories: [], gdeltNgramsCategories: [] };
+  const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [], rssCategories: [], gdeltNgramsCategories: [], offMapReasons: [] };
   const dataScopes = payload.dataScopes || {};
   const rssScope = dataScopes.rss || { period: "RSS public · cache ≥15 min", classificationCoveragePct: counts.rssClassificationCoveragePct };
   const gdeltScope = dataScopes.gdeltNgrams || { period: `cycle ${globalTrends.cycleMinutes || 15} min`, classificationCoveragePct: counts.gdeltNgramsClassificationCoveragePct };
@@ -452,10 +476,12 @@ export default function WorldPulseDashboard() {
   const unlocalizedCount = counts.unlocalized;
   const visibleMediaCount = countFromPayload(payloadCounts, "mediaMarkers", mediaMarkers.length);
   const visibleArticleParticleCount = countFromPayload(payloadCounts, "articleParticles", articleParticles.length);
+  const visibleArticleClusterCount = countFromPayload(payloadCounts, "articleClusters", articleClusters.length);
+  const visibleArticlePointCount = countFromPayload(payloadCounts, "articleVisiblePoints", articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length);
   const totalMediaCount = Math.max(countFromPayload(payloadCounts, "rssMediaSources", counts.rssMediaSources), visibleMediaCount);
   const rssCoverage = countFromPayload(payloadCounts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
   const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
-  const visibleMediaLabel = loading ? "— repères médias RSS" : `${visibleMediaCount}/${totalMediaCount} repères médias RSS · ${visibleArticleParticleCount} particules articles RSS`;
+  const visibleMediaLabel = loading ? "— repères médias RSS" : `${visibleMediaCount}/${totalMediaCount} repères médias RSS · ${visibleArticleParticleCount} particules RSS · ${visibleArticleClusterCount} clusters · ${unlocalizedCount} hors carte`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -491,9 +517,12 @@ export default function WorldPulseDashboard() {
       </section>
 
       <section className="metric-grid" aria-label="Synthèse source et cache">
-        <Metric label="Articles RSS" value={loading ? "—" : counts.rssArticles} hint="RSS public · liens uniques collectés · max 50/cache ≥15 min" />
+        <Metric label="Articles RSS" value={loading ? "—" : counts.rssArticles} hint={`Collectés ${counts.rssArticlesFetched} · rendus carte ${counts.rssArticlesRendered} · tronqués ${counts.rssArticlesTruncated}`} />
         <Metric label="Médias RSS uniques" value={loading ? "—" : counts.rssMediaSources} hint="RSS public · sources agrégées par média" />
         <Metric label="Pays médias connus" value={loading ? "—" : counts.rssKnownMediaCountries} hint="RSS public · sourceCountry déclaré, sans invention" />
+        <Metric label="Particules carte" value={loading ? "—" : counts.articleParticles} hint={`${visibleArticlePointCount} point(s) visuels · pays média source vérifié`} />
+        <Metric label="Clusters articles" value={loading ? "—" : counts.articleClusters} hint="Même pays média + même catégorie + proximité" />
+        <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="Pays média source non vérifié ou placement impossible" />
         <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
         <Metric label="À classifier RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Articles RSS sans correspondance déterministe" />
         <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
@@ -508,12 +537,12 @@ export default function WorldPulseDashboard() {
               <p>Carte géographique</p>
               <h2>Sources média localisées</h2>
             </div>
-            <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles RSS avec pays média localisable · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
+            <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles RSS avec pays média vérifié` : "visualisation suspendue"}</span>
           </div>
-          <SignalField mediaMarkers={mediaMarkers} articleParticles={articleParticles} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
+          <SignalField mediaMarkers={mediaMarkers} articleParticles={articleParticles} articleClusters={articleClusters} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
           <SignalLegend visibleLabel={visibleMediaLabel} />
           <p className="map-note">
-            Les grands repères représentent les médias RSS localisés (6-8px) et les petites particules représentent les articles RSS reçus (3-5px). Ils ne prétendent pas localiser l'événement raconté par l'article.
+            Les grands repères représentent les médias RSS localisés (6-8px), les petites particules représentent les articles RSS avec pays média source vérifié (3-5px), et les bulles regroupent seulement des particules proches de même pays et même catégorie. Ils ne prétendent jamais localiser l'événement raconté par l'article.
           </p>
         </article>
         <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
@@ -524,6 +553,7 @@ export default function WorldPulseDashboard() {
         <CountList title="Régions RSS" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
         <CountList title="Pays médias RSS" items={groupings.countries || []} emptyLabel="Aucun pays média RSS reçu." />
         <CountList title="Localisations carte RSS" items={groupings.locations || []} emptyLabel="Aucune source RSS localisable." />
+        <CountList title="Hors carte RSS" items={groupings.offMapReasons || []} emptyLabel="Aucun article hors carte." />
         <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
         <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." />
         <CountList title="Catégories GDELT N-Grams" items={groupings.gdeltNgramsCategories || []} emptyLabel="Aucune catégorie GDELT N-Grams calculée." />
@@ -549,7 +579,7 @@ export default function WorldPulseDashboard() {
             </div>
             <div>
               <dt>Articles RSS</dt>
-              <dd>{loading ? "—" : counts.rssArticles}</dd>
+              <dd>{loading ? "—" : `${counts.rssArticles} · collectés ${counts.rssArticlesFetched} · tronqués ${counts.rssArticlesTruncated}`}</dd>
             </div>
             <div>
               <dt>Médias RSS uniques</dt>
@@ -577,7 +607,7 @@ export default function WorldPulseDashboard() {
             </div>
             <div>
               <dt>Localisés carte</dt>
-              <dd>{loading ? "—" : localizedCount}</dd>
+              <dd>{loading ? "—" : `${localizedCount} particules · ${counts.articleClusters} clusters · ${visibleArticlePointCount} points visuels`}</dd>
             </div>
             <div>
               <dt>Hors carte</dt>
@@ -770,7 +800,10 @@ export default function WorldPulseDashboard() {
           border: 1px solid var(--line);
           padding: 8px 10px;
           border-radius: 999px;
-          white-space: nowrap;
+          max-width: min(100%, 620px);
+          text-align: right;
+          white-space: normal;
+          overflow-wrap: anywhere;
         }
 
         .signal-field {
@@ -857,6 +890,20 @@ export default function WorldPulseDashboard() {
           border: none;
           opacity: 0.92;
           box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 24%, transparent), 0 0 11px var(--particle-color);
+        }
+        .article-cluster {
+          z-index: 4;
+          display: grid;
+          place-items: center;
+          border: 1px solid color-mix(in srgb, var(--particle-color) 84%, var(--ink));
+          box-shadow: 0 0 0 5px color-mix(in srgb, var(--particle-color) 18%, transparent), 0 0 24px var(--particle-color);
+        }
+        .cluster-count {
+          color: #07110f;
+          font-size: 0.62rem;
+          font-weight: 900;
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
         }
         .particle::after {
           content: "";
