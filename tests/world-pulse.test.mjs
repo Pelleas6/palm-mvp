@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createPulseCache, getWorldPulse } from "../lib/world-pulse.js";
+import { WORLD_PULSE_SIGNAL_LEGEND } from "../lib/world-pulse-signals.js";
 
 const FIXED_NOW = "2026-07-15T12:00:00.000Z";
 const FIVE_MINUTES_AND_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 301_000).toISOString();
@@ -20,6 +21,18 @@ function textResponse(body, status = 200, contentType = "application/rss+xml") {
   });
 }
 
+test("world pulse legend exposes the six approved signal categories", () => {
+  assert.deepEqual(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.label), [
+    "Conflit/tension",
+    "Technologie",
+    "Élections",
+    "Climat",
+    "Santé",
+    "Autre signal",
+  ]);
+  assert.equal(new Set(WORLD_PULSE_SIGNAL_LEGEND.map((item) => item.color)).size, 6);
+});
+
 test("getWorldPulse returns GDELT as the primary source and deduplicates article links", async () => {
   const cache = createPulseCache();
   const calls = [];
@@ -29,7 +42,7 @@ test("getWorldPulse returns GDELT as the primary source and deduplicates article
       articles: [
         {
           url: "https://example.com/world/economy",
-          title: "Global economy and energy markets react",
+          title: "Global technology and health systems react",
           domain: "example.com",
           sourcecountry: "United States",
           language: "English",
@@ -59,7 +72,7 @@ test("getWorldPulse returns GDELT as the primary source and deduplicates article
   assert.equal(payload.counts.labels, 1);
   assert.equal(payload.counts.localized, 1);
   assert.equal(payload.counts.unlocalized, 0);
-  assert.equal(payload.articles[0].label, "Économie");
+  assert.equal(payload.articles[0].label, "Technologie");
   assert.equal(payload.articles[0].labelType, "classification estimative");
   assert.deepEqual(payload.articles[0].sourceLocation, {
     label: "États-Unis",
@@ -106,7 +119,7 @@ test("getWorldPulse falls back to public RSS when GDELT fails and deduplicates R
   const cache = createPulseCache();
   const calls = [];
   const rss = `<?xml version="1.0"?><rss><channel>
-    <item><title>Climate and conflict update</title><link>https://rss.example/world-1</link><pubDate>Wed, 15 Jul 2026 11:55:00 GMT</pubDate><description>Public report.</description></item>
+    <item><title>Climate update</title><link>https://rss.example/world-1</link><pubDate>Wed, 15 Jul 2026 11:55:00 GMT</pubDate><description>Public report.</description></item>
     <item><title>Duplicate link</title><link>https://rss.example/world-1</link><pubDate>Wed, 15 Jul 2026 11:54:00 GMT</pubDate></item>
   </channel></rss>`;
   const fetchImpl = async (url) => {
@@ -172,6 +185,8 @@ test("getWorldPulse limits each media to five articles and exposes one determini
   assert.equal(examplePoint.articleCount, 5);
   assert.equal(anotherPoint.articleCount, 2);
   assert.equal(examplePoint.location.code, "FR");
+  assert.equal(examplePoint.sourceCountry, "France");
+  assert.equal(examplePoint.label, "Climat");
   assert.equal(examplePoint.positioning, "media_source_location");
   assert.notEqual(`${examplePoint.x},${examplePoint.y}`, `${anotherPoint.x},${anotherPoint.y}`);
 });

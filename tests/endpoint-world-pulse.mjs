@@ -47,7 +47,7 @@ const mockServer = createServer(async (req, res) => {
         articles: [
           {
             url: "https://gdelt.example/economy?utm_source=test",
-            title: "Global economy signal",
+            title: "Global technology signal",
             domain: "gdelt.example",
             sourcecountry: "France",
             language: "French",
@@ -137,7 +137,7 @@ try {
   assert.equal(gdelt.counts.articles, 1);
   assert.equal(gdelt.counts.localized, 1);
   assert.equal(gdelt.counts.unlocalized, 0);
-  assert.equal(gdelt.articles[0].label, "Économie");
+  assert.equal(gdelt.articles[0].label, "Technologie");
   assert.equal(gdelt.articles[0].sourceLocation?.code, "FR");
   console.log(`GDELT success: state=${gdelt.state} articles=${gdelt.counts.articles} localized=${gdelt.counts.localized} source=${gdelt.source.active} ttl=${gdelt.cache.ttlSeconds}s`);
 

@@ -4,20 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { geoEquirectangular, geoGraticule10, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
+import { WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
 
 const REFRESH_MS = 10 * 60 * 1000;
-const LABEL_COLORS = {
-  Climat: "#3ed6c3",
-  Conflit: "#ff6f61",
-  Économie: "#f5bd4f",
-  Santé: "#8ee37d",
-  Énergie: "#ff9868",
-  Migration: "#d783ff",
-  Élections: "#83a8ff",
-  Technologie: "#65d7ff",
-  "Autre signal": "#b5c7bf",
-};
-const FALLBACK_LABEL_COLOR = "#b5c7bf";
 const EMPTY_COUNTS = {
   articles: 0,
   domains: 0,
@@ -69,7 +58,12 @@ function formatFreshness(seconds) {
 }
 
 function colorForLabel(label) {
-  return LABEL_COLORS[label] || FALLBACK_LABEL_COLOR;
+  return colorForWorldPulseSignalLabel(label);
+}
+
+function formatArticleCount(count) {
+  const safeCount = Number.isFinite(count) ? count : 0;
+  return `${safeCount} article${safeCount > 1 ? "s" : ""}`;
 }
 
 function clamp(value, min, max) {
@@ -155,6 +149,26 @@ function Metric({ label, value, hint }) {
   );
 }
 
+function SignalLegend({ visibleLabel }) {
+  return (
+    <div className="signal-legend" aria-label="Légende des couleurs des catégories de signaux">
+      <div className="signal-legend-head">
+        <span>Légende couleurs</span>
+        <strong>{visibleLabel}</strong>
+        <small>1 média = 1 point</small>
+      </div>
+      <ul>
+        {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
+          <li key={item.label}>
+            <i aria-hidden="true" style={{ "--legend-color": item.color }} />
+            <span>{item.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SignalField({ mapPoints, unlocalized, state, loading }) {
   const particles = useMemo(() => (
     mapPoints.map((point, index) => ({
@@ -191,13 +205,18 @@ function SignalField({ mapPoints, unlocalized, state, loading }) {
         </div>
       ) : null}
       {particles.map((particle) => {
+        const safeOffset = Math.ceil((particle.size || 16) / 2 + 12);
+        const sourceCountry = particle.sourceCountry || particle.location?.label || "Non précisé";
+        const articleCount = formatArticleCount(particle.articleCount);
+        const tooltip = `${particle.mediaName} — pays source : ${sourceCountry} — ${articleCount} — catégorie : ${particle.label}`;
         const style = {
-          left: `${particle.left}%`,
-          top: `${particle.top}%`,
+          left: `clamp(${safeOffset}px, ${particle.left}%, calc(100% - ${safeOffset}px))`,
+          top: `clamp(${safeOffset}px, ${particle.top}%, calc(100% - ${safeOffset}px))`,
           width: `${particle.size}px`,
           height: `${particle.size}px`,
           "--particle-color": particle.color,
           "--particle-delay": particle.delay,
+          "--particle-safe-offset": `${safeOffset}px`,
         };
         return (
           <a
@@ -207,9 +226,16 @@ function SignalField({ mapPoints, unlocalized, state, loading }) {
             target="_blank"
             rel="noreferrer"
             style={style}
-            title={`${particle.mediaName} — ${particle.articleCount} article(s) — média source ${particle.location.label} — ${particle.label}`}
-            aria-label={`${particle.mediaName}, ${particle.articleCount} article(s), média source localisé : ${particle.location.label}, label dominant : ${particle.label}`}
-          />
+            title={tooltip}
+            aria-label={`${particle.mediaName}, pays source : ${sourceCountry}, ${articleCount}, catégorie : ${particle.label}`}
+          >
+            <span className="particle-tooltip" role="tooltip">
+              <strong>{particle.mediaName}</strong>
+              <span>Pays source : {sourceCountry}</span>
+              <span>{articleCount}</span>
+              <span>Catégorie : {particle.label}</span>
+            </span>
+          </a>
         );
       })}
       {unlocalized > 0 ? (
@@ -331,8 +357,10 @@ export default function WorldPulseDashboard() {
   const counts = { ...EMPTY_COUNTS, ...(payload.counts || {}) };
   const groupings = payload.groupings || { domains: [], mediaSources: [], countries: [], sourceRegions: [], locations: [], languages: [], labels: [] };
   const localizedCount = counts.localized;
-  const mapPointCount = counts.mapPoints || mapPoints.length;
   const unlocalizedCount = counts.unlocalized;
+  const visibleMediaCount = mapPoints.length;
+  const totalMediaCount = Math.max(counts.mediaSources || 0, visibleMediaCount);
+  const visibleMediaLabel = loading ? "— médias visibles" : `${visibleMediaCount}/${totalMediaCount} médias visibles`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -370,7 +398,7 @@ export default function WorldPulseDashboard() {
       <section className="metric-grid" aria-label="Synthèse source et cache">
         <Metric label="Articles" value={loading ? "—" : counts.articles} hint="liens uniques" />
         <Metric label="Médias" value={loading ? "—" : counts.mediaSources} hint="sources agrégées" />
-        <Metric label="Points carte" value={loading ? "—" : mapPointCount} hint="1 point par média" />
+        <Metric label="Médias visibles" value={loading ? "—" : `${visibleMediaCount}/${totalMediaCount}`} hint="1 média = 1 point" />
         <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="sans localisation inventée" />
         <Metric label="Source active" value={loading ? "—" : sourceMetric} hint={sourceName} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : "généré maintenant"} />
@@ -383,9 +411,10 @@ export default function WorldPulseDashboard() {
               <p>Carte géographique</p>
               <h2>Sources média localisées</h2>
             </div>
-            <span>{hasRealData ? `${mapPointCount} médias sur carte · ${localizedCount} articles source localisés · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
+            <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles source localisés · ${unlocalizedCount} hors carte` : "visualisation suspendue"}</span>
           </div>
           <SignalField mapPoints={mapPoints} unlocalized={unlocalizedCount} state={payload.state} loading={loading} />
+          <SignalLegend visibleLabel={visibleMediaLabel} />
           <p className="map-note">
             Les points représentent les médias sources localisés : un point agrégé par média, dimensionné par nombre d'articles. Ils ne prétendent pas localiser l'événement raconté par l'article.
           </p>
@@ -707,6 +736,33 @@ export default function WorldPulseDashboard() {
           border: 1px solid color-mix(in srgb, var(--particle-color) 28%, transparent);
         }
         .particle:hover { z-index: 5; transform: translate(-50%, -50%) scale(1.45); }
+        .particle-tooltip {
+          position: absolute;
+          z-index: 6;
+          left: 50%;
+          bottom: calc(100% + 14px);
+          width: max-content;
+          max-width: min(260px, calc(100vw - 40px));
+          display: grid;
+          gap: 4px;
+          padding: 10px 12px;
+          border: 1px solid color-mix(in srgb, var(--particle-color) 45%, var(--line));
+          background: rgba(5, 14, 12, 0.96);
+          color: var(--muted);
+          font-size: 0.74rem;
+          line-height: 1.35;
+          box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
+          opacity: 0;
+          pointer-events: none;
+          transform: translate(-50%, 6px) scale(0.92);
+          transition: opacity 0.16s ease, transform 0.16s ease;
+        }
+        .particle-tooltip strong { color: var(--ink); font-size: 0.82rem; }
+        .particle:hover .particle-tooltip,
+        .particle:focus-visible .particle-tooltip {
+          opacity: 1;
+          transform: translate(-50%, 0) scale(1);
+        }
 
         .state-copy {
           position: absolute;
@@ -802,6 +858,61 @@ export default function WorldPulseDashboard() {
           font-size: 0.86rem;
           line-height: 1.55;
         }
+        .signal-legend {
+          display: grid;
+          grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+          gap: 14px;
+          align-items: stretch;
+          margin-top: 14px;
+          padding: 14px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.032);
+        }
+        .signal-legend-head {
+          display: grid;
+          gap: 5px;
+          align-content: center;
+        }
+        .signal-legend-head span,
+        .signal-legend-head small {
+          color: var(--muted);
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+        .signal-legend-head strong {
+          color: var(--ink);
+          font-size: clamp(1.15rem, 2vw, 1.55rem);
+          letter-spacing: -0.04em;
+        }
+        .signal-legend ul {
+          list-style: none;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+          margin: 0;
+          padding: 0;
+        }
+        .signal-legend li {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-height: 34px;
+          padding: 7px 10px;
+          border: 1px solid var(--line);
+          color: var(--muted);
+          background: rgba(255, 255, 255, 0.03);
+          font-size: 0.78rem;
+        }
+        .signal-legend i {
+          width: 11px;
+          height: 11px;
+          border-radius: 999px;
+          background: var(--legend-color);
+          box-shadow: 0 0 18px var(--legend-color);
+        }
         .source-health-panel { margin-bottom: 22px; overflow: hidden; }
         .source-health-panel .panel-heading > span {
           color: var(--muted);
@@ -875,6 +986,9 @@ export default function WorldPulseDashboard() {
           .title-block { min-height: 320px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .signal-field { min-height: 0; aspect-ratio: 2 / 1; }
+          .signal-legend { grid-template-columns: 1fr; }
+          .signal-legend ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .signal-legend li { min-width: 0; }
           .panel-heading { flex-direction: column; }
         }
 
