@@ -127,22 +127,35 @@ function WorldMapBackdrop() {
   );
 }
 
-function useGdeltPulse() {
-  const [payload, setPayload] = useState({ state: "loading" });
-  const [loading, setLoading] = useState(true);
+function useGdeltPulse(initialPayload) {
+  const [payload, setPayload] = useState(() => initialPayload || { state: "loading" });
+  const [loading, setLoading] = useState(() => !initialPayload);
 
   useEffect(() => {
     let active = true;
     let timer;
+    let hasPayload = Boolean(initialPayload);
+
+    function applyClientError(errorPayload) {
+      if (!hasPayload) {
+        setPayload(errorPayload);
+        return;
+      }
+      setPayload((current) => ({
+        ...current,
+        clientError: errorPayload.error,
+        notice: `${current.notice || ""} Dernier rafraîchissement client non appliqué : ${errorPayload.error.reason}.`.trim(),
+      }));
+    }
 
     async function load() {
-      setLoading(true);
+      if (!hasPayload) setLoading(true);
       try {
         const response = await fetch("/api/gdelt", { cache: "no-store" });
         const data = await response.json().catch(() => null);
         if (!active) return;
         if (!data || typeof data !== "object") {
-          setPayload({
+          applyClientError({
             state: "error",
             error: { reason: `Réponse locale illisible (${response.status})` },
             articles: [],
@@ -152,9 +165,10 @@ function useGdeltPulse() {
           return;
         }
         setPayload(data);
+        hasPayload = true;
       } catch (error) {
         if (!active) return;
-        setPayload({
+        applyClientError({
           state: "error",
           error: { reason: "Impossible de joindre l'endpoint local /api/gdelt", detail: String(error?.message || error) },
           articles: [],
@@ -172,7 +186,7 @@ function useGdeltPulse() {
       active = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [initialPayload]);
 
   return { payload, loading };
 }
@@ -352,6 +366,9 @@ function healthStateLabel(state) {
     HTTP_ERROR: "HTTP KO",
     INVALID_RESPONSE: "Réponse KO",
     CACHE_STALE: "Cache stale",
+    STALE: "Dégradé/stale",
+    DEGRADE: "Dégradé",
+    UNAVAILABLE: "Indisponible",
     NOT_CHECKED: "Non testé",
     ok: "OK",
     empty: "Vide",
@@ -404,12 +421,27 @@ function GlobalTrends({ trends }) {
   const labels = Array.isArray(trends?.categories) ? trends.categories : (Array.isArray(trends?.labels) ? trends.labels : []);
   const titles = Array.isArray(trends?.topTitles) ? trends.topTitles : [];
   const coverage = Number(trends?.classification?.coveragePct || 0);
+  const state = trends?.state || (Number(trends?.documents || 0) > 0 ? "OK" : "UNAVAILABLE");
+  const toc = trends?.toc || {};
+  const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
+  const validatedAt = toc.validatedAt || toc.fetchedAt || trends?.checkedAt || null;
+  const statusLabel = trends?.stale ? "DÉGRADÉ/STALE" : healthStateLabel(state);
   return (
     <section className="panel mini-panel trace-panel" aria-label="Tendances globales GDELT Web N-Grams">
       <h2>Tendances GDELT Web N-Grams</h2>
       <p className="muted">
-        TOC {trends?.timestamp || "non chargé"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} document(s) · couverture {formatPercent(coverage)}.
+        État {statusLabel} · TOC {validatedTimestamp || "indisponible"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} document(s) · couverture {formatPercent(coverage)}.
       </p>
+      {trends?.stale ? (
+        <p className="muted">
+          Secours sur dernier TOC réel validé le {formatDate(validatedAt)} ({toc.validatedDocuments || trends?.documents || 0} documents). Dernière tentative : {toc.lastAttemptStatus || trends?.error?.status || "ERR"} · {trends?.error?.reason || "incident non précisé"}.
+        </p>
+      ) : null}
+      {!trends?.stale && state !== "OK" ? (
+        <p className="muted">
+          TOC indisponible : {trends?.error?.reason || "aucun TOC validé en mémoire"}. Aucune tendance n'est simulée.
+        </p>
+      ) : null}
       {labels.length > 0 ? (
         <div className="count-list">
           {labels.slice(0, 5).map((item) => (
@@ -457,8 +489,8 @@ function ArticleStream({ articles, state, sourceName }) {
   );
 }
 
-export default function WorldPulseDashboard() {
-  const { payload, loading } = useGdeltPulse();
+export default function WorldPulseDashboard({ initialPayload = null }) {
+  const { payload, loading } = useGdeltPulse(initialPayload);
   const articles = Array.isArray(payload.articles) ? payload.articles : [];
   const legacyMapPoints = Array.isArray(payload.mapPoints) ? payload.mapPoints : [];
   const mediaMarkers = Array.isArray(payload.mediaMarkers) ? payload.mediaMarkers : legacyMapPoints;

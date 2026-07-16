@@ -152,6 +152,96 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
+test("GDELT Web N-Grams reuses the last real validated TOC when the next slot is missing", async () => {
+  const cache = createPulseCache();
+  let ngramsCalls = 0;
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("rss.example")) {
+      return rssResponse([rssItem({ title: `Technology signal ${ngramsCalls}`, link: `https://rss.example/stale-ngram-${ngramsCalls}` })]);
+    }
+    if (href.includes("weblegacy/ngrams")) {
+      ngramsCalls += 1;
+      return ngramsCalls === 1
+        ? ngramsTocResponse([
+          { ID: 1, date: "2026-07-15T11:46:00.000Z", lang: "en", title: "Climate validated TOC", url: "https://toc.example/validated-climate" },
+          { ID: 2, date: "2026-07-15T11:46:00.000Z", lang: "fr", title: "Election validated TOC", url: "https://toc.example/validated-election" },
+        ])
+        : textResponse("No such object", 404, "text/plain");
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  const first = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+  const stale = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIFTEEN_MINUTES_PLUS_ONE_SECOND),
+    rssFeeds: [{ name: "RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+
+  const ngramsHealth = stale.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC");
+  assert.equal(first.globalTrends.documents, 2);
+  assert.equal(stale.counts.articles, 1, "RSS must keep living when the current TOC is missing");
+  assert.equal(stale.globalTrends.documents, 2, "missing current TOC must not zero validated trends");
+  assert.equal(stale.counts.gdeltNgramsDocuments, 2);
+  assert.equal(stale.globalTrends.state, "STALE");
+  assert.equal(stale.globalTrends.stale, true);
+  assert.equal(stale.globalTrends.toc.validatedDocuments, 2);
+  assert.match(stale.globalTrends.error.reason, /HTTP GDELT Web N-Grams 404/);
+  assert.equal(ngramsHealth.state, "STALE");
+  assert.equal(ngramsHealth.http, 404);
+  assert.equal(stale.source.trends, "STALE");
+});
+
+test("GDELT Web N-Grams missing-TOC checks are rate gated to one external request per 15 minutes", async () => {
+  const cache = createPulseCache();
+  let ngramsCalls = 0;
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("rss.example")) {
+      return rssResponse([rssItem({ title: `Technology cadence ${ngramsCalls}`, link: `https://rss.example/cadence-${ngramsCalls}` })]);
+    }
+    if (href.includes("weblegacy/ngrams")) {
+      ngramsCalls += 1;
+      return ngramsCalls === 1
+        ? ngramsTocResponse([{ ID: 1, date: "2026-07-15T11:46:00.000Z", lang: "en", title: "Climate cadence TOC", url: "https://toc.example/cadence-climate" }])
+        : textResponse("No such object", 404, "text/plain");
+    }
+    throw new Error(`unexpected fetch ${href}`);
+  };
+
+  await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+  await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIFTEEN_MINUTES_PLUS_ONE_SECOND),
+    rssFeeds: [{ name: "RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+  cache.expiresAt = 0;
+  const gated = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(Date.parse(FIFTEEN_MINUTES_PLUS_ONE_SECOND) + 1000),
+    rssFeeds: [{ name: "RSS", url: "https://rss.example/feed.xml", language: "French", sourceCountry: "France" }],
+  });
+
+  assert.equal(ngramsCalls, 2, "the third refresh must reuse cached TOC state without a new 404 probe");
+  assert.equal(gated.globalTrends.documents, 1);
+  assert.equal(gated.globalTrends.state, "STALE");
+  assert.equal(gated.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC").state, "STALE");
+});
+
 test("unmatched RSS articles and GDELT N-Grams documents stay explicit À classifier with coverage", async () => {
   const cache = createPulseCache();
   const fetchImpl = async (url) => {
