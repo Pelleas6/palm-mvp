@@ -385,22 +385,28 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
   );
 }
 
-function CountList({ title, items, emptyLabel }) {
+function CountList({ title, items, emptyLabel, colorize = false }) {
   const max = Math.max(1, ...items.map((item) => item.count));
   return (
     <section className="panel mini-panel">
       <h2>{title}</h2>
       {items.length === 0 ? <p className="muted">{emptyLabel}</p> : null}
       <div className="count-list">
-        {items.map((item) => (
-          <div key={item.label} className="count-row">
-            <div>
-              <span>{item.label}</span>
-              <strong>{item.count}</strong>
+        {items.map((item) => {
+          const color = colorize ? colorForLabel(item.label) : null;
+          return (
+            <div key={item.label} className={`count-row${colorize ? " count-row-colored" : ""}`} style={color ? { "--count-row-color": color } : undefined}>
+              <div>
+                <span className="count-label">
+                  {colorize ? <b className="count-dot" aria-hidden="true" /> : null}
+                  <span>{item.label}</span>
+                </span>
+                <strong>{item.count}</strong>
+              </div>
+              <i style={{ width: `${Math.max(10, (item.count / max) * 100)}%` }} />
             </div>
-            <i style={{ width: `${Math.max(10, (item.count / max) * 100)}%` }} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -751,14 +757,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   const gdeltScope = dataScopes.gdeltNgrams || { period: `cycle ${globalTrends.cycleMinutes || 15} min`, classificationCoveragePct: counts.gdeltNgramsClassificationCoveragePct };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
-  const visibleMediaCount = mediaMarkers.length;
-  const visibleArticleParticleCount = articleParticles.length;
-  const visibleArticleClusterCount = articleClusters.length;
   const visibleArticlePointCount = articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length;
-  const totalMediaCount = Math.max(counts.rssMediaSources, visibleMediaCount);
   const rssCoverage = countFromPayload(counts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
   const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
-  const visibleMediaLabel = loading ? "— événements localisés RSS" : `${visibleArticleParticleCount} particules événement · ${visibleArticleClusterCount} clusters · ${counts.eventCountries} pays événementiels · ${showMediaProvenance ? `${visibleMediaCount}/${totalMediaCount} provenances média visibles` : "provenance média masquée"} · ${unlocalizedCount} non localisés`;
+  const mapStatusSummary = loading
+    ? "À cet instant : données en cours de chargement. Les articles sans pays clairement cité restent visibles dans le flux, hors carte."
+    : `À cet instant : ${localizedCount} événements localisés dans ${counts.eventCountries} pays. ${unlocalizedCount} articles ne citent pas clairement de pays et restent visibles dans le flux, hors carte.`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -793,7 +797,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
           <h1>Le Pouls du Monde</h1>
           <p>
-            Tableau de bord expérimental des signaux médiatiques mondiaux. La carte principale localise les pays explicitement cités dans les titres/résumés RSS réels ; la provenance média reste séparée. Les tendances globales utilisent le TOC GDELT Web N-Grams ; GDELT DOC reste un canari technique limité.
+            Le Pouls du Monde suit les événements cités dans l'actualité. La carte situe uniquement les pays mentionnés clairement dans les articles RSS. Les couleurs représentent les thèmes; les médias, tendances GDELT et articles non localisés restent distingués.
           </p>
         </div>
         <div className={`status-panel state-${payload.state || "loading"}`}>
@@ -821,6 +825,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
 
+      <TemporalPanel
+        timeWindows={exploration.timeWindows}
+        nonDetermined={exploration.nonDetermined}
+        categories={exploration.categories}
+      />
+
       <FilterControls
         filters={exploration.filters}
         options={exploration.filterOptions}
@@ -828,12 +838,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         totalCount={rawArticles.length}
         onChange={updateFilter}
         onReset={resetFilters}
-      />
-
-      <TemporalPanel
-        timeWindows={exploration.timeWindows}
-        nonDetermined={exploration.nonDetermined}
-        categories={exploration.categories}
       />
 
       <section className="main-grid">
@@ -844,7 +848,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <h2>Événements localisés</h2>
             </div>
             <div className="map-heading-actions">
-              <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} article(s) RSS avec pays événementiel vérifié` : "visualisation suspendue"}</span>
+              <span>{hasRealData ? mapStatusSummary : "visualisation suspendue"}</span>
               <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
                 {showMediaProvenance ? "Masquer provenance média" : "Afficher provenance média"}
               </button>
@@ -863,9 +867,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             onSelectCountry={setSelectedPoint}
             showMediaMarkers={showMediaProvenance}
           />
-          <SignalLegend visibleLabel={visibleMediaLabel} />
+          <SignalLegend visibleLabel={mapStatusSummary} />
           <p className="map-note">
-            Les particules représentent uniquement les articles RSS dont le titre/résumé cite un pays ou une capitale non ambiguë. Les bulles regroupent des événements proches de même pays et même catégorie. Les médias RSS restent une couche de provenance optionnelle : le pays du média source ne sert jamais de secours événementiel.
+            Chaque point représente un article dont le titre ou le résumé cite un pays ou une capitale non ambiguë. Les bulles regroupent des articles proches, du même pays et du même thème.
           </p>
         </article>
         <aside className="side-stack">
@@ -881,7 +885,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <CountList title="Pays médias provenance" items={groupings.sourceCountries || []} emptyLabel="Aucun pays média RSS reçu." />
         <CountList title="Articles non localisés" items={groupings.offMapReasons || []} emptyLabel="Aucun article non localisé." />
         <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
-        <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." />
+        <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
         <CountList title="Catégories GDELT N-Grams" items={groupings.gdeltNgramsCategories || []} emptyLabel="Aucune catégorie GDELT N-Grams calculée." />
         <GlobalTrends trends={globalTrends} />
         <section className="panel mini-panel trace-panel">
@@ -1208,9 +1212,16 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .main-grid {
           display: grid;
-          grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.75fr);
+          grid-template-columns: minmax(620px, 1.62fr) minmax(340px, 0.78fr);
           gap: 18px;
+          align-items: start;
           margin-bottom: 18px;
+        }
+        .main-grid > *, .map-panel, .side-stack, .reading-panel, .stream-panel {
+          min-width: 0;
+        }
+        .map-panel {
+          overflow: hidden;
         }
         .side-stack {
           display: grid;
@@ -1218,7 +1229,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           align-content: start;
         }
 
-        .panel { padding: 20px; }
+        .panel { padding: 20px; min-width: 0; }
         .panel-heading {
           display: flex;
           justify-content: space-between;
@@ -1260,9 +1271,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .signal-field {
           position: relative;
+          width: 100%;
+          min-width: 0;
           aspect-ratio: 2 / 1;
           min-height: clamp(360px, 40vw, 620px);
           overflow: hidden;
+          isolation: isolate;
           border: 1px solid var(--line-strong);
           background:
             radial-gradient(circle at 48% 45%, rgba(62, 214, 195, 0.13), transparent 35%),
@@ -1541,13 +1555,26 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .count-list { display: grid; gap: 14px; margin-top: 18px; }
         .count-row { display: grid; gap: 8px; }
         .count-row div { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.9rem; }
+        .count-label { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+        .count-label span { overflow-wrap: anywhere; }
+        .count-dot {
+          width: 10px;
+          height: 10px;
+          flex: 0 0 auto;
+          border-radius: 999px;
+          background: var(--count-row-color);
+          box-shadow: 0 0 16px var(--count-row-color);
+        }
+        .count-row-colored .count-label {
+          color: var(--count-row-color);
+        }
         .count-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
         .count-row i {
           display: block;
           height: 4px;
           min-width: 10px;
-          background: var(--accent);
-          box-shadow: 0 0 20px rgba(62, 214, 195, 0.35);
+          background: var(--count-row-color, var(--accent));
+          box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
         }
 
         .trace-panel dl { display: grid; gap: 10px; margin: 18px 0; }
@@ -1692,9 +1719,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 320px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
-          .signal-field { min-height: 0; aspect-ratio: 2 / 1; }
+          .map-heading-actions { justify-items: stretch; width: 100%; }
+          .map-heading-actions > span { max-width: none; text-align: left; border-radius: 14px; }
+          .panel { padding: 16px; }
+          .signal-field { min-height: clamp(200px, 56vw, 260px); aspect-ratio: 2 / 1; }
           .signal-legend { grid-template-columns: 1fr; }
-          .signal-legend ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .signal-legend ul { display: grid; grid-template-columns: 1fr; }
           .signal-legend li { min-width: 0; }
           .panel-heading { flex-direction: column; }
         }

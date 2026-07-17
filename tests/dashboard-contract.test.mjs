@@ -34,6 +34,12 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(pageSource, /<WorldPulseDashboard initialPayload=\{initialPayload\}/);
   assert.match(componentSource, /function useGdeltPulse\(initialPayload\)/);
   assert.match(componentSource, /useState\(\(\) => initialPayload \|\| \{ state: "loading" \}\)/);
+  assert.match(componentSource, /Le Pouls du Monde suit les événements cités dans l'actualité/);
+  assert.match(componentSource, /À cet instant : \$\{localizedCount\} événements localisés dans \$\{counts\.eventCountries\} pays/);
+  assert.match(componentSource, /Chaque point représente un article dont le titre ou le résumé cite un pays ou une capitale non ambiguë/);
+  assert.match(componentSource, /<TemporalPanel[\s\S]+<FilterControls[\s\S]+<section className="main-grid">/);
+  assert.match(componentSource, /<CountList title="Catégories RSS"[\s\S]+colorize \/>/);
+  assert.match(componentSource, /--count-row-color/);
 });
 
 test("validated dashboard payload exposes matching RSS counts and rendered collections", async () => {
