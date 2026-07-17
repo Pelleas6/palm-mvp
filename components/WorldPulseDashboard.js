@@ -616,74 +616,63 @@ function SourceHealth({ items }) {
 
 function trendExamplesLabel(examples) {
   const titles = Array.isArray(examples) ? examples.map((item) => item.title).filter(Boolean).slice(0, 2) : [];
-  return titles.length > 0 ? titles.join(" · ") : "aucun exemple TOC";
+  return titles.length > 0 ? titles.join(" · ") : "contexte source indisponible";
 }
 
-const GENERIC_TREND_CHIP_TERMS = new Set(["man", "new", "world"]);
+function hasTrendContext(item) {
+  return Array.isArray(item?.examples) && item.examples.some((example) => String(example?.title || "").trim().length > 12);
+}
+
+const GENERIC_TREND_CHIP_TERMS = new Set([
+  "after",
+  "and",
+  "avec",
+  "dans",
+  "from",
+  "man",
+  "new",
+  "pour",
+  "said",
+  "says",
+  "the",
+  "une",
+  "with",
+  "world",
+]);
 
 function isDisplayableTrendChip(item) {
   const term = String(item?.term || "").trim().toLocaleLowerCase("fr-FR");
-  return Boolean(term) && !GENERIC_TREND_CHIP_TERMS.has(term) && !/^\d{4}$/.test(term);
+  return Boolean(term)
+    && term.length >= 4
+    && /\p{L}/u.test(term)
+    && !GENERIC_TREND_CHIP_TERMS.has(term)
+    && !/^\d+$/.test(term)
+    && hasTrendContext(item);
 }
 
-function RawGdeltTrends({ trends }) {
+function MomentTrendsPanel({ trends }) {
   const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
-  const classifiedTrends = rawTrends.filter((item) => item.classified).slice(0, 6);
-  const max = Math.max(1, ...classifiedTrends.map((item) => item.volume || 0));
-  const coverage = Number(trends?.classification?.coveragePct || 0);
-  const toc = trends?.toc || {};
-  const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
+  const fallbackTrends = Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : [];
+  const sourceTrends = rawTrends.length > 0 ? rawTrends : fallbackTrends;
+  const momentTrends = sourceTrends.filter(isDisplayableTrendChip).slice(0, 3);
+  const discardedTrendCount = Math.max(0, sourceTrends.length - momentTrends.length);
   return (
-    <section className="panel mini-panel raw-trends-panel" aria-label="Tendances brutes GDELT">
-      <h2>Tendances brutes GDELT</h2>
-      <p className="muted">
-        Termes extraits du TOC {validatedTimestamp || "indisponible"} : {rawTrends.length} tendance(s), {classifiedTrends.length} avec score déterministe fort, couverture honnête {formatPercent(coverage)}.
-      </p>
-      {classifiedTrends.length > 0 ? (
-        <div className="raw-trend-list" aria-label="Termes GDELT classés par score déterministe fort">
-          {classifiedTrends.map((item) => {
-            const color = item.color || colorForLabel(item.label);
-            return (
-              <div key={item.term} className="raw-trend-row count-row-colored" style={{ "--count-row-color": color }}>
-                <div>
-                  <span className="count-label"><b className="count-dot" aria-hidden="true" /><span>{item.term}</span></span>
-                  <strong>{item.volume}</strong>
-                </div>
-                <i style={{ width: `${Math.max(10, ((item.volume || 0) / max) * 100)}%` }} />
-                <small>{item.label} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · exemples : {trendExamplesLabel(item.examples)}</small>
-              </div>
-            );
-          })}
-        </div>
-      ) : <p className="muted">Aucun terme GDELT ne reçoit un score déterministe fort sur ce cycle.</p>}
-    </section>
-  );
-}
-
-function EmergingTrendsPanel({ trends }) {
-  const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
-  const sourceTrends = Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : rawTrends.filter((item) => !item.classified);
-  const emergingTrends = sourceTrends.filter(isDisplayableTrendChip).slice(0, 6);
-  const genericTrendCount = Math.max(0, sourceTrends.length - emergingTrends.length);
-  const toc = trends?.toc || {};
-  const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
-  return (
-    <section className="panel emerging-trends-panel" aria-label="Tendances émergentes GDELT mises en avant après les indicateurs principaux">
+    <section className="panel moment-trends-panel" aria-label="Tendances du moment contextualisées au-dessus des filtres">
       <div className="panel-heading">
         <div>
-          <p>Signal GDELT après indicateurs</p>
-          <h2>Tendances émergentes</h2>
+          <p>Lecture contextuelle</p>
+          <h2>Tendances du moment</h2>
         </div>
-        <span>{emergingTrends.length} affichée(s){genericTrendCount > 0 ? ` · ${genericTrendCount} générique(s) en trace` : ""}</span>
+        <span>Top {momentTrends.length}{discardedTrendCount > 0 ? ` · ${discardedTrendCount} écarté(s)` : ""}</span>
       </div>
-      {sourceTrends.length === 0 ? <p className="muted">Aucun terme émergent non classé dans ce TOC.</p> : null}
-      {sourceTrends.length > 0 && emergingTrends.length === 0 ? <p className="muted">Les termes émergents reçus sont trop génériques pour la mise en avant ; ils restent visibles dans la trace brute.</p> : null}
-      {emergingTrends.length > 0 ? (
-        <div className="emerging-trend-chips">
-          {emergingTrends.map((item) => (
+      {sourceTrends.length === 0 ? <p className="muted">Aucun terme contextuel disponible sur ce cycle.</p> : null}
+      {sourceTrends.length > 0 && momentTrends.length === 0 ? <p className="muted">Les termes reçus sont trop génériques ou sans contexte source fiable pour être affichés.</p> : null}
+      {momentTrends.length > 0 ? (
+        <div className="moment-trend-chips">
+          {momentTrends.map((item) => (
             <span key={item.term}>
-              <strong>{item.term}</strong>
-              <small>Volume {item.volume} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · {trendExamplesLabel(item.examples)}</small>
+              <strong>{item.classified ? `${item.term} · ${item.label}` : item.term}</strong>
+              <small>Volume {item.volume} · contexte : {trendExamplesLabel(item.examples)}</small>
             </span>
           ))}
         </div>
@@ -706,7 +695,7 @@ function GlobalTrends({ trends }) {
     <section className="panel mini-panel trace-panel" aria-label="Traçabilité GDELT Web N-Grams">
       <h2>Traçabilité GDELT Web N-Grams</h2>
       <p className="muted">
-        État {statusLabel} · TOC {validatedTimestamp || "indisponible"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} entrée(s) TOC · {rawTrends.length} tendance(s) brute(s) · {emergingTrends.length} émergente(s) · couverture {formatPercent(coverage)}.
+        État {statusLabel} · TOC {validatedTimestamp || "indisponible"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} entrée(s) TOC · {rawTrends.length} terme(s) suivi(s) · {emergingTrends.length} signal(aux) contextuel(s) · couverture {formatPercent(coverage)}.
       </p>
       {trends?.stale ? (
         <p className="muted">
@@ -718,7 +707,7 @@ function GlobalTrends({ trends }) {
           TOC indisponible : {trends?.error?.reason || "aucun TOC validé en mémoire"}. Aucune tendance n'est simulée.
         </p>
       ) : null}
-      {rawTrends.length === 0 ? <p className="muted">Aucune tendance GDELT Web N-Grams exploitable en mémoire.</p> : null}
+      {rawTrends.length === 0 ? <p className="muted">Aucun terme GDELT Web N-Grams exploitable en mémoire.</p> : null}
       {titles.length > 0 ? (
         <p className="muted">Exemple TOC source : {titles[0].title}</p>
       ) : null}
@@ -868,7 +857,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <div className="title-block">
           <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
           <div className="title-heading">
-            <img className="title-logo" src="/brand/pouls-du-monde-logo.webp" alt="Le Pouls du Monde" width="48" height="48" decoding="async" />
+            <span className="title-logo-frame">
+              <img className="title-logo" src="/brand/pouls-du-monde-logo-master.webp" alt="Le Pouls du Monde" width="120" height="85" decoding="async" />
+            </span>
             <h1>Le Pouls du Monde</h1>
           </div>
           <p>
@@ -897,17 +888,21 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
         <Metric label="Non déterminé RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Hors taxonomie utile · aucun mot-clé déterministe" />
         <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
-        <Metric label="Tendances brutes GDELT" value={loading ? "—" : gdeltRawTrendCount} hint={`${counts.gdeltNgramsCategories} thème(s) fiables · ${gdeltEmergingTrendCount} émergente(s) · couverture ${formatPercent(gdeltCoverage)}`} />
+        <Metric label="Termes suivis" value={loading ? "—" : gdeltRawTrendCount} hint={`${counts.gdeltNgramsCategories} thème(s) fiables · ${gdeltEmergingTrendCount} contextualisé(s) · couverture ${formatPercent(gdeltCoverage)}`} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
 
-      <EmergingTrendsPanel trends={globalTrends} />
+      <section className="top-categories-row" aria-label="Catégories RSS principales">
+        <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
+      </section>
 
       <TemporalPanel
         timeWindows={exploration.timeWindows}
         nonDetermined={exploration.nonDetermined}
         categories={exploration.categories}
       />
+
+      <MomentTrendsPanel trends={globalTrends} />
 
       <FilterControls
         filters={exploration.filters}
@@ -970,8 +965,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <CountList title="Pays médias provenance" items={groupings.sourceCountries || []} emptyLabel="Aucun pays média RSS reçu." />
         <CountList title="Articles non localisés" items={groupings.offMapReasons || []} emptyLabel="Aucun article non localisé." />
         <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
-        <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
-        <RawGdeltTrends trends={globalTrends} />
         <GlobalTrends trends={globalTrends} />
         <section className="panel mini-panel trace-panel">
           <h2>Traçabilité</h2>
@@ -1021,8 +1014,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <dd>{loading ? "—" : counts.gdeltNgramsDocuments}</dd>
             </div>
             <div>
-              <dt>Tendances brutes GDELT</dt>
-              <dd>{loading ? "—" : `${gdeltRawTrendCount} termes · ${counts.gdeltNgramsCategories} thèmes fiables · ${gdeltEmergingTrendCount} émergentes · couverture ${formatPercent(gdeltCoverage)}`}</dd>
+              <dt>Termes suivis</dt>
+              <dd>{loading ? "—" : `${gdeltRawTrendCount} termes · ${counts.gdeltNgramsCategories} thèmes fiables · ${gdeltEmergingTrendCount} contextualisés · couverture ${formatPercent(gdeltCoverage)}`}</dd>
             </div>
             <div>
               <dt>Événements localisés</dt>
@@ -1122,7 +1115,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .eyebrow, .panel-heading p {
           margin: 0 0 10px;
           color: var(--accent);
-          font-size: 0.74rem;
+          font-size: 0.67rem;
           font-weight: 800;
           letter-spacing: 0.16em;
           text-transform: uppercase;
@@ -1135,10 +1128,19 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           gap: 14px;
           min-width: 0;
         }
+        .title-logo-frame {
+          height: clamp(78px, 8vw, 118px);
+          flex: 0 0 auto;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
         .title-logo {
-          width: 48px;
-          height: 48px;
-          flex: 0 0 48px;
+          display: block;
+          width: auto;
+          height: auto;
+          max-height: 100%;
+          max-width: min(34vw, 170px);
           object-fit: contain;
           background: transparent;
           filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
@@ -1154,7 +1156,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           max-width: 760px;
           margin: 22px 0 0;
           color: var(--muted);
-          font-size: clamp(1rem, 1.3vw, 1.18rem);
+          font-size: clamp(0.9rem, 1.17vw, 1.06rem);
           line-height: 1.65;
         }
 
@@ -1167,7 +1169,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           background: var(--panel-strong);
         }
 
-        .status-panel strong { display: block; font-size: 1.3rem; margin-bottom: 8px; }
+        .status-panel strong { display: block; font-size: 1.17rem; margin-bottom: 8px; }
         .status-panel span:not(.status-dot) { color: var(--muted); line-height: 1.45; }
         .status-dot {
           flex: 0 0 auto;
@@ -1198,27 +1200,34 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .metric-card span, .metric-card small { color: var(--muted); }
         .metric-card span {
-          font-size: 0.73rem;
+          font-size: 0.66rem;
           font-weight: 800;
           letter-spacing: 0.14em;
           text-transform: uppercase;
         }
         .metric-card strong {
-          font-size: clamp(2rem, 4vw, 4.2rem);
+          font-size: clamp(1.8rem, 3.6vw, 3.78rem);
           line-height: 0.9;
           letter-spacing: -0.08em;
           font-variant-numeric: tabular-nums;
         }
-        .metric-card small { font-size: 0.78rem; }
+        .metric-card small { font-size: 0.7rem; }
 
-        .filter-panel, .temporal-panel {
+        .top-categories-row,
+        .filter-panel,
+        .temporal-panel,
+        .moment-trends-panel {
           margin-bottom: 18px;
+        }
+        .top-categories-row .mini-panel { min-height: auto; }
+        .top-categories-row .count-list {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
         }
         .filter-panel .panel-heading > span,
         .temporal-panel .panel-heading > span,
         .reading-panel .panel-heading > span {
           color: var(--muted);
-          font-size: 0.8rem;
+          font-size: 0.72rem;
           border: 1px solid var(--line);
           padding: 8px 10px;
           white-space: nowrap;
@@ -1235,7 +1244,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .filter-select span {
           color: var(--subtle);
-          font-size: 0.72rem;
+          font-size: 0.65rem;
           text-transform: uppercase;
           letter-spacing: 0.12em;
           font-weight: 800;
@@ -1281,14 +1290,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           line-height: 1.45;
         }
         .time-card span {
-          font-size: 0.72rem;
+          font-size: 0.65rem;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.12em;
         }
         .time-card strong {
           color: var(--ink);
-          font-size: clamp(2rem, 4vw, 3.2rem);
+          font-size: clamp(1.8rem, 3.6vw, 2.9rem);
           line-height: 0.95;
           font-variant-numeric: tabular-nums;
         }
@@ -1306,7 +1315,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border-radius: 999px;
           color: var(--muted);
           background: rgba(255, 255, 255, 0.03);
-          font-size: 0.78rem;
+          font-size: 0.7rem;
           line-height: 1.2;
         }
         .category-chips .non-thematic { border-color: rgba(245, 189, 79, 0.28); color: var(--warn); }
@@ -1338,7 +1347,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           align-items: flex-start;
           margin-bottom: 18px;
         }
-        .panel-heading h2, .mini-panel h2 { font-size: clamp(1.15rem, 2vw, 1.55rem); letter-spacing: -0.04em; }
+        .panel-heading h2, .mini-panel h2 { font-size: clamp(1.04rem, 1.8vw, 1.4rem); letter-spacing: -0.04em; }
         .map-heading-actions {
           display: grid;
           justify-items: end;
@@ -1348,7 +1357,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .map-status-chip,
         .off-map-chip {
           color: var(--muted);
-          font-size: 0.76rem;
+          font-size: 0.68rem;
           border: 1px solid var(--line);
           padding: 7px 10px;
           border-radius: 999px;
@@ -1365,14 +1374,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           width: fit-content;
           background: rgba(255, 255, 255, 0.035);
           color: var(--subtle);
-          font-size: 0.68rem;
+          font-size: 0.61rem;
           font-weight: 800;
           letter-spacing: 0.08em;
           text-transform: uppercase;
         }
         .off-map-chip strong {
           color: var(--ink);
-          font-size: 0.86rem;
+          font-size: 0.77rem;
           line-height: 1;
           font-variant-numeric: tabular-nums;
         }
@@ -1383,7 +1392,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           color: var(--accent);
           padding: 0 12px;
           font: inherit;
-          font-size: 0.72rem;
+          font-size: 0.65rem;
           font-weight: 800;
           letter-spacing: 0.08em;
           text-transform: uppercase;
@@ -1538,7 +1547,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border: 1px solid color-mix(in srgb, var(--particle-color) 45%, var(--line));
           background: rgba(5, 14, 12, 0.96);
           color: var(--muted);
-          font-size: 0.68rem;
+          font-size: 0.61rem;
           line-height: 1.25;
           white-space: normal;
           overflow-wrap: anywhere;
@@ -1567,7 +1576,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           background: radial-gradient(circle at center, rgba(7, 17, 15, 0.72), transparent 48%);
         }
         .compact-state { inset: auto 18px 18px auto; max-width: 360px; place-content: start; text-align: left; background: rgba(7, 17, 15, 0.72); border: 1px solid var(--line); }
-        .state-copy strong { color: var(--ink); font-size: 1.3rem; }
+        .state-copy strong { color: var(--ink); font-size: 1.17rem; }
         .loader {
           width: 42px;
           height: 42px;
@@ -1597,7 +1606,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .article-row:hover { border-color: var(--line-strong); background: rgba(255, 255, 255, 0.06); transform: translateY(-1px); }
         .article-row strong { line-height: 1.3; text-wrap: pretty; }
-        .article-meta, .article-foot { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+        .article-meta, .article-foot { color: var(--muted); font-size: 0.7rem; line-height: 1.35; }
         .stream-empty {
           border: 1px dashed var(--line-strong);
           padding: 18px;
@@ -1627,7 +1636,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .reading-content dt {
           color: var(--subtle);
-          font-size: 0.72rem;
+          font-size: 0.65rem;
           text-transform: uppercase;
           letter-spacing: 0.12em;
           font-weight: 800;
@@ -1649,7 +1658,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .reading-sublist span,
         .reading-sublist a {
           color: var(--muted);
-          font-size: 0.82rem;
+          font-size: 0.74rem;
           line-height: 1.35;
           overflow-wrap: anywhere;
           text-decoration: none;
@@ -1660,7 +1669,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .muted { color: var(--muted); line-height: 1.55; }
         .count-list { display: grid; gap: 14px; margin-top: 18px; }
         .count-row { display: grid; gap: 8px; }
-        .count-row div { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.9rem; }
+        .count-row div { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.81rem; }
         .count-label { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
         .count-label span { overflow-wrap: anywhere; }
         .count-dot {
@@ -1683,20 +1692,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
         }
 
-        .raw-trends-panel { min-height: 320px; }
-        .raw-trend-list { display: grid; gap: 14px; margin-top: 18px; }
-        .raw-trend-row { display: grid; gap: 8px; }
-        .raw-trend-row div { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.9rem; }
-        .raw-trend-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
-        .raw-trend-row small { color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
-        .raw-trend-row i {
-          display: block;
-          height: 4px;
-          min-width: 10px;
-          background: var(--count-row-color, var(--accent));
-          box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
-        }
-        .emerging-trends-panel {
+        .moment-trends-panel {
           margin: -4px 0 18px;
           border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
           background:
@@ -1704,21 +1700,21 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             var(--panel);
           box-shadow: 0 18px 58px rgba(0, 0, 0, 0.22);
         }
-        .emerging-trends-panel .panel-heading { margin-bottom: 12px; }
-        .emerging-trends-panel .panel-heading > span {
+        .moment-trends-panel .panel-heading { margin-bottom: 12px; }
+        .moment-trends-panel .panel-heading > span {
           color: var(--accent);
-          font-size: 0.76rem;
+          font-size: 0.68rem;
           border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
           padding: 7px 10px;
           border-radius: 999px;
           white-space: nowrap;
         }
-        .emerging-trend-chips {
+        .moment-trend-chips {
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
         }
-        .emerging-trend-chips > span {
+        .moment-trend-chips > span {
           display: grid;
           gap: 3px;
           max-width: 260px;
@@ -1727,17 +1723,17 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border-radius: 18px;
           background: rgba(255, 255, 255, 0.035);
         }
-        .emerging-trend-chips strong { color: var(--ink); font-size: 0.92rem; line-height: 1.25; overflow-wrap: anywhere; }
-        .emerging-trend-chips small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; overflow-wrap: anywhere; }
+        .moment-trend-chips strong { color: var(--ink); font-size: 0.83rem; line-height: 1.25; overflow-wrap: anywhere; }
+        .moment-trend-chips small { color: var(--muted); font-size: 0.65rem; line-height: 1.35; overflow-wrap: anywhere; }
 
         .trace-panel dl { display: grid; gap: 10px; margin: 18px 0; }
         .trace-panel dl div { display: grid; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-        .trace-panel dt { color: var(--subtle); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; }
+        .trace-panel dt { color: var(--subtle); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; }
         .trace-panel dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; line-height: 1.35; }
         .map-note {
           margin: 14px 0 0;
           color: var(--muted);
-          font-size: 0.86rem;
+          font-size: 0.77rem;
           line-height: 1.55;
         }
         .signal-legend {
@@ -1758,14 +1754,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .signal-legend-head span,
         .signal-legend-head small {
           color: var(--muted);
-          font-size: 0.72rem;
+          font-size: 0.65rem;
           font-weight: 800;
           letter-spacing: 0.12em;
           text-transform: uppercase;
         }
         .signal-legend-head strong {
           color: var(--ink);
-          font-size: clamp(1.15rem, 2vw, 1.55rem);
+          font-size: clamp(1.04rem, 1.8vw, 1.4rem);
           letter-spacing: -0.04em;
         }
         .signal-legend ul {
@@ -1786,7 +1782,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border: 1px solid var(--line);
           color: var(--muted);
           background: rgba(255, 255, 255, 0.03);
-          font-size: 0.78rem;
+          font-size: 0.7rem;
         }
         .signal-legend i {
           width: 11px;
@@ -1798,7 +1794,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .source-health-panel { margin-bottom: 22px; overflow: hidden; }
         .source-health-panel .panel-heading > span {
           color: var(--muted);
-          font-size: 0.8rem;
+          font-size: 0.72rem;
           border: 1px solid var(--line);
           padding: 8px 10px;
           white-space: nowrap;
@@ -1820,11 +1816,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border: 1px solid var(--line);
           background: rgba(255, 255, 255, 0.03);
           color: var(--muted);
-          font-size: 0.78rem;
+          font-size: 0.7rem;
         }
         .source-health-row a { color: var(--ink); overflow-wrap: anywhere; text-decoration: none; }
         .health-state-cell { display: flex; flex-direction: column; gap: 4px; }
-        .health-state-cell strong { font-size: 0.82rem; }
+        .health-state-cell strong { font-size: 0.74rem; }
         .health-state-cell small { color: var(--muted); line-height: 1.35; }
         .source-health-head {
           color: var(--subtle);
@@ -1846,7 +1842,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           color: #ffd7d2;
           background: rgba(255, 111, 97, 0.1);
           border: 1px solid rgba(255, 111, 97, 0.24);
-          font-size: 0.78rem;
+          font-size: 0.7rem;
           line-height: 1.45;
         }
 
@@ -1859,6 +1855,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         @media (max-width: 1080px) {
           .top-strip, .main-grid { grid-template-columns: 1fr; }
           .metric-grid, .bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .top-categories-row .count-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .time-grid { grid-template-columns: 1fr; }
           .stream-panel { max-height: none; }
@@ -1873,7 +1870,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .title-block { min-height: 320px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .title-heading { align-items: flex-start; gap: 10px; }
-          .title-logo { width: 42px; height: 42px; flex-basis: 42px; }
+          .title-logo-frame { height: clamp(58px, 16vw, 76px); align-items: flex-start; }
+          .title-logo { max-width: min(44vw, 108px); }
+          .top-categories-row .count-list { grid-template-columns: 1fr; }
           .map-heading-actions { justify-items: stretch; width: 100%; }
           .map-status-chip, .off-map-chip { max-width: none; text-align: left; border-radius: 14px; justify-self: stretch; width: 100%; }
           .panel { padding: 16px; }
