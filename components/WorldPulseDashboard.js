@@ -299,14 +299,11 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
     const sourceCountry = point.sourceCountry || point.location?.label || "Non précisé";
     const eventCountry = point.eventCountry || point.location?.label || "Non localisé";
     const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : point.kind === "article-cluster" ? formatArticleCount(point.count) : "1 article";
-    const typeLabel = point.kind === "media" ? "Provenance média" : point.kind === "article-cluster" ? "Cluster événements" : "Particule événement";
-    const titlePart = point.kind === "article" && point.title ? ` — ${point.title}` : "";
-    const clusterTitles = point.kind === "article-cluster" && point.sampleTitles?.length ? ` — ${point.sampleTitles.join(" · ")}` : "";
-    const geographyLabel = point.kind === "media"
-      ? `Pays du média source : ${sourceCountry}`
-      : `Pays de l'événement détecté dans le contenu : ${eventCountry}`;
-    const provenanceLabel = point.kind === "media" ? "" : ` — média source : ${sourceCountry}`;
-    const tooltip = `${typeLabel} — ${point.mediaName}${titlePart}${clusterTitles} — ${geographyLabel}${provenanceLabel} — ${countLabel} — catégorie : ${point.label}`;
+    const geographyLabel = point.kind === "media" ? `Pays : ${sourceCountry}` : `Pays : ${eventCountry}`;
+    const tooltip = `${geographyLabel} — catégorie : ${point.label} — volume : ${countLabel}`;
+    const tooltipNearLeft = point.left < 18;
+    const tooltipNearRight = point.left > 82;
+    const tooltipNearTop = point.top < 18;
     const style = {
       left: `clamp(${safeOffset}px, ${point.left}%, calc(100% - ${safeOffset}px))`,
       top: `clamp(${safeOffset}px, ${point.top}%, calc(100% - ${safeOffset}px))`,
@@ -315,6 +312,10 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       "--particle-color": point.color,
       "--particle-delay": point.delay,
       "--particle-safe-offset": `${safeOffset}px`,
+      "--particle-tooltip-left": tooltipNearLeft ? "0%" : tooltipNearRight ? "100%" : "50%",
+      "--particle-tooltip-x": tooltipNearLeft ? "0%" : tooltipNearRight ? "-100%" : "-50%",
+      "--particle-tooltip-top": tooltipNearTop ? "calc(100% + 10px)" : "auto",
+      "--particle-tooltip-bottom": tooltipNearTop ? "auto" : "calc(100% + 10px)",
     };
     const selectionType = point.kind === "media" ? "marker" : point.kind === "article-cluster" ? "cluster" : "article";
     const isPanelPoint = point.kind === "media" || point.kind === "article-cluster";
@@ -332,18 +333,13 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
         {...linkProps}
         style={style}
         title={tooltip}
-        aria-label={`${typeLabel}, ${point.mediaName}, ${geographyLabel}${provenanceLabel}, ${countLabel}, catégorie : ${point.label}`}
+        aria-label={tooltip}
       >
         {point.kind === "article-cluster" ? <span className="cluster-count" aria-hidden="true">{point.count}</span> : null}
         <span className="particle-tooltip" role="tooltip">
-          <strong>{point.mediaName}</strong>
-          <span>{typeLabel}</span>
-          {point.title ? <span>{point.title}</span> : null}
-          {point.sampleTitles?.length ? <span>{point.sampleTitles.join(" · ")}</span> : null}
           <span>{geographyLabel}</span>
-          {point.kind === "media" ? null : <span>Média source : {sourceCountry}</span>}
-          <span>{countLabel}</span>
           <span>Catégorie : {point.label}</span>
+          <span>Volume : {countLabel}</span>
         </span>
       </Tag>
     );
@@ -379,13 +375,6 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       {particles.map((particle) => renderPoint(particle, "article-particle"))}
       {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
       {markers.map((marker) => renderPoint(marker, "media-marker"))}
-      {unlocalized > 0 ? (
-        <div className="unlocalized-badge" aria-label={`${unlocalized} articles sans localisation fiable`}>
-          <span>Hors carte</span>
-          <strong>{unlocalized}</strong>
-          <small>événement non localisé</small>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -633,7 +622,6 @@ function trendExamplesLabel(examples) {
 function RawGdeltTrends({ trends }) {
   const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
   const classifiedTrends = rawTrends.filter((item) => item.classified).slice(0, 6);
-  const emergingTrends = (Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : rawTrends.filter((item) => !item.classified)).slice(0, 6);
   const max = Math.max(1, ...classifiedTrends.map((item) => item.volume || 0));
   const coverage = Number(trends?.classification?.coveragePct || 0);
   const toc = trends?.toc || {};
@@ -661,13 +649,35 @@ function RawGdeltTrends({ trends }) {
           })}
         </div>
       ) : <p className="muted">Aucun terme GDELT ne reçoit un score déterministe fort sur ce cycle.</p>}
-      <div className="emerging-trends" aria-label="Tendances émergentes GDELT hors graphique de catégories">
-        <strong>Tendances émergentes</strong>
-        {emergingTrends.length === 0 ? <span>Aucun terme émergent non classé dans ce TOC.</span> : null}
-        {emergingTrends.map((item) => (
-          <span key={item.term}>{item.term} · volume {item.volume} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · exemples : {trendExamplesLabel(item.examples)}</span>
-        ))}
+    </section>
+  );
+}
+
+function EmergingTrendsPanel({ trends }) {
+  const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
+  const emergingTrends = (Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : rawTrends.filter((item) => !item.classified)).slice(0, 6);
+  const toc = trends?.toc || {};
+  const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
+  return (
+    <section className="panel emerging-trends-panel" aria-label="Tendances émergentes GDELT mises en avant après les indicateurs principaux">
+      <div className="panel-heading">
+        <div>
+          <p>Signal GDELT après indicateurs</p>
+          <h2>Tendances émergentes</h2>
+        </div>
+        <span>{emergingTrends.length} terme(s)</span>
       </div>
+      {emergingTrends.length === 0 ? <p className="muted">Aucun terme émergent non classé dans ce TOC.</p> : null}
+      {emergingTrends.length > 0 ? (
+        <div className="emerging-trend-chips">
+          {emergingTrends.map((item) => (
+            <span key={item.term}>
+              <strong>{item.term}</strong>
+              <small>Volume {item.volume} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · {trendExamplesLabel(item.examples)}</small>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -847,7 +857,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       <section className="top-strip" aria-label="Synthèse du tableau de bord">
         <div className="title-block">
           <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
-          <h1>Le Pouls du Monde</h1>
+          <div className="title-heading">
+            <img className="title-logo" src="/brand/pouls-du-monde-logo.webp" alt="Le Pouls du Monde" width="48" height="48" decoding="async" />
+            <h1>Le Pouls du Monde</h1>
+          </div>
           <p>
             Le Pouls du Monde suit les événements cités dans l'actualité. La carte situe uniquement les pays mentionnés clairement dans les articles RSS. Les couleurs représentent les thèmes; les médias, tendances GDELT et articles non localisés restent distingués.
           </p>
@@ -878,6 +891,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
 
+      <EmergingTrendsPanel trends={globalTrends} />
+
       <TemporalPanel
         timeWindows={exploration.timeWindows}
         nonDetermined={exploration.nonDetermined}
@@ -901,7 +916,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <h2>Événements localisés</h2>
             </div>
             <div className="map-heading-actions">
-              <span>{hasRealData ? mapStatusSummary : "visualisation suspendue"}</span>
+              <span className="map-status-chip">{hasRealData ? mapStatusSummary : "visualisation suspendue"}</span>
+              {unlocalizedCount > 0 ? (
+                <span className="off-map-chip" aria-label={`${unlocalizedCount} articles sans localisation fiable`}>
+                  <span>Hors carte · </span>
+                  <strong>{unlocalizedCount}</strong>
+                  <span> non localisés</span>
+                </span>
+              ) : null}
               <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
                 {showMediaProvenance ? "Masquer provenance média" : "Afficher provenance média"}
               </button>
@@ -1097,6 +1119,20 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
 
         h1, h2 { margin: 0; text-wrap: pretty; }
+        .title-heading {
+          display: flex;
+          align-items: flex-end;
+          gap: 14px;
+          min-width: 0;
+        }
+        .title-logo {
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
+          object-fit: contain;
+          background: transparent;
+          filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
+        }
         h1 {
           font-size: clamp(2.9rem, 7vw, 7.2rem);
           line-height: 0.88;
@@ -1297,16 +1333,36 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           gap: 8px;
           max-width: min(100%, 680px);
         }
-        .map-heading-actions > span {
+        .map-status-chip,
+        .off-map-chip {
           color: var(--muted);
-          font-size: 0.8rem;
+          font-size: 0.76rem;
           border: 1px solid var(--line);
-          padding: 8px 10px;
+          padding: 7px 10px;
           border-radius: 999px;
           max-width: min(100%, 620px);
           text-align: right;
           white-space: normal;
           overflow-wrap: anywhere;
+        }
+        .off-map-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-self: end;
+          gap: 6px;
+          width: fit-content;
+          background: rgba(255, 255, 255, 0.035);
+          color: var(--subtle);
+          font-size: 0.68rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .off-map-chip strong {
+          color: var(--ink);
+          font-size: 0.86rem;
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
         }
         .layer-toggle {
           min-height: 34px;
@@ -1459,29 +1515,29 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .particle-tooltip {
           position: absolute;
           z-index: 6;
-          left: 50%;
-          bottom: calc(100% + 14px);
+          left: var(--particle-tooltip-left, 50%);
+          top: var(--particle-tooltip-top, auto);
+          bottom: var(--particle-tooltip-bottom, calc(100% + 10px));
           width: max-content;
-          max-width: min(260px, calc(100vw - 40px));
+          max-width: min(170px, calc(100vw - 24px));
           display: grid;
-          gap: 4px;
-          padding: 10px 12px;
+          gap: 3px;
+          padding: 7px 8px;
           border: 1px solid color-mix(in srgb, var(--particle-color) 45%, var(--line));
           background: rgba(5, 14, 12, 0.96);
           color: var(--muted);
-          font-size: 0.74rem;
-          line-height: 1.35;
+          font-size: 0.68rem;
+          line-height: 1.25;
           box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
           opacity: 0;
           pointer-events: none;
-          transform: translate(-50%, 6px) scale(0.92);
+          transform: translate(var(--particle-tooltip-x, -50%), 6px) scale(0.94);
           transition: opacity 0.16s ease, transform 0.16s ease;
         }
-        .particle-tooltip strong { color: var(--ink); font-size: 0.82rem; }
         .particle:hover .particle-tooltip,
         .particle:focus-visible .particle-tooltip {
           opacity: 1;
-          transform: translate(-50%, 0) scale(1);
+          transform: translate(var(--particle-tooltip-x, -50%), 0) scale(1);
         }
 
         .state-copy {
@@ -1507,23 +1563,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border-radius: 999px;
           animation: spin 0.9s linear infinite;
         }
-        .unlocalized-badge {
-          position: absolute;
-          z-index: 4;
-          right: 16px;
-          top: 16px;
-          display: grid;
-          gap: 2px;
-          min-width: 128px;
-          padding: 12px 14px;
-          border: 1px solid rgba(245, 189, 79, 0.32);
-          background: rgba(20, 24, 18, 0.82);
-          color: var(--warn);
-          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
-        }
-        .unlocalized-badge span, .unlocalized-badge small { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; }
-        .unlocalized-badge strong { color: var(--warn); font-size: 2rem; line-height: 1; font-variant-numeric: tabular-nums; }
-
         .stream-panel { max-height: 780px; overflow: hidden; }
         .article-list {
           display: grid;
@@ -1643,16 +1682,38 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           background: var(--count-row-color, var(--accent));
           box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
         }
-        .emerging-trends {
-          display: grid;
-          gap: 8px;
-          margin-top: 16px;
-          padding: 12px;
-          border: 1px dashed rgba(245, 189, 79, 0.34);
-          background: rgba(245, 189, 79, 0.045);
+        .emerging-trends-panel {
+          margin: -4px 0 18px;
+          border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
+          background:
+            linear-gradient(135deg, rgba(62, 214, 195, 0.09), rgba(255, 255, 255, 0.025)),
+            var(--panel);
+          box-shadow: 0 18px 58px rgba(0, 0, 0, 0.22);
         }
-        .emerging-trends strong { color: var(--warn); }
-        .emerging-trends span { color: var(--muted); font-size: 0.82rem; line-height: 1.4; overflow-wrap: anywhere; }
+        .emerging-trends-panel .panel-heading { margin-bottom: 12px; }
+        .emerging-trends-panel .panel-heading > span {
+          color: var(--accent);
+          font-size: 0.76rem;
+          border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
+          padding: 7px 10px;
+          border-radius: 999px;
+          white-space: nowrap;
+        }
+        .emerging-trend-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .emerging-trend-chips > span {
+          display: grid;
+          gap: 3px;
+          max-width: 260px;
+          padding: 9px 11px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.035);
+        }
+        .emerging-trend-chips strong { color: var(--ink); font-size: 0.92rem; line-height: 1.25; overflow-wrap: anywhere; }
+        .emerging-trend-chips small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; overflow-wrap: anywhere; }
 
         .trace-panel dl { display: grid; gap: 10px; margin: 18px 0; }
         .trace-panel dl div { display: grid; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
@@ -1796,8 +1857,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 320px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
+          .title-heading { align-items: flex-start; gap: 10px; }
+          .title-logo { width: 42px; height: 42px; flex-basis: 42px; }
           .map-heading-actions { justify-items: stretch; width: 100%; }
-          .map-heading-actions > span { max-width: none; text-align: left; border-radius: 14px; }
+          .map-status-chip, .off-map-chip { max-width: none; text-align: left; border-radius: 14px; justify-self: stretch; width: 100%; }
           .panel { padding: 16px; }
           .signal-field { min-height: clamp(200px, 56vw, 260px); aspect-ratio: 2 / 1; }
           .signal-legend { grid-template-columns: 1fr; }
