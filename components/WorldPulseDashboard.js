@@ -619,23 +619,25 @@ function trendExamplesLabel(examples) {
   return titles.length > 0 ? titles.join(" · ") : "aucun exemple TOC";
 }
 
-const BANNED_WORDS = new Set(["man", "new", "world", "2026"]);
+const GENERIC_TREND_CHIP_TERMS = new Set(["man", "new", "world"]);
+
+function isDisplayableTrendChip(item) {
+  const term = String(item?.term || "").trim().toLocaleLowerCase("fr-FR");
+  return Boolean(term) && !GENERIC_TREND_CHIP_TERMS.has(term) && !/^\d{4}$/.test(term);
+}
 
 function RawGdeltTrends({ trends }) {
   const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
-  const classifiedTrends = rawTrends
-    .filter((item) => item.classified)
-    .filter((item) => !BANNED_WORDS.has(item.term.toLowerCase()))
-    .slice(0, 3);
+  const classifiedTrends = rawTrends.filter((item) => item.classified).slice(0, 6);
   const max = Math.max(1, ...classifiedTrends.map((item) => item.volume || 0));
   const coverage = Number(trends?.classification?.coveragePct || 0);
   const toc = trends?.toc || {};
   const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
   return (
-    <section className="panel mini-panel raw-trends-panel" aria-label="Tendances du moment">
-      <h2>Tendances du moment</h2>
+    <section className="panel mini-panel raw-trends-panel" aria-label="Tendances brutes GDELT">
+      <h2>Tendances brutes GDELT</h2>
       <p className="muted">
-        Termes extraits du TOC {validatedTimestamp || "indisponible"} : {rawTrends.length} tendance(s), {classifiedTrends.length} avec score déterministe fort.
+        Termes extraits du TOC {validatedTimestamp || "indisponible"} : {rawTrends.length} tendance(s), {classifiedTrends.length} avec score déterministe fort, couverture honnête {formatPercent(coverage)}.
       </p>
       {classifiedTrends.length > 0 ? (
         <div className="raw-trend-list" aria-label="Termes GDELT classés par score déterministe fort">
@@ -654,6 +656,38 @@ function RawGdeltTrends({ trends }) {
           })}
         </div>
       ) : <p className="muted">Aucun terme GDELT ne reçoit un score déterministe fort sur ce cycle.</p>}
+    </section>
+  );
+}
+
+function EmergingTrendsPanel({ trends }) {
+  const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
+  const sourceTrends = Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : rawTrends.filter((item) => !item.classified);
+  const emergingTrends = sourceTrends.filter(isDisplayableTrendChip).slice(0, 6);
+  const genericTrendCount = Math.max(0, sourceTrends.length - emergingTrends.length);
+  const toc = trends?.toc || {};
+  const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
+  return (
+    <section className="panel emerging-trends-panel" aria-label="Tendances émergentes GDELT mises en avant après les indicateurs principaux">
+      <div className="panel-heading">
+        <div>
+          <p>Signal GDELT après indicateurs</p>
+          <h2>Tendances émergentes</h2>
+        </div>
+        <span>{emergingTrends.length} affichée(s){genericTrendCount > 0 ? ` · ${genericTrendCount} générique(s) en trace` : ""}</span>
+      </div>
+      {sourceTrends.length === 0 ? <p className="muted">Aucun terme émergent non classé dans ce TOC.</p> : null}
+      {sourceTrends.length > 0 && emergingTrends.length === 0 ? <p className="muted">Les termes émergents reçus sont trop génériques pour la mise en avant ; ils restent visibles dans la trace brute.</p> : null}
+      {emergingTrends.length > 0 ? (
+        <div className="emerging-trend-chips">
+          {emergingTrends.map((item) => (
+            <span key={item.term}>
+              <strong>{item.term}</strong>
+              <small>Volume {item.volume} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · {trendExamplesLabel(item.examples)}</small>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -834,7 +868,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <div className="title-block">
           <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
           <div className="title-heading">
-            <img className="title-logo" src="/brand/pouls-du-monde-logo.webp" alt="Le Pouls du Monde" decoding="async" />
+            <img className="title-logo" src="/brand/pouls-du-monde-logo.webp" alt="Le Pouls du Monde" width="48" height="48" decoding="async" />
             <h1>Le Pouls du Monde</h1>
           </div>
           <p>
@@ -867,7 +901,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
 
-      <RawGdeltTrends trends={globalTrends} />
+      <EmergingTrendsPanel trends={globalTrends} />
 
       <TemporalPanel
         timeWindows={exploration.timeWindows}
@@ -1102,9 +1136,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           min-width: 0;
         }
         .title-logo {
-          width: 110px;
-          height: 110px;
-          flex: 0 0 110px;
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
           object-fit: contain;
           background: transparent;
           filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
@@ -1269,9 +1303,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .category-chips span {
           padding: 7px 10px;
           border: 1px solid var(--line);
+          border-radius: 999px;
           color: var(--muted);
           background: rgba(255, 255, 255, 0.03);
           font-size: 0.78rem;
+          line-height: 1.2;
         }
         .category-chips .non-thematic { border-color: rgba(245, 189, 79, 0.28); color: var(--warn); }
 
@@ -1504,6 +1540,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           color: var(--muted);
           font-size: 0.68rem;
           line-height: 1.25;
+          white-space: normal;
+          overflow-wrap: anywhere;
           box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
           opacity: 0;
           pointer-events: none;
@@ -1686,6 +1724,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           max-width: 260px;
           padding: 9px 11px;
           border: 1px solid var(--line);
+          border-radius: 18px;
           background: rgba(255, 255, 255, 0.035);
         }
         .emerging-trend-chips strong { color: var(--ink); font-size: 0.92rem; line-height: 1.25; overflow-wrap: anywhere; }
@@ -1834,7 +1873,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .title-block { min-height: 320px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .title-heading { align-items: flex-start; gap: 10px; }
-          .title-logo { width: 70px; height: 70px; flex-basis: 70px; }
+          .title-logo { width: 42px; height: 42px; flex-basis: 42px; }
           .map-heading-actions { justify-items: stretch; width: 100%; }
           .map-status-chip, .off-map-chip { max-width: none; text-align: left; border-radius: 14px; justify-self: stretch; width: 100%; }
           .panel { padding: 16px; }

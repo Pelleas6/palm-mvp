@@ -40,8 +40,13 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /<TemporalPanel[\s\S]+<FilterControls[\s\S]+<section className="main-grid">/);
   assert.match(componentSource, /<CountList title="Catégories RSS"[\s\S]+colorize \/>/);
   assert.match(componentSource, /<Metric label="Couverture RSS"/);
+  assert.match(componentSource, /<img className="title-logo"[\s\S]+alt="Le Pouls du Monde"[\s\S]+width="48" height="48"/);
+  assert.match(componentSource, /<section className="metric-grid"[\s\S]+<EmergingTrendsPanel trends=\{globalTrends\} \/>[\s\S]+<TemporalPanel/);
   assert.match(componentSource, /Tendances brutes GDELT/);
-  assert.match(componentSource, /Tendances du moment/);
+  assert.match(componentSource, /Tendances émergentes/);
+  assert.match(componentSource, /GENERIC_TREND_CHIP_TERMS/);
+  assert.match(componentSource, /générique\(s\) en trace/);
+  assert.doesNotMatch(componentSource, /BANNED_WORDS/);
   assert.doesNotMatch(componentSource, /<CountList title="Catégories GDELT N-Grams"/);
   assert.match(componentSource, /--count-row-color/);
 });
