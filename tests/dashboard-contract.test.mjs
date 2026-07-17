@@ -39,6 +39,10 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /Chaque point représente un article dont le titre ou le résumé cite un pays ou une capitale non ambiguë/);
   assert.match(componentSource, /<TemporalPanel[\s\S]+<FilterControls[\s\S]+<section className="main-grid">/);
   assert.match(componentSource, /<CountList title="Catégories RSS"[\s\S]+colorize \/>/);
+  assert.match(componentSource, /<Metric label="Couverture RSS"/);
+  assert.match(componentSource, /Tendances brutes GDELT/);
+  assert.match(componentSource, /Tendances émergentes/);
+  assert.doesNotMatch(componentSource, /<CountList title="Catégories GDELT N-Grams"/);
   assert.match(componentSource, /--count-row-color/);
 });
 
@@ -65,8 +69,11 @@ test("validated dashboard payload exposes matching RSS counts and rendered colle
   assert.equal(payload.counts.rssArticles, payload.articles.length);
   assert.equal(payload.counts.rssMediaSources, 1);
   assert.equal(payload.counts.rssKnownMediaCountries, 1);
+  assert.equal(payload.counts.rssActiveSources, 1);
   assert.equal(payload.counts.articleParticles, payload.articleParticles.length);
   assert.equal(payload.counts.mediaMarkers, payload.mediaMarkers.length);
+  assert.ok(Array.isArray(payload.globalTrends.rawTrends));
+  assert.ok(Array.isArray(payload.globalTrends.emergingTrends));
   assert.ok(payload.counts.articles > 0);
   assert.ok(payload.dataScopes.rss);
   assert.ok(payload.dataScopes.gdeltNgrams);

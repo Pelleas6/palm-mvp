@@ -37,13 +37,18 @@ const EMPTY_COUNTS = {
   rssArticlesOffMap: 0,
   rssArticlesTruncated: 0,
   rssMediaSources: 0,
+  rssActiveSources: 0,
+  rssAuditedSources: 0,
+  rssSourcesInError: 0,
   rssKnownMediaCountries: 0,
   rssCategories: 0,
   rssClassifiedArticles: 0,
   rssUnclassifiedArticles: 0,
   rssClassificationCoveragePct: 0,
   gdeltNgramsDocuments: 0,
+  gdeltNgramsRawTrends: 0,
   gdeltNgramsCategories: 0,
+  gdeltNgramsEmergingTrends: 0,
   gdeltNgramsUnclassifiedDocuments: 0,
   gdeltNgramsClassificationCoveragePct: 0,
 };
@@ -620,9 +625,57 @@ function SourceHealth({ items }) {
   );
 }
 
+function trendExamplesLabel(examples) {
+  const titles = Array.isArray(examples) ? examples.map((item) => item.title).filter(Boolean).slice(0, 2) : [];
+  return titles.length > 0 ? titles.join(" · ") : "aucun exemple TOC";
+}
+
+function RawGdeltTrends({ trends }) {
+  const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
+  const classifiedTrends = rawTrends.filter((item) => item.classified).slice(0, 6);
+  const emergingTrends = (Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : rawTrends.filter((item) => !item.classified)).slice(0, 6);
+  const max = Math.max(1, ...classifiedTrends.map((item) => item.volume || 0));
+  const coverage = Number(trends?.classification?.coveragePct || 0);
+  const toc = trends?.toc || {};
+  const validatedTimestamp = toc.validatedTimestamp || trends?.timestamp || null;
+  return (
+    <section className="panel mini-panel raw-trends-panel" aria-label="Tendances brutes GDELT">
+      <h2>Tendances brutes GDELT</h2>
+      <p className="muted">
+        Termes extraits du TOC {validatedTimestamp || "indisponible"} : {rawTrends.length} tendance(s), {classifiedTrends.length} avec score déterministe fort, couverture honnête {formatPercent(coverage)}.
+      </p>
+      {classifiedTrends.length > 0 ? (
+        <div className="raw-trend-list" aria-label="Termes GDELT classés par score déterministe fort">
+          {classifiedTrends.map((item) => {
+            const color = item.color || colorForLabel(item.label);
+            return (
+              <div key={item.term} className="raw-trend-row count-row-colored" style={{ "--count-row-color": color }}>
+                <div>
+                  <span className="count-label"><b className="count-dot" aria-hidden="true" /><span>{item.term}</span></span>
+                  <strong>{item.volume}</strong>
+                </div>
+                <i style={{ width: `${Math.max(10, ((item.volume || 0) / max) * 100)}%` }} />
+                <small>{item.label} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · exemples : {trendExamplesLabel(item.examples)}</small>
+              </div>
+            );
+          })}
+        </div>
+      ) : <p className="muted">Aucun terme GDELT ne reçoit un score déterministe fort sur ce cycle.</p>}
+      <div className="emerging-trends" aria-label="Tendances émergentes GDELT hors graphique de catégories">
+        <strong>Tendances émergentes</strong>
+        {emergingTrends.length === 0 ? <span>Aucun terme émergent non classé dans ce TOC.</span> : null}
+        {emergingTrends.map((item) => (
+          <span key={item.term}>{item.term} · volume {item.volume} · TOC {item.tocTimestamp || validatedTimestamp || "—"} · exemples : {trendExamplesLabel(item.examples)}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function GlobalTrends({ trends }) {
-  const labels = Array.isArray(trends?.categories) ? trends.categories : (Array.isArray(trends?.labels) ? trends.labels : []);
   const titles = Array.isArray(trends?.topTitles) ? trends.topTitles : [];
+  const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
+  const emergingTrends = Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : [];
   const coverage = Number(trends?.classification?.coveragePct || 0);
   const state = trends?.state || (Number(trends?.documents || 0) > 0 ? "OK" : "UNAVAILABLE");
   const toc = trends?.toc || {};
@@ -630,10 +683,10 @@ function GlobalTrends({ trends }) {
   const validatedAt = toc.validatedAt || toc.fetchedAt || trends?.checkedAt || null;
   const statusLabel = trends?.stale ? "DÉGRADÉ/STALE" : healthStateLabel(state);
   return (
-    <section className="panel mini-panel trace-panel" aria-label="Tendances globales GDELT Web N-Grams">
-      <h2>Tendances GDELT Web N-Grams</h2>
+    <section className="panel mini-panel trace-panel" aria-label="Traçabilité GDELT Web N-Grams">
+      <h2>Traçabilité GDELT Web N-Grams</h2>
       <p className="muted">
-        État {statusLabel} · TOC {validatedTimestamp || "indisponible"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} document(s) · couverture {formatPercent(coverage)}.
+        État {statusLabel} · TOC {validatedTimestamp || "indisponible"} · cycle {trends?.cycleMinutes || 15} min · retard ~{trends?.delayMinutes || 5} min · {trends?.documents || 0} entrée(s) TOC · {rawTrends.length} tendance(s) brute(s) · {emergingTrends.length} émergente(s) · couverture {formatPercent(coverage)}.
       </p>
       {trends?.stale ? (
         <p className="muted">
@@ -645,18 +698,9 @@ function GlobalTrends({ trends }) {
           TOC indisponible : {trends?.error?.reason || "aucun TOC validé en mémoire"}. Aucune tendance n'est simulée.
         </p>
       ) : null}
-      {labels.length > 0 ? (
-        <div className="count-list">
-          {labels.slice(0, 5).map((item) => (
-            <div className="count-row" key={item.label}>
-              <div><span>{item.label}</span><strong>{item.count}</strong></div>
-              <i style={{ "--width": `${Math.min(100, Math.max(8, item.count * 12))}%` }} />
-            </div>
-          ))}
-        </div>
-      ) : <p className="muted">Aucune tendance GDELT Web N-Grams exploitable en mémoire.</p>}
+      {rawTrends.length === 0 ? <p className="muted">Aucune tendance GDELT Web N-Grams exploitable en mémoire.</p> : null}
       {titles.length > 0 ? (
-        <p className="muted">Exemple : {titles[0].title}</p>
+        <p className="muted">Exemple TOC source : {titles[0].title}</p>
       ) : null}
     </section>
   );
@@ -710,7 +754,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   const articleClusters = exploration.articleClusters;
   const offMapArticles = exploration.offMapArticles;
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
-  const globalTrends = payload.globalTrends || { documents: 0, labels: [], categories: [], thematicCategories: [], classification: { coveragePct: 0, unclassified: 0 }, topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
+  const globalTrends = payload.globalTrends || { documents: 0, labels: [], categories: [], thematicCategories: [], rawTrends: [], classifiedTrends: [], emergingTrends: [], classification: { coveragePct: 0, unclassified: 0 }, topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
   const payloadCounts = payload.counts || {};
   const counts = {
     ...EMPTY_COUNTS,
@@ -760,6 +804,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   const visibleArticlePointCount = articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length;
   const rssCoverage = countFromPayload(counts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
   const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
+  const rssHealthItems = sourceHealth.filter((item) => item?.source && !["GDELT Web N-Grams TOC", "GDELT 2.0 DOC API canary", "Cache serveur"].includes(item.source));
+  const rssActiveSourceCount = countFromPayload(payloadCounts, "rssActiveSources", rssHealthItems.filter((item) => item.state === "OK").length);
+  const rssAuditedSourceCount = countFromPayload(payloadCounts, "rssAuditedSources", rssHealthItems.length || rssActiveSourceCount);
+  const rssSourceErrorCount = countFromPayload(payloadCounts, "rssSourcesInError", rssHealthItems.filter((item) => item.state !== "OK").length);
+  const rssMediaCountryCount = countFromPayload(payloadCounts, "rssKnownMediaCountries", counts.rssKnownMediaCountries);
+  const rssRegionCount = countFromPayload(payloadCounts, "sourceRegions", groupings.sourceRegions.length || counts.sourceRegions);
+  const gdeltRawTrendCount = countFromPayload(payloadCounts, "gdeltNgramsRawTrends", Array.isArray(globalTrends.rawTrends) ? globalTrends.rawTrends.length : 0);
+  const gdeltEmergingTrendCount = countFromPayload(payloadCounts, "gdeltNgramsEmergingTrends", Array.isArray(globalTrends.emergingTrends) ? globalTrends.emergingTrends.length : 0);
   const mapStatusSummary = loading
     ? "À cet instant : données en cours de chargement. Les articles sans pays clairement cité restent visibles dans le flux, hors carte."
     : `À cet instant : ${localizedCount} événements localisés dans ${counts.eventCountries} pays. ${unlocalizedCount} articles ne citent pas clairement de pays et restent visibles dans le flux, hors carte.`;
@@ -816,12 +868,13 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Événements localisés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} point(s) visuels · preuve titre/résumé`} />
         <Metric label="Pays événementiels" value={loading ? "—" : counts.eventCountries} hint="Nom de pays ou capitale non ambiguë, sans secours média" />
         <Metric label="Non localisés" value={loading ? "—" : unlocalizedCount} hint="Aucune preuve forte dans le titre/résumé RSS" />
-        <Metric label="Médias provenance" value={loading ? "—" : counts.rssMediaSources} hint={`${counts.rssKnownMediaCountries} pays médias déclarés · couche séparée`} />
+        <Metric label="Couverture RSS" value={loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount}`} hint={`${rssMediaCountryCount} pays sources · ${rssRegionCount} régions · ${rssSourceErrorCount} flux en erreur`} />
+        <Metric label="Médias provenance" value={loading ? "—" : counts.rssMediaSources} hint={`${rssMediaCountryCount} pays médias déclarés · couche séparée`} />
         <Metric label="Clusters événements" value={loading ? "—" : counts.articleClusters} hint="Même pays événementiel + même catégorie + proximité" />
         <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
         <Metric label="Non déterminé RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Hors taxonomie utile · aucun mot-clé déterministe" />
         <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
-        <Metric label="Catégories GDELT" value={loading ? "—" : counts.gdeltNgramsCategories} hint={`GDELT N-Grams · documents TOC · couverture ${formatPercent(gdeltCoverage)}`} />
+        <Metric label="Tendances brutes GDELT" value={loading ? "—" : gdeltRawTrendCount} hint={`${counts.gdeltNgramsCategories} thème(s) fiables · ${gdeltEmergingTrendCount} émergente(s) · couverture ${formatPercent(gdeltCoverage)}`} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
       </section>
 
@@ -886,7 +939,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <CountList title="Articles non localisés" items={groupings.offMapReasons || []} emptyLabel="Aucun article non localisé." />
         <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
         <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
-        <CountList title="Catégories GDELT N-Grams" items={groupings.gdeltNgramsCategories || []} emptyLabel="Aucune catégorie GDELT N-Grams calculée." />
+        <RawGdeltTrends trends={globalTrends} />
         <GlobalTrends trends={globalTrends} />
         <section className="panel mini-panel trace-panel">
           <h2>Traçabilité</h2>
@@ -936,8 +989,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <dd>{loading ? "—" : counts.gdeltNgramsDocuments}</dd>
             </div>
             <div>
-              <dt>Catégories GDELT</dt>
-              <dd>{loading ? "—" : `${counts.gdeltNgramsCategories} · couverture ${formatPercent(gdeltCoverage)}`}</dd>
+              <dt>Tendances brutes GDELT</dt>
+              <dd>{loading ? "—" : `${gdeltRawTrendCount} termes · ${counts.gdeltNgramsCategories} thèmes fiables · ${gdeltEmergingTrendCount} émergentes · couverture ${formatPercent(gdeltCoverage)}`}</dd>
             </div>
             <div>
               <dt>Événements localisés</dt>
@@ -1576,6 +1629,30 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           background: var(--count-row-color, var(--accent));
           box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
         }
+
+        .raw-trends-panel { min-height: 320px; }
+        .raw-trend-list { display: grid; gap: 14px; margin-top: 18px; }
+        .raw-trend-row { display: grid; gap: 8px; }
+        .raw-trend-row div { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.9rem; }
+        .raw-trend-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+        .raw-trend-row small { color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+        .raw-trend-row i {
+          display: block;
+          height: 4px;
+          min-width: 10px;
+          background: var(--count-row-color, var(--accent));
+          box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
+        }
+        .emerging-trends {
+          display: grid;
+          gap: 8px;
+          margin-top: 16px;
+          padding: 12px;
+          border: 1px dashed rgba(245, 189, 79, 0.34);
+          background: rgba(245, 189, 79, 0.045);
+        }
+        .emerging-trends strong { color: var(--warn); }
+        .emerging-trends span { color: var(--muted); font-size: 0.82rem; line-height: 1.4; overflow-wrap: anywhere; }
 
         .trace-panel dl { display: grid; gap: 10px; margin: 18px 0; }
         .trace-panel dl div { display: grid; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }

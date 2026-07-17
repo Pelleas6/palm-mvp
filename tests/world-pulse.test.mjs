@@ -129,7 +129,9 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(payload.counts.rssUnclassifiedArticles, 0);
   assert.equal(payload.counts.rssClassificationCoveragePct, 100);
   assert.equal(payload.counts.gdeltNgramsDocuments, 2);
-  assert.equal(payload.counts.gdeltNgramsCategories, 2);
+  assert.equal(payload.counts.gdeltNgramsCategories, 3);
+  assert.ok(payload.counts.gdeltNgramsRawTrends >= 4);
+  assert.ok(payload.counts.gdeltNgramsEmergingTrends > 0);
   assert.equal(payload.articles[0].sourceType, "Mock RSS");
   assert.equal(payload.articles[0].sourceLocation?.code, "FR");
   assert.deepEqual(payload.articles.map((article) => article.title).sort(), ["Climate update", "Election signal"]);
@@ -139,8 +141,11 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(payload.globalTrends.cycleMinutes, 15);
   assert.equal(payload.globalTrends.delayMinutes, 105);
   assert.equal(payload.globalTrends.documents, 2);
-  assert.ok(payload.globalTrends.categories.some((item) => item.label === "Climat/environnement"));
-  assert.ok(payload.globalTrends.categories.some((item) => item.label === "Politique/élections"));
+  assert.ok(payload.globalTrends.rawTrends.some((item) => item.term === "climate" && item.label === "Climat/environnement" && item.classified === true));
+  assert.ok(payload.globalTrends.rawTrends.some((item) => item.term === "election" && item.label === "Politique/élections" && item.classified === true));
+  assert.ok(payload.globalTrends.emergingTrends.length > 0);
+  assert.ok(payload.globalTrends.classification.coveragePct < 100);
+  assert.ok(!payload.groupings.gdeltNgramsCategories.some((item) => item.label === "Non déterminé"));
   assert.ok(calls.some((href) => href.includes("rss.example")));
   assert.ok(calls.some((href) => href.includes(".toc.json.gz")));
   assert.ok(calls.some((href) => href.includes("20260715101600.toc.json.gz")), "GDELT Web N-Grams TOC must target the audited slow publication lag on real :01/:16/:31/:46 minutes, not the unavailable current-hour boundary");
@@ -150,6 +155,60 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   const ngramsHealth = payload.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC");
   assert.equal(rssHealth.state, "OK");
   assert.equal(ngramsHealth.state, "OK");
+});
+
+test("default RSS coverage adds the four verified research feeds without removing the eleven existing sources", async () => {
+  const cache = createPulseCache();
+  const expectedFeeds = [
+    ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
+    ["France 24 Monde", "https://www.france24.com/fr/rss", "France"],
+    ["Deutsche Welle Top Stories", "https://rss.dw.com/rdf/rss-en-all", "Germany"],
+    ["Africanews", "https://www.africanews.com/feed/rss", "Republic of Congo"],
+    ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
+    ["The Hindu International", "https://www.thehindu.com/news/international/feeder/default.rss", "India"],
+    ["NHK World", "https://www3.nhk.or.jp/rss/news/cat0.xml", "Japan"],
+    ["ABC Australia World", "https://www.abc.net.au/news/feed/51120/rss.xml", "Australia"],
+    ["NPR World", "https://feeds.npr.org/1004/rss.xml", "United States"],
+    ["CBC World", "https://www.cbc.ca/cmlink/rss-world", "Canada"],
+    ["Agência Brasil", "https://agenciabrasil.ebc.com.br/rss.xml", "Brazil"],
+    ["Antara", "https://www.antaranews.com/rss/terkini.xml", "Indonesia"],
+    ["El País", "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "Spain"],
+    ["RNZ", "https://www.rnz.co.nz/rss/national.xml", "New Zealand"],
+    ["SABC News", "https://www.sabcnews.com/sabcnews/feed/", "South Africa"],
+  ];
+  const countriesByUrl = new Map(expectedFeeds.map(([, url, country]) => [url, country]));
+  const namesByUrl = new Map(expectedFeeds.map(([name, url]) => [url, name]));
+  const calls = [];
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    calls.push(href);
+    if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+    const country = countriesByUrl.get(href);
+    if (!country) throw new Error(`unexpected fetch ${href}`);
+    const origin = new URL(href).origin;
+    return rssResponse([
+      rssItem({
+        title: `Technology climate signal in ${country}`,
+        link: `${origin}/palm-${namesByUrl.get(href).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        description: `Verified public RSS feed for ${country}`,
+      }),
+    ]);
+  };
+
+  const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
+
+  assert.equal(payload.state, "ok");
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 15);
+  assert.equal(payload.source.feeds.length, 15);
+  assert.equal(payload.counts.rssArticlesFetched, 15);
+  assert.equal(payload.counts.rssMediaSources, 15);
+  assert.equal(payload.counts.rssActiveSources, 15);
+  assert.equal(payload.counts.rssKnownMediaCountries, 15);
+  assert.ok(payload.counts.sourceRegions >= 6);
+  for (const [name, url, country] of expectedFeeds) {
+    assert.ok(payload.source.feeds.some((feed) => feed.name === name && feed.url === url && feed.sourceCountry === country), `${name} missing`);
+    assert.ok(payload.sourceHealth.some((entry) => entry.source === name && entry.url === url && entry.state === "OK"), `${name} health missing`);
+  }
 });
 
 test("GDELT Web N-Grams reuses the last real validated TOC when the next slot is missing", async () => {
@@ -242,7 +301,7 @@ test("GDELT Web N-Grams missing-TOC checks are rate gated to one external reques
   assert.equal(gated.sourceHealth.find((entry) => entry.source === "GDELT Web N-Grams TOC").state, "STALE");
 });
 
-test("unmatched RSS articles and GDELT N-Grams documents stay explicit Non déterminé with coverage", async () => {
+test("unmatched RSS articles stay explicit while GDELT N-Grams emerging terms stay outside category charts", async () => {
   const cache = createPulseCache();
   const fetchImpl = async (url) => {
     const href = String(url);
@@ -269,10 +328,12 @@ test("unmatched RSS articles and GDELT N-Grams documents stay explicit Non déte
   assert.equal(payload.counts.rssCategories, 0);
   assert.equal(payload.counts.rssUnclassifiedArticles, 1);
   assert.equal(payload.counts.rssClassificationCoveragePct, 0);
-  assert.equal(payload.globalTrends.classification.unclassified, 1);
-  assert.equal(payload.globalTrends.classification.coveragePct, 0);
+  assert.ok(payload.globalTrends.classification.unclassified > 0);
+  assert.ok(payload.globalTrends.classification.coveragePct < 100);
+  assert.ok(payload.globalTrends.rawTrends.every((item) => item.term && Number.isFinite(item.volume) && item.tocTimestamp));
+  assert.ok(payload.globalTrends.emergingTrends.some((item) => item.term === "bulletin" && item.classified === false));
   assert.ok(payload.groupings.rssCategories.some((item) => item.label === "Non déterminé"));
-  assert.ok(payload.groupings.gdeltNgramsCategories.some((item) => item.label === "Non déterminé"));
+  assert.ok(!payload.groupings.gdeltNgramsCategories.some((item) => item.label === "Non déterminé"));
 });
 
 test("GDELT Web N-Grams TOC accepts real article titles mentioning rate limits without flagging the source as rate limited", async () => {
