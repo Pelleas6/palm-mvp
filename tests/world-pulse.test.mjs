@@ -514,8 +514,9 @@ test("GDELT DOC canary uses a thirty-second default timeout", async () => {
   assert.equal(timeoutCalls.at(-1), 30_000, "GDELT DOC canary default timeout must be 30s");
 });
 
-test("getWorldPulse keeps every usable RSS article and renders all verified-country articles as map particles", async () => {
+test("getWorldPulse keeps every usable RSS article and renders all explicitly localized event-country articles as map particles", async () => {
   const cache = createPulseCache();
+  const eventCountryNames = ["United Kingdom", "France", "Germany", "Republic of Congo", "Qatar", "India", "Japan", "Australia", "United States", "Canada", "Brazil"];
   const feeds = Array.from({ length: 11 }, (_, index) => ({
     name: `Feed ${index}`,
     region: "Fixture",
@@ -528,7 +529,7 @@ test("getWorldPulse keeps every usable RSS article and renders all verified-coun
     if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
     const feedIndex = Number(href.match(/feed-(\d+)/)?.[1] || 0);
     const items = Array.from({ length: 6 }, (_, itemIndex) => rssItem({
-      title: `Technology climate signal ${feedIndex}-${itemIndex}`,
+      title: `Technology climate signal in ${eventCountryNames[feedIndex]} ${feedIndex}-${itemIndex}`,
       link: `https://feed-${feedIndex}.example/world-${itemIndex}`,
       pubDate: `Wed, 15 Jul 2026 11:${String(50 + itemIndex).padStart(2, "0")}:00 GMT`,
     }));
@@ -544,16 +545,18 @@ test("getWorldPulse keeps every usable RSS article and renders all verified-coun
   assert.equal(payload.counts.rssArticlesTruncated, 0);
   assert.equal(payload.counts.mediaSources, 11);
   assert.equal(payload.counts.mediaMarkers, 11);
+  assert.equal(payload.counts.eventCountries, 11);
+  assert.equal(payload.counts.eventLocalizedArticles, 66);
   assert.equal(payload.counts.articleParticles, 66);
   assert.ok(payload.counts.articleClusters > 0, "dense same-category particles should expose visual clusters without dropping articles");
-  assert.equal(payload.mapPoints.length, 11);
+  assert.equal(payload.mapPoints.length, payload.articleClusters.length + payload.articleParticles.filter((particle) => !particle.clusterId).length);
   assert.equal(payload.mediaMarkers.length, 11);
   assert.equal(payload.articleParticles.length, 66);
   assert.deepEqual(payload.offMapArticles, []);
   assert.ok(payload.mediaMarkers.every((marker) => marker.articleCount === 6));
   assert.ok(payload.mediaMarkers.every((marker) => marker.size >= 6 && marker.size <= 8));
   assert.ok(payload.articleParticles.every((particle) => particle.size >= 3 && particle.size <= 5));
-  assert.ok(payload.articleParticles.every((particle) => particle.positioning?.basis === "verified_media_country_geometry"));
+  assert.ok(payload.articleParticles.every((particle) => particle.positioning?.basis === "verified_event_country_geometry"));
   assert.ok(payload.articleParticles.every((particle) => particle.positioning?.insideCountry === true));
   assert.ok(payload.articleParticles.every((particle) => isCoordinateInsideCountry(particle.location.code, particle.coordinates.longitude, particle.coordinates.latitude)));
   assert.equal(verifyArticleParticlePlacements(payload.articleParticles).ok, true);
@@ -562,7 +565,7 @@ test("getWorldPulse keeps every usable RSS article and renders all verified-coun
   assert.ok(payload.mediaMarkers.some((marker) => marker.location.code === "CA"));
 });
 
-test("RSS articles without a verified media-country ISO code remain counted off map with a reason", async () => {
+test("RSS articles without explicit event-country evidence remain counted off map without media-country fallback", async () => {
   const cache = createPulseCache();
   const fetchImpl = async (url) => {
     const href = String(url);
@@ -588,12 +591,13 @@ test("RSS articles without a verified media-country ISO code remain counted off 
   assert.equal(payload.counts.offMapArticles, 1);
   assert.deepEqual(payload.articleParticles, []);
   assert.equal(payload.offMapArticles.length, 1);
-  assert.equal(payload.offMapArticles[0].reason, "source_country_iso_unverified");
+  assert.equal(payload.offMapArticles[0].reason, "event_country_not_detected");
+  assert.match(payload.offMapArticles[0].detail, /titre\/résumé/i);
   assert.match(payload.offMapArticles[0].detail, /Atlantis/);
-  assert.ok(payload.groupings.offMapReasons.some((item) => item.label === "Pays média source non vérifié" && item.count === 1));
+  assert.ok(payload.groupings.offMapReasons.some((item) => item.label === "Événement non localisé" && item.count === 1));
 });
 
-test("getWorldPulse gives nearby European media their own verified country positions without inventing event locations", async () => {
+test("getWorldPulse gives nearby European events their own verified country positions without using media-country fallback", async () => {
   const cache = createPulseCache();
   const feeds = [
     { name: "Near UK", region: "Europe", url: "https://near-uk.example/rss.xml", language: "English", sourceCountry: "United Kingdom" },
@@ -605,7 +609,7 @@ test("getWorldPulse gives nearby European media their own verified country posit
     if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
     const feed = feeds.find((item) => href === item.url);
     if (!feed) throw new Error(`unexpected fetch ${href}`);
-    return rssResponse([rssItem({ title: `Technology signal from ${feed.name}`, link: `${feed.url.replace("/rss.xml", "")}/article` })]);
+    return rssResponse([rssItem({ title: `Technology signal in ${feed.sourceCountry}`, link: `${feed.url.replace("/rss.xml", "")}/article` })]);
   };
 
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW), rssFeeds: feeds });
@@ -620,7 +624,7 @@ test("getWorldPulse gives nearby European media their own verified country posit
   assert.ok(minMediaDistance > 0, `media markers collapsed: ${minMediaDistance}`);
   assert.equal(particleCoordinates.size, 3);
   assert.equal(verifyArticleParticlePlacements(payload.articleParticles).ok, true);
-  assert.ok(payload.articleParticles.every((particle) => particle.positioning?.basis === "verified_media_country_geometry"));
+  assert.ok(payload.articleParticles.every((particle) => particle.positioning?.basis === "verified_event_country_geometry"));
 });
 
 test("source health snapshot reads in-memory cache only and performs zero external fetch", async () => {

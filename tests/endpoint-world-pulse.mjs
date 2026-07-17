@@ -47,8 +47,8 @@ const mockServer = createServer(async (req, res) => {
     if (mode === "rss") {
       res.writeHead(200, { "content-type": "application/rss+xml" });
       res.end(`<?xml version="1.0"?><rss><channel>
-        <item><title>Climate fallback signal</title><link>https://rss.example/climate?utm_campaign=test</link><pubDate>Wed, 15 Jul 2026 12:01:00 GMT</pubDate><description>Real RSS item.</description></item>
-        <item><title>Climate fallback signal</title><link>https://mirror.example/climate-copy</link><pubDate>Wed, 15 Jul 2026 12:00:00 GMT</pubDate></item>
+        <item><title>Climate fallback signal in France</title><link>https://rss.example/climate?utm_campaign=test</link><pubDate>Wed, 15 Jul 2026 12:01:00 GMT</pubDate><description>Real RSS item with explicit event country.</description></item>
+        <item><title>Climate fallback signal in France</title><link>https://mirror.example/climate-copy</link><pubDate>Wed, 15 Jul 2026 12:00:00 GMT</pubDate></item>
       </channel></rss>`);
       return;
     }

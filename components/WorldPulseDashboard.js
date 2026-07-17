@@ -14,12 +14,16 @@ const EMPTY_COUNTS = {
   domains: 0,
   mediaSources: 0,
   countries: 0,
+  eventCountries: 0,
+  sourceCountries: 0,
   sourceRegions: 0,
   sourceLocations: 0,
   languages: 0,
   labels: 0,
   localized: 0,
   unlocalized: 0,
+  eventLocalizedArticles: 0,
+  eventUnlocalizedArticles: 0,
   mediaMarkers: 0,
   articleParticles: 0,
   articleClusters: 0,
@@ -124,7 +128,7 @@ function WorldMapBackdrop({ availableCountryCodes = [], selectedCountryCode = nu
           select();
         }
       },
-      "aria-label": `Lire les signaux du pays média ISO ${country.code}`,
+      "aria-label": `Lire les signaux du pays événement ISO ${country.code}`,
       className: `map-land map-country-button${selected ? " selected-country" : ""}`,
     };
   }
@@ -232,9 +236,9 @@ function SignalLegend({ visibleLabel }) {
   return (
     <div className="signal-legend" aria-label="Registre déterministe des catégories de signaux RSS et GDELT">
       <div className="signal-legend-head">
-        <span>Registre déterministe</span>
+        <span>Couleur = catégorie · repère = type</span>
         <strong>{visibleLabel}</strong>
-        <small>12 catégories thématiques · « Non déterminé » reste hors taxonomie utile</small>
+        <small>Événements localisés, clusters et provenance média restent distincts. « Non déterminé » reste hors taxonomie utile.</small>
       </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
@@ -248,9 +252,9 @@ function SignalLegend({ visibleLabel }) {
   );
 }
 
-function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry }) {
+function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry, showMediaMarkers }) {
   const markers = useMemo(() => (
-    mediaMarkers.map((point, index) => ({
+    showMediaMarkers ? mediaMarkers.map((point, index) => ({
       ...point,
       kind: "media",
       left: clamp(point.x, 4, 96),
@@ -258,8 +262,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       size: point.size || 8,
       color: colorForLabel(point.label),
       delay: `${(index % 12) * 0.08}s`,
-    }))
-  ), [mediaMarkers]);
+    })) : []
+  ), [mediaMarkers, showMediaMarkers]);
   const particles = useMemo(() => (
     articleParticles.filter((point) => !point.clusterId).map((point, index) => ({
       ...point,
@@ -288,11 +292,16 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
   function renderPoint(point, className) {
     const safeOffset = Math.ceil((point.size || 8) / 2 + 10);
     const sourceCountry = point.sourceCountry || point.location?.label || "Non précisé";
+    const eventCountry = point.eventCountry || point.location?.label || "Non localisé";
     const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : point.kind === "article-cluster" ? formatArticleCount(point.count) : "1 article";
-    const typeLabel = point.kind === "media" ? "Repère média" : point.kind === "article-cluster" ? "Cluster articles" : "Particule article";
+    const typeLabel = point.kind === "media" ? "Provenance média" : point.kind === "article-cluster" ? "Cluster événements" : "Particule événement";
     const titlePart = point.kind === "article" && point.title ? ` — ${point.title}` : "";
     const clusterTitles = point.kind === "article-cluster" && point.sampleTitles?.length ? ` — ${point.sampleTitles.join(" · ")}` : "";
-    const tooltip = `${typeLabel} — ${point.mediaName}${titlePart}${clusterTitles} — pays du média source : ${sourceCountry} — ${countLabel} — catégorie : ${point.label}`;
+    const geographyLabel = point.kind === "media"
+      ? `Pays du média source : ${sourceCountry}`
+      : `Pays de l'événement détecté dans le contenu : ${eventCountry}`;
+    const provenanceLabel = point.kind === "media" ? "" : ` — média source : ${sourceCountry}`;
+    const tooltip = `${typeLabel} — ${point.mediaName}${titlePart}${clusterTitles} — ${geographyLabel}${provenanceLabel} — ${countLabel} — catégorie : ${point.label}`;
     const style = {
       left: `clamp(${safeOffset}px, ${point.left}%, calc(100% - ${safeOffset}px))`,
       top: `clamp(${safeOffset}px, ${point.top}%, calc(100% - ${safeOffset}px))`,
@@ -318,7 +327,7 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
         {...linkProps}
         style={style}
         title={tooltip}
-        aria-label={`${typeLabel}, ${point.mediaName}, pays du média source : ${sourceCountry}, ${countLabel}, catégorie : ${point.label}`}
+        aria-label={`${typeLabel}, ${point.mediaName}, ${geographyLabel}${provenanceLabel}, ${countLabel}, catégorie : ${point.label}`}
       >
         {point.kind === "article-cluster" ? <span className="cluster-count" aria-hidden="true">{point.count}</span> : null}
         <span className="particle-tooltip" role="tooltip">
@@ -326,7 +335,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
           <span>{typeLabel}</span>
           {point.title ? <span>{point.title}</span> : null}
           {point.sampleTitles?.length ? <span>{point.sampleTitles.join(" · ")}</span> : null}
-          <span>Pays du média source : {sourceCountry}</span>
+          <span>{geographyLabel}</span>
+          {point.kind === "media" ? null : <span>Média source : {sourceCountry}</span>}
           <span>{countLabel}</span>
           <span>Catégorie : {point.label}</span>
         </span>
@@ -335,7 +345,7 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
   }
 
   return (
-    <div className="signal-field" aria-label="Carte du monde des sources médias localisées : repères médias et particules articles">
+    <div className="signal-field" aria-label="Carte du monde des événements localisés : particules et clusters événementiels, provenance média optionnelle">
       <WorldMapBackdrop
         availableCountryCodes={availableCountryCodes}
         selectedCountryCode={selectedPoint?.type === "country" ? selectedPoint.code : null}
@@ -351,8 +361,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       ) : null}
       {!loading && !hasVisiblePoints && unlocalized > 0 ? (
         <div className="state-copy compact-state">
-          <strong>Aucune source localisable sur la carte</strong>
-          <span>Les articles réels restent comptés hors carte pour ne pas inventer de position.</span>
+          <strong>Aucun événement localisable sur la carte</strong>
+          <span>Les articles réels restent comptés non localisés pour ne pas inventer de pays d'événement.</span>
         </div>
       ) : null}
       {!loading && !hasVisiblePoints && unlocalized === 0 ? (
@@ -368,7 +378,7 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
         <div className="unlocalized-badge" aria-label={`${unlocalized} articles sans localisation fiable`}>
           <span>Hors carte</span>
           <strong>{unlocalized}</strong>
-          <small>pays média non vérifié</small>
+          <small>événement non localisé</small>
         </div>
       ) : null}
     </div>
@@ -429,7 +439,7 @@ function FilterControls({ filters, options, resultCount, totalCount, onChange, o
       </div>
       <div className="filter-grid">
         <FilterSelect label="Région" value={filters.region} items={options.regions || []} onChange={(value) => onChange("region", value)} />
-        <FilterSelect label="Pays média ISO" value={filters.country} items={options.countries || []} onChange={(value) => onChange("country", value)} />
+        <FilterSelect label="Pays événement" value={filters.country} items={options.countries || []} onChange={(value) => onChange("country", value)} />
         <FilterSelect label="Source" value={filters.source} items={options.sources || []} onChange={(value) => onChange("source", value)} />
         <FilterSelect label="Catégorie" value={filters.category} items={options.categories || []} onChange={(value) => onChange("category", value)} />
         <button type="button" className="reset-filters" onClick={onReset} disabled={!active}>
@@ -498,14 +508,18 @@ function ReadingPanel({ selection }) {
       {!selection ? (
         <div className="stream-empty">
           <strong>Aucune sélection active</strong>
-          <span>Les pays média colorés, les repères média et les clusters sont focusables au clavier. La lecture reste fondée sur le pays média ISO vérifié.</span>
+          <span>Les pays événementiels, les clusters et la provenance média optionnelle sont focusables au clavier. La couche principale reste fondée sur le pays détecté dans le contenu.</span>
         </div>
       ) : (
         <div className="reading-content">
           <p className="map-note">{selection.basis}</p>
           <dl>
             <div>
-              <dt>Pays média ISO vérifié</dt>
+              <dt>{selection.kind === "marker" ? "Pays du média source" : "Pays de l'événement détecté dans le contenu"}</dt>
+              <dd>{(selection.kind === "marker" ? selection.sourceCountries : selection.eventCountries).map((country) => `${country.label}${country.code ? ` (${country.code})` : ""}`).join(", ") || "—"}</dd>
+            </div>
+            <div>
+              <dt>Provenance média source</dt>
               <dd>{selection.sourceCountries.map((country) => `${country.label}${country.code ? ` (${country.code})` : ""}`).join(", ") || "—"}</dd>
             </div>
             <div>
@@ -663,7 +677,7 @@ function ArticleStream({ articles, state, sourceName }) {
             </span>
             <strong>{article.title}</strong>
             <span className="article-foot">
-              {article.label || "Non déterminé"} · {article.labelType || "non déterminé"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · événement non géolocalisé par ce tableau · {article.language}
+              {article.label || "Non déterminé"} · {article.labelType || "non déterminé"} · {article.eventCountryIso ? `Pays de l'événement détecté dans le contenu : ${article.eventCountry} (${article.eventCountryIso})` : "Événement non localisé : aucune preuve titre/résumé"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · {article.language}
             </span>
           </a>
         ))}
@@ -681,6 +695,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
     category: WORLD_PULSE_FILTER_ALL,
   });
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [showMediaProvenance, setShowMediaProvenance] = useState(false);
   const rawArticles = Array.isArray(payload.articles) ? payload.articles : [];
   const exploration = useMemo(() => deriveWorldPulseExploration(payload, filters, selectedPoint), [payload, filters, selectedPoint]);
   const articles = exploration.articles;
@@ -697,13 +712,16 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
     articles: exploration.counts.articles,
     rssArticles: exploration.counts.articles,
     rssMediaSources: exploration.counts.mediaSources,
-    rssKnownMediaCountries: exploration.counts.countries,
+    rssKnownMediaCountries: exploration.counts.sourceCountries,
+    eventCountries: exploration.counts.eventCountries,
     rssCategories: exploration.categories.filter((item) => item.thematic).length,
     rssClassifiedArticles: exploration.counts.rssClassifiedArticles,
     rssUnclassifiedArticles: exploration.counts.rssUnclassifiedArticles,
     rssClassificationCoveragePct: exploration.nonDetermined.coveragePct,
-    localized: articleParticles.length,
-    unlocalized: offMapArticles.length,
+    localized: exploration.counts.eventLocalizedArticles,
+    unlocalized: exploration.counts.eventUnlocalizedArticles,
+    eventLocalizedArticles: exploration.counts.eventLocalizedArticles,
+    eventUnlocalizedArticles: exploration.counts.eventUnlocalizedArticles,
     mediaMarkers: mediaMarkers.length,
     articleParticles: articleParticles.length,
     articleClusters: articleClusters.length,
@@ -714,8 +732,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
     domains: [],
     mediaSources: [],
     countries: [],
+    eventCountries: [],
+    sourceCountries: [],
     sourceRegions: [],
     locations: [],
+    sourceLocations: [],
     languages: [],
     labels: [],
     rssCategories: [],
@@ -737,7 +758,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   const totalMediaCount = Math.max(counts.rssMediaSources, visibleMediaCount);
   const rssCoverage = countFromPayload(counts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
   const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
-  const visibleMediaLabel = loading ? "— repères médias RSS" : `${visibleMediaCount}/${totalMediaCount} repères médias RSS · ${visibleArticleParticleCount} particules RSS · ${visibleArticleClusterCount} clusters · ${unlocalizedCount} hors carte`;
+  const visibleMediaLabel = loading ? "— événements localisés RSS" : `${visibleArticleParticleCount} particules événement · ${visibleArticleClusterCount} clusters · ${counts.eventCountries} pays événementiels · ${showMediaProvenance ? `${visibleMediaCount}/${totalMediaCount} provenances média visibles` : "provenance média masquée"} · ${unlocalizedCount} non localisés`;
   const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
@@ -772,8 +793,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
           <h1>Le Pouls du Monde</h1>
           <p>
-            Tableau de bord expérimental des signaux médiatiques mondiaux. Les points, listes, compteurs et labels sont
-            calculés depuis des articles réels RSS publics. Les tendances globales utilisent le TOC GDELT Web N-Grams ; GDELT DOC reste un canari technique limité.
+            Tableau de bord expérimental des signaux médiatiques mondiaux. La carte principale localise les pays explicitement cités dans les titres/résumés RSS réels ; la provenance média reste séparée. Les tendances globales utilisent le TOC GDELT Web N-Grams ; GDELT DOC reste un canari technique limité.
           </p>
         </div>
         <div className={`status-panel state-${payload.state || "loading"}`}>
@@ -788,12 +808,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       </section>
 
       <section className="metric-grid" aria-label="Synthèse source et cache">
-        <Metric label="Articles RSS" value={loading ? "—" : counts.rssArticles} hint={`Collectés ${counts.rssArticlesFetched} · rendus carte ${counts.rssArticlesRendered} · tronqués ${counts.rssArticlesTruncated}`} />
-        <Metric label="Médias RSS uniques" value={loading ? "—" : counts.rssMediaSources} hint="RSS public · sources agrégées par média" />
-        <Metric label="Pays médias connus" value={loading ? "—" : counts.rssKnownMediaCountries} hint="RSS public · sourceCountry déclaré, sans invention" />
-        <Metric label="Particules carte" value={loading ? "—" : counts.articleParticles} hint={`${visibleArticlePointCount} point(s) visuels · pays média source vérifié`} />
-        <Metric label="Clusters articles" value={loading ? "—" : counts.articleClusters} hint="Même pays média + même catégorie + proximité" />
-        <Metric label="Hors carte" value={loading ? "—" : unlocalizedCount} hint="Pays média source non vérifié ou placement impossible" />
+        <Metric label="Articles RSS" value={loading ? "—" : counts.rssArticles} hint={`Collectés ${counts.rssArticlesFetched} · localisés ${counts.eventLocalizedArticles} · tronqués ${counts.rssArticlesTruncated}`} />
+        <Metric label="Événements localisés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} point(s) visuels · preuve titre/résumé`} />
+        <Metric label="Pays événementiels" value={loading ? "—" : counts.eventCountries} hint="Nom de pays ou capitale non ambiguë, sans secours média" />
+        <Metric label="Non localisés" value={loading ? "—" : unlocalizedCount} hint="Aucune preuve forte dans le titre/résumé RSS" />
+        <Metric label="Médias provenance" value={loading ? "—" : counts.rssMediaSources} hint={`${counts.rssKnownMediaCountries} pays médias déclarés · couche séparée`} />
+        <Metric label="Clusters événements" value={loading ? "—" : counts.articleClusters} hint="Même pays événementiel + même catégorie + proximité" />
         <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
         <Metric label="Non déterminé RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Hors taxonomie utile · aucun mot-clé déterministe" />
         <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
@@ -821,9 +841,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           <div className="panel-heading map-heading">
             <div>
               <p>Carte géographique</p>
-              <h2>Sources média localisées</h2>
+              <h2>Événements localisés</h2>
             </div>
-            <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} articles RSS avec pays média vérifié` : "visualisation suspendue"}</span>
+            <div className="map-heading-actions">
+              <span>{hasRealData ? `${visibleMediaLabel} · ${localizedCount} article(s) RSS avec pays événementiel vérifié` : "visualisation suspendue"}</span>
+              <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
+                {showMediaProvenance ? "Masquer provenance média" : "Afficher provenance média"}
+              </button>
+            </div>
           </div>
           <SignalField
             mediaMarkers={mediaMarkers}
@@ -836,10 +861,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             selectedPoint={selectedPoint}
             onSelectPoint={setSelectedPoint}
             onSelectCountry={setSelectedPoint}
+            showMediaMarkers={showMediaProvenance}
           />
           <SignalLegend visibleLabel={visibleMediaLabel} />
           <p className="map-note">
-            Les grands repères représentent les médias RSS localisés (6-8px), les petites particules représentent les articles RSS avec pays média source vérifié (3-5px), et les bulles regroupent seulement des particules proches de même pays et même catégorie. Ils ne prétendent jamais localiser l'événement raconté par l'article.
+            Les particules représentent uniquement les articles RSS dont le titre/résumé cite un pays ou une capitale non ambiguë. Les bulles regroupent des événements proches de même pays et même catégorie. Les médias RSS restent une couche de provenance optionnelle : le pays du média source ne sert jamais de secours événementiel.
           </p>
         </article>
         <aside className="side-stack">
@@ -851,9 +877,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       <section className="bottom-grid" aria-label="Regroupements RSS et GDELT séparés">
         <CountList title="Médias RSS" items={groupings.mediaSources || []} emptyLabel="Aucun média RSS reçu." />
         <CountList title="Régions RSS" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
-        <CountList title="Pays médias RSS" items={groupings.countries || []} emptyLabel="Aucun pays média RSS reçu." />
-        <CountList title="Localisations carte RSS" items={groupings.locations || []} emptyLabel="Aucune source RSS localisable." />
-        <CountList title="Hors carte RSS" items={groupings.offMapReasons || []} emptyLabel="Aucun article hors carte." />
+        <CountList title="Pays événementiels RSS" items={groupings.eventCountries || groupings.countries || []} emptyLabel="Aucun pays événementiel détecté." />
+        <CountList title="Pays médias provenance" items={groupings.sourceCountries || []} emptyLabel="Aucun pays média RSS reçu." />
+        <CountList title="Articles non localisés" items={groupings.offMapReasons || []} emptyLabel="Aucun article non localisé." />
         <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
         <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." />
         <CountList title="Catégories GDELT N-Grams" items={groupings.gdeltNgramsCategories || []} emptyLabel="Aucune catégorie GDELT N-Grams calculée." />
@@ -886,8 +912,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <dd>{loading ? "—" : counts.rssMediaSources}</dd>
             </div>
             <div>
-              <dt>Pays médias connus</dt>
+              <dt>Pays médias provenance</dt>
               <dd>{loading ? "—" : counts.rssKnownMediaCountries}</dd>
+            </div>
+            <div>
+              <dt>Pays événementiels</dt>
+              <dd>{loading ? "—" : counts.eventCountries}</dd>
             </div>
             <div>
               <dt>Catégories RSS</dt>
@@ -906,11 +936,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               <dd>{loading ? "—" : `${counts.gdeltNgramsCategories} · couverture ${formatPercent(gdeltCoverage)}`}</dd>
             </div>
             <div>
-              <dt>Localisés carte</dt>
+              <dt>Événements localisés</dt>
               <dd>{loading ? "—" : `${localizedCount} particules · ${counts.articleClusters} clusters · ${visibleArticlePointCount} points visuels`}</dd>
             </div>
             <div>
-              <dt>Hors carte</dt>
+              <dt>Non localisés</dt>
               <dd>{loading ? "—" : unlocalizedCount}</dd>
             </div>
             <div>
@@ -1197,7 +1227,13 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           margin-bottom: 18px;
         }
         .panel-heading h2, .mini-panel h2 { font-size: clamp(1.15rem, 2vw, 1.55rem); letter-spacing: -0.04em; }
-        .map-heading > span {
+        .map-heading-actions {
+          display: grid;
+          justify-items: end;
+          gap: 8px;
+          max-width: min(100%, 680px);
+        }
+        .map-heading-actions > span {
           color: var(--muted);
           font-size: 0.8rem;
           border: 1px solid var(--line);
@@ -1207,6 +1243,19 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           text-align: right;
           white-space: normal;
           overflow-wrap: anywhere;
+        }
+        .layer-toggle {
+          min-height: 34px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--accent);
+          padding: 0 12px;
+          font: inherit;
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          cursor: pointer;
         }
 
         .signal-field {
