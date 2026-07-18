@@ -1,10 +1,9 @@
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import { getWorldPulseDashboardPayload } from "../../lib/world-pulse.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-import { getWorldPulseSourceHealthSnapshot } from "../../lib/world-pulse.js";
 
 function healthStateLabel(state) {
   const labels = {
@@ -26,9 +25,16 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "medium" }).format(date);
 }
 
-export default function SourceHealthPage() {
-  const snapshot = getWorldPulseSourceHealthSnapshot();
-  const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+export default async function SourceHealthPage() {
+  const payload = await getWorldPulseDashboardPayload();
+  const items = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
+  const activeItems = items.filter((item) => item?.state === "OK").length;
+  const snapshot = {
+    cache: payload.cache || { status: "empty" },
+    generatedAt: payload.generatedAt || null,
+    servedAt: payload.servedAt || payload.generatedAt || null,
+    freshnessSeconds: payload.freshnessSeconds,
+  };
 
   return (
     <>
@@ -37,22 +43,22 @@ export default function SourceHealthPage() {
         <section className="health-hero">
           <p>Le Pouls du Monde</p>
           <h1>Santé des sources</h1>
-          <span>Lecture mémoire uniquement : cette page n'appelle ni RSS, ni GDELT Web N-Grams, ni GDELT DOC.</span>
+          <span>Contrôle réel au chargement : les flux publics sont audités côté serveur, puis leur état est réutilisé depuis le cache vérifié.</span>
         </section>
 
         <section className="health-meta">
           <div><span>Cache</span><strong>{snapshot.cache?.status || "empty"}</strong></div>
           <div><span>Généré</span><strong>{formatDate(snapshot.generatedAt)}</strong></div>
           <div><span>Servi</span><strong>{formatDate(snapshot.servedAt)}</strong></div>
-          <div><span>Fraîcheur</span><strong>{Number.isFinite(snapshot.freshnessSeconds) ? `${snapshot.freshnessSeconds}s` : "—"}</strong></div>
+          <div><span>Sources OK</span><strong>{items.length > 0 ? `${activeItems}/${items.length}` : "—"}</strong></div>
         </section>
 
-        <section className="health-table" aria-label="Matrice de santé des sources en mémoire">
+        <section className="health-table" aria-label="Matrice de santé des sources auditée">
           <div className="health-row health-head">
             <span>Source</span><span>Région</span><span>URL</span><span>HTTP</span><span>Articles/docs</span><span>Récent</span><span>État</span>
           </div>
           {items.length === 0 ? (
-            <p className="empty">Aucune observation source en mémoire. Chargez d'abord le dashboard principal pour amorcer le cache serveur.</p>
+            <p className="empty">Le contrôle n'a renvoyé aucune ligne exploitable. Réessayez dans quelques instants : aucune source n'est inventée.</p>
           ) : items.map((item) => (
             <div className="health-row" key={`${item.source}-${item.url || item.checkedAt || item.state}`}>
               <span>{item.source}</span>

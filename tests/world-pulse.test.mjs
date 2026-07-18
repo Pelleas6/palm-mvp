@@ -9,7 +9,12 @@ import {
   responseHeadersForPayload,
 } from "../lib/world-pulse.js";
 import { isCoordinateInsideCountry, verifyArticleParticlePlacements } from "../lib/world-pulse-geography.js";
-import { WORLD_PULSE_SIGNAL_CATEGORIES, WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
+import {
+  WORLD_PULSE_SIGNAL_CATEGORIES,
+  WORLD_PULSE_SIGNAL_LEGEND,
+  colorForWorldPulseSignalLabel,
+  findWorldPulseSignalCategory,
+} from "../lib/world-pulse-signals.js";
 
 const FIXED_NOW = "2026-07-15T12:00:00.000Z";
 const FIFTEEN_MINUTES_MINUS_ONE_SECOND = new Date(Date.parse(FIXED_NOW) + 899_000).toISOString();
@@ -87,6 +92,48 @@ test("world pulse legend exposes the deterministic taxonomy plus explicit unclas
   for (const item of WORLD_PULSE_SIGNAL_LEGEND) {
     assert.equal(colorForWorldPulseSignalLabel(item.label), item.color);
   }
+});
+
+test("world pulse classifies multilingual article wording by the strongest direct evidence", () => {
+  const fixtures = [
+    ["Fox eyes first major title after joining 62 club", "Sport"],
+    ["Lawyers Action Committee terms judge appointment process horse trading", "Justice/société"],
+    ["Atlet eFootball Belanda dukung Spanyol memenangkan final", "Sport"],
+    ["Pemerintah prepares pemilu and appoints a new menteri", "Politique/élections"],
+    ["Hujan lebat triggers banjir across the region", "Catastrophes/météo"],
+  ];
+
+  for (const [title, label] of fixtures) {
+    const signal = findWorldPulseSignalCategory(title);
+    assert.equal(signal.label, label, title);
+    assert.ok(signal.score > 0, title);
+    assert.ok(signal.matches.length > 0, title);
+  }
+
+  const unclassified = findWorldPulseSignalCategory("Daily community bulletin and neighbourhood notices");
+  assert.equal(unclassified.label, "Non déterminé");
+  assert.equal(unclassified.score, 0);
+});
+
+test("RSS classification does not infer a topic from the media source name", async () => {
+  const payload = await getWorldPulse({
+    cache: createPulseCache(),
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "Sport Daily", url: "https://rss.example/source-name-only.xml", language: "English", sourceCountry: "France", region: "Europe" }],
+    fetchImpl: async (url) => {
+      const href = String(url);
+      if (href.includes("source-name-only")) {
+        return rssResponse([
+          rssItem({ title: "Municipal bulletin in France", link: "https://rss.example/source-name-only", description: "Neighbourhood notices and routine updates." }),
+        ]);
+      }
+      if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+      throw new Error(`unexpected fetch ${href}`);
+    },
+  });
+
+  assert.equal(payload.articles[0].label, "Non déterminé");
+  assert.match(payload.articles[0].labelBasis, /titre ou le résumé/);
 });
 
 test("getWorldPulse uses public RSS as the operational source, dedupes canonical URLs and normalized titles, and reads GDELT Web N-Grams TOC with the audited safe lag", async () => {

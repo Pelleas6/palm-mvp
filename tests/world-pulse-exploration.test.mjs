@@ -173,6 +173,47 @@ test("deriveWorldPulseExploration filters articles, map collections and counters
   assert.ok(view.filterOptions.categories.some((option) => option.value === "Non déterminé" && option.count === 1 && option.thematic === false));
 });
 
+test("deriveWorldPulseExploration keeps the non-localized queue explicit and filterable", () => {
+  const payload = {
+    ...BASE_PAYLOAD,
+    articles: [
+      ...BASE_PAYLOAD.articles,
+      {
+        id: "needs-location",
+        title: "Routine regional bulletin",
+        url: "https://us.example/needs-location",
+        mediaName: "NPR World",
+        sourceType: "NPR World",
+        domain: "us.example",
+        sourceCountry: "United States",
+        sourceRegion: "North America",
+        sourceLocation: { code: "US", label: "États-Unis", verified: true, isoAlpha2: "US" },
+        eventCountry: null,
+        eventCountryIso: null,
+        confidence: 0,
+        matchType: "none",
+        language: "English",
+        label: "Non déterminé",
+        classified: false,
+        seenAt: "2026-07-15T10:00:00.000Z",
+      },
+    ],
+    offMapArticles: [{ id: "needs-location", title: "Routine regional bulletin", reasonLabel: "Événement non localisé" }],
+  };
+
+  const queue = deriveWorldPulseExploration(payload, { location: "unlocalized" });
+  assert.deepEqual(queue.articles.map((article) => article.id), ["needs-location"]);
+  assert.equal(queue.counts.eventLocalizedArticles, 0);
+  assert.equal(queue.counts.eventUnlocalizedArticles, 1);
+  assert.equal(queue.offMapArticles.length, 1);
+  assert.equal(queue.filters.location, "unlocalized");
+
+  const mapped = deriveWorldPulseExploration(payload, { location: "localized" });
+  assert.equal(mapped.articles.length, BASE_PAYLOAD.articles.length);
+  assert.equal(mapped.counts.eventUnlocalizedArticles, 0);
+  assert.ok(mapped.articleParticles.length > 0);
+});
+
 test("deriveWorldPulseExploration builds reading summaries for countries, markers and clusters", () => {
   const country = deriveWorldPulseExploration(BASE_PAYLOAD, {}, { type: "country", code: "FR" }).selection;
   assert.equal(country.kind, "country");

@@ -6,7 +6,11 @@ import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
 import { WORLD_PULSE_SIGNAL_LEGEND, colorForWorldPulseSignalLabel } from "../lib/world-pulse-signals.js";
 import { SOURCE_COUNTRY_REGISTRY } from "../lib/world-pulse-geography.js";
-import { WORLD_PULSE_FILTER_ALL, deriveWorldPulseExploration } from "../lib/world-pulse-exploration.js";
+import {
+  WORLD_PULSE_FILTER_ALL,
+  WORLD_PULSE_LOCALIZATION_FILTERS,
+  deriveWorldPulseExploration,
+} from "../lib/world-pulse-exploration.js";
 
 const REFRESH_MS = 10 * 60 * 1000;
 const EMPTY_COUNTS = {
@@ -270,8 +274,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
     showMediaMarkers ? mediaMarkers.map((point, index) => ({
       ...point,
       kind: "media",
-      left: clamp(point.x, 4, 96),
-      top: clamp(point.y, 8, 88),
+      left: clamp(point.x, 1.2, 98.8),
+      top: clamp(point.y, 1.8, 98.2),
       size: point.size || 8,
       color: colorForLabel(point.label),
       delay: `${(index % 12) * 0.08}s`,
@@ -281,8 +285,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
     articleParticles.filter((point) => !point.clusterId).map((point, index) => ({
       ...point,
       kind: "article",
-      left: clamp(point.x, 4, 96),
-      top: clamp(point.y, 8, 88),
+      left: clamp(point.x, 1.2, 98.8),
+      top: clamp(point.y, 1.8, 98.2),
       size: point.size || 4,
       color: colorForLabel(point.label),
       delay: `${((index + 4) % 18) * 0.06}s`,
@@ -293,8 +297,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       ...point,
       kind: "article-cluster",
       mediaName: point.mediaNames?.join(", ") || point.location?.label || "Cluster articles",
-      left: clamp(point.x, 4, 96),
-      top: clamp(point.y, 8, 88),
+      left: clamp(point.x, 1.2, 98.8),
+      top: clamp(point.y, 1.8, 98.2),
       size: point.size || 14,
       color: colorForLabel(point.label),
       delay: `${((index + 8) % 18) * 0.06}s`,
@@ -309,9 +313,9 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
     const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : point.kind === "article-cluster" ? formatArticleCount(point.count) : "1 article";
     const geographyLabel = point.kind === "media" ? `Pays : ${sourceCountry}` : `Pays : ${eventCountry}`;
     const tooltip = `${geographyLabel} — catégorie : ${point.label} — volume : ${countLabel}`;
-    const tooltipNearLeft = point.left < 18;
-    const tooltipNearRight = point.left > 82;
-    const tooltipNearTop = point.top < 18;
+    const tooltipNearLeft = point.left < 22;
+    const tooltipNearRight = point.left > 78;
+    const tooltipNearTop = point.top < 24;
     const style = {
       left: `clamp(${safeOffset}px, ${point.left}%, calc(100% - ${safeOffset}px))`,
       top: `clamp(${safeOffset}px, ${point.top}%, calc(100% - ${safeOffset}px))`,
@@ -380,9 +384,11 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
           <span>La visualisation reste vide tant qu'aucun article réel n'est reçu.</span>
         </div>
       ) : null}
-      {particles.map((particle) => renderPoint(particle, "article-particle"))}
-      {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
-      {markers.map((marker) => renderPoint(marker, "media-marker"))}
+      <div className="particle-layer">
+        {particles.map((particle) => renderPoint(particle, "article-particle"))}
+        {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
+        {markers.map((marker) => renderPoint(marker, "media-marker"))}
+      </div>
     </div>
   );
 }
@@ -434,16 +440,45 @@ function hasActiveFilters(filters) {
   return Object.values(filters || {}).some((value) => value && value !== WORLD_PULSE_FILTER_ALL);
 }
 
-function FilterControls({ filters, options, resultCount, totalCount, onChange, onReset }) {
+function FilterControls({ filters, options, resultCount, totalCount, localizedCount, unlocalizedCount, onChange, onReset, compact = false }) {
   const active = hasActiveFilters(filters);
   return (
-    <section className="panel filter-panel" aria-label="Filtres RSS réinitialisables">
+    <section className={`panel filter-panel${compact ? " compact-filter-panel" : ""}`} aria-label="Filtres RSS réinitialisables">
       <div className="panel-heading">
         <div>
-          <p>Exploration RSS</p>
-          <h2>Filtres cohérents carte · liste · compteurs</h2>
+          <p>{compact ? "Explorer la carte" : "Exploration RSS"}</p>
+          <h2>{compact ? "Affiner les signaux" : "Filtres cohérents carte · liste · compteurs"}</h2>
         </div>
         <span>{resultCount}/{totalCount} article(s) affichés</span>
+      </div>
+      <div className="location-filter" role="group" aria-label="Filtrer selon la qualité de localisation de l'événement">
+        <span>Localisation</span>
+        <div>
+          <button
+            type="button"
+            className={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.ALL ? "active-location-filter" : ""}
+            aria-pressed={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.ALL}
+            onClick={() => onChange("location", WORLD_PULSE_LOCALIZATION_FILTERS.ALL)}
+          >
+            Tous · {totalCount}
+          </button>
+          <button
+            type="button"
+            className={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.LOCALIZED ? "active-location-filter" : ""}
+            aria-pressed={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.LOCALIZED}
+            onClick={() => onChange("location", WORLD_PULSE_LOCALIZATION_FILTERS.LOCALIZED)}
+          >
+            Sur la carte · {localizedCount}
+          </button>
+          <button
+            type="button"
+            className={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.UNLOCALIZED ? "active-location-filter" : ""}
+            aria-pressed={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.UNLOCALIZED}
+            onClick={() => onChange("location", WORLD_PULSE_LOCALIZATION_FILTERS.UNLOCALIZED)}
+          >
+            À localiser · {unlocalizedCount}
+          </button>
+        </div>
       </div>
       <div className="filter-grid">
         <FilterSelect label="Région" value={filters.region} items={options.regions || []} onChange={(value) => onChange("region", value)} />
@@ -454,9 +489,7 @@ function FilterControls({ filters, options, resultCount, totalCount, onChange, o
           Réinitialiser
         </button>
       </div>
-      <p className="map-note">
-        Les filtres s'appliquent uniquement aux articles RSS déjà reçus : aucune requête externe navigateur, aucune donnée de démonstration.
-      </p>
+      <p className="map-note">Les filtres s'appliquent aux articles RSS déjà reçus. « À localiser » conserve les articles sans pays d'événement prouvé, sans leur attribuer artificiellement le pays du média.</p>
     </section>
   );
 }
@@ -745,7 +778,7 @@ function ArticleStream({ articles, state, sourceName, loading = false }) {
             </span>
             <strong>{article.title}</strong>
             <span className="article-foot">
-              {article.label || "Non déterminé"} · {article.labelType || "non déterminé"} · {article.eventCountryIso ? `Pays de l'événement détecté dans le contenu : ${article.eventCountry} (${article.eventCountryIso})` : "Événement non localisé : aucune preuve titre/résumé"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · {article.language}
+              {article.label || "Non déterminé"} · {article.labelType || "non déterminé"} · {article.eventCountryIso ? `Pays de l'événement détecté dans le contenu : ${article.eventCountry} (${article.eventCountryIso})` : "À localiser : aucun pays d'événement suffisamment explicite dans le titre/résumé"} · média source : {article.sourceLocation?.label || `${article.sourceCountry} non localisé`} · {article.language}
             </span>
           </a>
         ))}
@@ -761,6 +794,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
     country: WORLD_PULSE_FILTER_ALL,
     source: WORLD_PULSE_FILTER_ALL,
     category: WORLD_PULSE_FILTER_ALL,
+    location: WORLD_PULSE_LOCALIZATION_FILTERS.ALL,
   });
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [showMediaProvenance, setShowMediaProvenance] = useState(false);
@@ -827,8 +861,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   const rssMediaCountryCount = countFromPayload(payloadCounts, "rssKnownMediaCountries", counts.rssKnownMediaCountries);
   const rssRegionCount = countFromPayload(payloadCounts, "sourceRegions", groupings.sourceRegions.length || counts.sourceRegions);
   const mapStatusSummary = loading
-    ? "À cet instant : données en cours de chargement. Les articles sans pays clairement cité restent visibles dans le flux, hors carte."
-    : `À cet instant : ${localizedCount} événements localisés dans ${counts.eventCountries} pays. ${unlocalizedCount} articles ne citent pas clairement de pays et restent visibles dans le flux, hors carte.`;
+    ? "À cet instant : données en cours de chargement. Les articles sans pays clairement cité restent dans la file À localiser."
+    : `À cet instant : ${localizedCount} événements localisés dans ${counts.eventCountries} pays. ${unlocalizedCount} articles restent à localiser faute de pays d'événement suffisamment explicite.`;
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
   const activeSource = loading ? "Interrogation" : sourceName;
@@ -845,6 +879,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       country: WORLD_PULSE_FILTER_ALL,
       source: WORLD_PULSE_FILTER_ALL,
       category: WORLD_PULSE_FILTER_ALL,
+      location: WORLD_PULSE_LOCALIZATION_FILTERS.ALL,
     });
     setSelectedPoint(null);
   }
@@ -891,59 +926,69 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       </section>
 
       <section className="main-grid" id="carte">
-        <article className="panel map-panel">
-          <div className="panel-heading map-heading">
-            <div>
-              <p>La carte maintenant</p>
-              <h2>Où les signaux se concentrent-ils ?</h2>
+        <div className="map-stack">
+          <article className="panel map-panel">
+            <div className="panel-heading map-heading">
+              <div>
+                <p>La carte maintenant</p>
+                <h2>Où les signaux se concentrent-ils ?</h2>
+              </div>
+              <div className="map-heading-actions">
+                <span className="map-status-chip">{loading ? "Lecture des sources…" : `${localizedCount} signal(aux) localisé(s) dans ${counts.eventCountries} pays`}</span>
+                {unlocalizedCount > 0 ? (
+                  <button
+                    type="button"
+                    className={`off-map-chip${filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.UNLOCALIZED ? " active-off-map-chip" : ""}`}
+                    aria-label={`Afficher les ${unlocalizedCount} articles sans localisation fiable`}
+                    aria-pressed={filters.location === WORLD_PULSE_LOCALIZATION_FILTERS.UNLOCALIZED}
+                    onClick={() => updateFilter("location", WORLD_PULSE_LOCALIZATION_FILTERS.UNLOCALIZED)}
+                  >
+                    <span>À localiser</span>
+                    <strong>{unlocalizedCount}</strong>
+                    <span>articles</span>
+                  </button>
+                ) : null}
+                <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
+                  {showMediaProvenance ? "Masquer les médias" : "Voir les médias"}
+                </button>
+              </div>
             </div>
-            <div className="map-heading-actions">
-              <span className="map-status-chip">{loading ? "Lecture des sources…" : `${localizedCount} signal(aux) localisé(s) dans ${counts.eventCountries} pays`}</span>
-              {unlocalizedCount > 0 ? (
-                <span className="off-map-chip" aria-label={`${unlocalizedCount} articles sans localisation fiable`}>
-                  <span>Hors carte</span>
-                  <strong>{unlocalizedCount}</strong>
-                  <span>non localisés</span>
-                </span>
-              ) : null}
-              <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
-                {showMediaProvenance ? "Masquer les médias" : "Voir les médias"}
-              </button>
-            </div>
-          </div>
-          <SignalField
-            mediaMarkers={mediaMarkers}
-            articleParticles={articleParticles}
-            articleClusters={articleClusters}
-            unlocalized={unlocalizedCount}
-            state={payload.state}
-            loading={loading}
-            availableCountryCodes={exploration.availableCountryCodes}
-            selectedPoint={selectedPoint}
-            onSelectPoint={setSelectedPoint}
-            onSelectCountry={setSelectedPoint}
-            showMediaMarkers={showMediaProvenance}
+            <SignalField
+              mediaMarkers={mediaMarkers}
+              articleParticles={articleParticles}
+              articleClusters={articleClusters}
+              unlocalized={unlocalizedCount}
+              state={payload.state}
+              loading={loading}
+              availableCountryCodes={exploration.availableCountryCodes}
+              selectedPoint={selectedPoint}
+              onSelectPoint={setSelectedPoint}
+              onSelectCountry={setSelectedPoint}
+              showMediaMarkers={showMediaProvenance}
+            />
+            <SignalLegend visibleLabel={mapStatusSummary} />
+            <p className="map-note">
+              Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité dans le titre ou le résumé. Les articles sans preuve restent dans « À localiser ». Clique un pays, un point ou une bulle pour en lire le contexte.
+            </p>
+          </article>
+          <FilterControls
+            compact
+            filters={exploration.filters}
+            options={exploration.filterOptions}
+            resultCount={articles.length}
+            totalCount={rawArticles.length}
+            localizedCount={localizedCount}
+            unlocalizedCount={unlocalizedCount}
+            onChange={updateFilter}
+            onReset={resetFilters}
           />
-          <SignalLegend visibleLabel={mapStatusSummary} />
-          <p className="map-note">
-            Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité dans le titre ou le résumé. Clique un pays, un point ou une bulle pour en lire le contexte.
-          </p>
-        </article>
+        </div>
         <aside className="side-stack">
           <MomentTrendsPanel trends={globalTrends} loading={loading} />
           <ReadingPanel selection={exploration.selection} />
           <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} loading={loading} />
         </aside>
       </section>
-
-      <FilterControls
-        filters={exploration.filters}
-        options={exploration.filterOptions}
-        resultCount={articles.length}
-        totalCount={rawArticles.length}
-        onChange={updateFilter}
-        onReset={resetFilters}
-      />
 
       <details className="details-panel" id="methodologie">
         <summary>
@@ -964,7 +1009,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             <CountList title="Thèmes dans le flux" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
             <CountList title="Pays événementiels" items={groupings.eventCountries || groupings.countries || []} emptyLabel="Aucun pays événementiel détecté." />
             <CountList title="Médias RSS" items={groupings.mediaSources || []} emptyLabel="Aucun média RSS reçu." />
-            <CountList title="Régions couvertes" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
+            <CountList title="Régions des médias RSS" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
             <GlobalTrends trends={globalTrends} />
             <section className="panel mini-panel trace-panel">
               <h2>Traçabilité</h2>
@@ -1260,6 +1305,61 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           color: var(--subtle);
           opacity: 0.58;
         }
+        .location-filter {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 9px 12px;
+          margin: 0 0 12px;
+        }
+        .location-filter > span {
+          color: var(--subtle);
+          font-size: 0.65rem;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+        .location-filter > div {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .location-filter button {
+          min-height: 30px;
+          border: 1px solid var(--line);
+          background: rgba(255, 255, 255, 0.025);
+          color: var(--muted);
+          padding: 0 9px;
+          font: inherit;
+          font-size: 0.64rem;
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .location-filter button:hover,
+        .location-filter button:focus-visible,
+        .location-filter .active-location-filter {
+          color: var(--accent);
+          border-color: color-mix(in srgb, var(--accent) 54%, var(--line));
+          background: color-mix(in srgb, var(--accent) 10%, transparent);
+          outline: none;
+        }
+        .compact-filter-panel {
+          margin-bottom: 0;
+          padding: 14px 16px;
+          background: rgba(10, 30, 36, 0.82);
+        }
+        .compact-filter-panel .panel-heading { margin-bottom: 10px; }
+        .compact-filter-panel .panel-heading h2 { font-size: 1rem; }
+        .compact-filter-panel .panel-heading > span { padding: 6px 8px; font-size: 0.66rem; }
+        .compact-filter-panel .filter-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 9px;
+        }
+        .compact-filter-panel .filter-select { gap: 5px; }
+        .compact-filter-panel .filter-select select,
+        .compact-filter-panel .reset-filters { min-height: 34px; padding: 0 9px; font-size: 0.72rem; }
+        .compact-filter-panel .reset-filters { grid-column: 4; font-size: 0.59rem; }
+        .compact-filter-panel .map-note { margin: 10px 0 0; font-size: 0.67rem; }
         .time-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1365,8 +1465,13 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           align-items: start;
           margin-bottom: 18px;
         }
-        .main-grid > *, .map-panel, .side-stack, .reading-panel, .stream-panel {
+        .main-grid > *, .map-stack, .map-panel, .side-stack, .reading-panel, .stream-panel {
           min-width: 0;
+        }
+        .map-stack {
+          display: grid;
+          gap: 18px;
+          align-content: start;
         }
         .map-panel {
           overflow: hidden;
@@ -1416,6 +1521,16 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           font-weight: 800;
           letter-spacing: 0.08em;
           text-transform: uppercase;
+          font: inherit;
+          cursor: pointer;
+        }
+        .off-map-chip:hover,
+        .off-map-chip:focus-visible,
+        .active-off-map-chip {
+          color: var(--accent);
+          border-color: color-mix(in srgb, var(--accent) 56%, var(--line));
+          background: color-mix(in srgb, var(--accent) 10%, transparent);
+          outline: none;
         }
         .off-map-chip strong {
           color: var(--ink);
@@ -1442,7 +1557,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           width: 100%;
           min-width: 0;
           aspect-ratio: 2 / 1;
-          min-height: clamp(360px, 40vw, 620px);
+          min-height: 0;
           overflow: hidden;
           isolation: isolate;
           border: 1px solid var(--line-strong);
@@ -1454,9 +1569,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .world-map {
           position: absolute;
-          inset: clamp(8px, 2vw, 18px);
-          width: calc(100% - clamp(16px, 4vw, 36px));
-          height: calc(100% - clamp(16px, 4vw, 36px));
+          z-index: 1;
+          inset: 0;
+          width: 100%;
+          height: 100%;
           opacity: 0.92;
           filter: drop-shadow(0 0 36px rgba(62, 214, 195, 0.08));
         }
@@ -1498,7 +1614,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .field-grid {
           position: absolute;
+          z-index: 2;
           inset: 0;
+          pointer-events: none;
           opacity: 0.38;
           background-image:
             linear-gradient(rgba(157, 191, 179, 0.11) 1px, transparent 1px),
@@ -1509,12 +1627,19 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .signal-field::before, .signal-field::after {
           content: "";
           position: absolute;
+          z-index: 2;
           pointer-events: none;
           border: 1px solid rgba(157, 191, 179, 0.16);
           border-radius: 999px;
           inset: 18%;
         }
         .signal-field::after { inset: 34%; border-style: dashed; }
+        .particle-layer {
+          position: absolute;
+          z-index: 3;
+          inset: 0;
+          pointer-events: none;
+        }
 
         .particle {
           position: absolute;
@@ -1523,6 +1648,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           padding: 0;
           border: 0;
           cursor: pointer;
+          pointer-events: auto;
           transform: translate(-50%, -50%);
           border-radius: 999px;
           background: var(--particle-color);
@@ -1904,7 +2030,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .pulse-shell { width: min(100% - 20px, 1320px); padding-top: 10px; }
           .title-block, .status-panel, .panel, .metric-card, .details-panel { border-radius: 0; }
           .metric-grid, .bottom-grid, .filter-grid { grid-template-columns: 1fr; }
-          .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack { gap: 10px; margin-bottom: 10px; }
+          .compact-filter-panel .filter-grid { grid-template-columns: 1fr; }
+          .compact-filter-panel .reset-filters { grid-column: auto; }
+          .location-filter { align-items: flex-start; flex-direction: column; gap: 7px; }
+          .location-filter > div { width: 100%; }
+          .location-filter button { flex: 1 1 30%; padding-inline: 6px; }
+          .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack, .map-stack { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 330px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .title-heading { align-items: flex-start; gap: 10px; }
@@ -1914,7 +2045,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .map-heading-actions { justify-items: stretch; width: 100%; }
           .map-status-chip, .off-map-chip { max-width: none; text-align: left; border-radius: 14px; justify-self: stretch; width: 100%; }
           .panel { padding: 16px; }
-          .signal-field { min-height: clamp(200px, 56vw, 260px); aspect-ratio: 2 / 1; }
+          .signal-field { min-height: 0; aspect-ratio: 2 / 1; }
           .signal-legend { grid-template-columns: 1fr; }
           .signal-legend ul { display: grid; grid-template-columns: 1fr; }
           .signal-legend li { min-width: 0; }

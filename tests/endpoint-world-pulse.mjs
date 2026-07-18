@@ -107,7 +107,7 @@ async function runNextScenario(value) {
   next.stderr.on("data", (chunk) => { nextLog += chunk.toString(); });
 
   try {
-    await waitFor(`http://127.0.0.1:${nextPort}/`);
+    await waitFor(`http://127.0.0.1:${nextPort}/api/version`);
     const response = await fetch(`http://127.0.0.1:${nextPort}/api/gdelt`, { cache: "no-store" });
     const payload = await response.json();
     assert.equal(response.status, 200);
@@ -122,10 +122,20 @@ async function runNextScenario(value) {
     const pageResponse = await fetch(`http://127.0.0.1:${nextPort}/sante-sources`, { cache: "no-store" });
     const pageHtml = await pageResponse.text();
     assert.equal(pageResponse.status, 200);
-    assert.match(pageHtml, /Lecture mémoire uniquement/);
-    assert.deepEqual(counts, beforePageCounts, "health page must not call external sources");
+    assert.match(pageHtml, /Contrôle réel au chargement/);
+    assert.match(pageHtml, /Mock RSS/);
 
-    return { payload, health, counts: { ...counts } };
+    return {
+      payload,
+      health,
+      dashboardCounts: beforeHealthCounts,
+      healthPageCalls: {
+        rss: counts.rss - beforePageCounts.rss,
+        ngrams: counts.ngrams - beforePageCounts.ngrams,
+        gdeltDoc: counts.gdeltDoc - beforePageCounts.gdeltDoc,
+      },
+      counts: { ...counts },
+    };
   } finally {
     next.kill("SIGTERM");
     await new Promise((resolve) => next.once("exit", resolve));
@@ -151,9 +161,11 @@ try {
   assert.equal(rss.payload.articles[0].sourceLocation?.code, "FR");
   assert.equal(rss.payload.globalTrends.documents, 2);
   assert.ok(rss.health.items.some((entry) => entry.source === "Mock RSS" && entry.state === "OK"));
-  assert.equal(rss.counts.rss, 1);
-  assert.equal(rss.counts.ngrams, 1);
-  assert.equal(rss.counts.gdeltDoc, 0);
+  assert.equal(rss.dashboardCounts.rss, 1);
+  assert.equal(rss.dashboardCounts.ngrams, 1);
+  assert.equal(rss.dashboardCounts.gdeltDoc, 0);
+  assert.ok(rss.healthPageCalls.rss >= 0 && rss.healthPageCalls.rss <= 1);
+  assert.ok(rss.healthPageCalls.ngrams >= 0 && rss.healthPageCalls.ngrams <= 1);
   console.log(`RSS primary: state=${rss.payload.state} articles=${rss.payload.counts.articles} localized=${rss.payload.counts.localized} source=${rss.payload.source.active} ttl=${rss.payload.cache.ttlSeconds}s trends=${rss.payload.globalTrends.documents}`);
 
   const unavailable = await runNextScenario("unavailable");

@@ -41,6 +41,11 @@ test("event geolocation detects only explicit countries or documented unambiguou
     { title: "Kathmandu hosts regional talks", summary: "", iso: "NP", country: "Népal", type: "capital_city" },
     { title: "Philippines launches a new public-health campaign", summary: "", iso: "PH", country: "Philippines", type: "country_name" },
     { title: "Diplomats meet in Tehran", summary: "", iso: "IR", country: "Iran", type: "capital_city" },
+    { title: "Warsaw prepares an emergency response", summary: "", iso: "PL", country: "Pologne", type: "capital_city" },
+    { title: "Ghana launches a new education programme", summary: "", iso: "GH", country: "Ghana", type: "country_name" },
+    { title: "Baghdad hosts regional talks", summary: "", iso: "IQ", country: "Irak", type: "capital_city" },
+    { title: "Malaysia considers a climate transition", summary: "", iso: "MY", country: "Malaisie", type: "country_name" },
+    { title: "Peru votes on reform", summary: "", iso: "PE", country: "Pérou", type: "country_name" },
   ];
 
   for (const fixture of fixtures) {

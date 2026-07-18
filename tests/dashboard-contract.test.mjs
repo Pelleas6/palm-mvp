@@ -30,6 +30,7 @@ test("dashboard payload contract keeps API, server page and component on the sam
   const componentSource = await readFile(new URL("../components/WorldPulseDashboard.js", import.meta.url), "utf8");
   const layoutSource = await readFile(new URL("../app/layout.js", import.meta.url), "utf8");
   const loadingSource = await readFile(new URL("../app/loading.jsx", import.meta.url), "utf8");
+  const sourceHealthPage = await readFile(new URL("../app/sante-sources/page.jsx", import.meta.url), "utf8");
 
   assert.match(pageSource, /getWorldPulseDashboardPayload/);
   assert.match(pageSource, /export const dynamic = "force-dynamic"/);
@@ -45,7 +46,11 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /À cet instant : \$\{localizedCount\} événements localisés dans \$\{counts\.eventCountries\} pays/);
   assert.match(componentSource, /Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité/);
   assert.match(componentSource, /<section className="main-grid" id="carte">/);
-  assert.match(componentSource, /<FilterControls[\s\S]+<details className="details-panel" id="methodologie">[\s\S]+<TemporalPanel/);
+  assert.match(componentSource, /<div className="map-stack">[\s\S]+<FilterControls[\s\S]+<aside className="side-stack">/);
+  assert.match(componentSource, /className="particle-layer"/);
+  assert.match(componentSource, /\.world-map \{[\s\S]+inset: 0;[\s\S]+width: 100%;[\s\S]+height: 100%;/);
+  assert.match(componentSource, /WORLD_PULSE_LOCALIZATION_FILTERS/);
+  assert.match(componentSource, /À localiser/);
   assert.match(componentSource, /<Metric label="Signaux cartographiés"/);
   assert.match(componentSource, /<Metric label="Sources en ligne"/);
   assert.match(componentSource, /<img className="title-logo"[\s\S]+src="\/brand\/pouls-du-monde-logo-master\.webp"[\s\S]+alt="Le Pouls du Monde"[\s\S]+width="148" height="104"/);
@@ -64,6 +69,9 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.doesNotMatch(componentSource, /<CountList title="Catégories GDELT N-Grams"/);
   assert.match(componentSource, /--count-row-color/);
   assert.match(componentSource, /\.details-panel \{/);
+  assert.match(sourceHealthPage, /getWorldPulseDashboardPayload/);
+  assert.match(sourceHealthPage, /export default async function SourceHealthPage/);
+  assert.match(sourceHealthPage, /Contrôle réel au chargement/);
 });
 
 test("validated dashboard payload exposes matching RSS counts and rendered collections", async () => {
