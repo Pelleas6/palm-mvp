@@ -807,35 +807,24 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   };
   const dataScopes = payload.dataScopes || {};
   const rssScope = dataScopes.rss || { period: "RSS public · cache ≥15 min", classificationCoveragePct: counts.rssClassificationCoveragePct };
-  const gdeltScope = dataScopes.gdeltNgrams || { period: `cycle ${globalTrends.cycleMinutes || 15} min`, classificationCoveragePct: counts.gdeltNgramsClassificationCoveragePct };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
   const visibleArticlePointCount = articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length;
   const rssCoverage = countFromPayload(counts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
-  const gdeltCoverage = countFromPayload(payloadCounts, "gdeltNgramsClassificationCoveragePct", Number(gdeltScope.classificationCoveragePct || 0));
   const rssHealthItems = sourceHealth.filter((item) => item?.source && !["GDELT Web N-Grams TOC", "GDELT 2.0 DOC API canary", "Cache serveur"].includes(item.source));
   const rssActiveSourceCount = countFromPayload(payloadCounts, "rssActiveSources", rssHealthItems.filter((item) => item.state === "OK").length);
   const rssAuditedSourceCount = countFromPayload(payloadCounts, "rssAuditedSources", rssHealthItems.length || rssActiveSourceCount);
   const rssSourceErrorCount = countFromPayload(payloadCounts, "rssSourcesInError", rssHealthItems.filter((item) => item.state !== "OK").length);
   const rssMediaCountryCount = countFromPayload(payloadCounts, "rssKnownMediaCountries", counts.rssKnownMediaCountries);
   const rssRegionCount = countFromPayload(payloadCounts, "sourceRegions", groupings.sourceRegions.length || counts.sourceRegions);
-  const gdeltRawTrendCount = countFromPayload(payloadCounts, "gdeltNgramsRawTrends", Array.isArray(globalTrends.rawTrends) ? globalTrends.rawTrends.length : 0);
-  const gdeltEmergingTrendCount = countFromPayload(payloadCounts, "gdeltNgramsEmergingTrends", Array.isArray(globalTrends.emergingTrends) ? globalTrends.emergingTrends.length : 0);
   const mapStatusSummary = loading
     ? "À cet instant : données en cours de chargement. Les articles sans pays clairement cité restent visibles dans le flux, hors carte."
     : `À cet instant : ${localizedCount} événements localisés dans ${counts.eventCountries} pays. ${unlocalizedCount} articles ne citent pas clairement de pays et restent visibles dans le flux, hors carte.`;
-  const hasRealData = payload.state === "ok" || payload.state === "partial" || payload.state === "empty";
   const stateLabel = payload.stateLabel || relativeStateLabel(payload.state);
   const sourceName = payload.source?.name || "Source en attente";
   const activeSource = loading ? "Interrogation" : sourceName;
   const sourceMetric = payload.source?.active === "GDELT" ? "GDELT" : payload.source?.active === "RSS_PUBLIC" || payload.source?.active === "RSS_FALLBACK" ? "RSS" : payload.source?.active === "none" ? "Aucune" : "—";
   const freshness = formatFreshness(payload.freshnessSeconds);
-  const latestSeenAt = articles
-    .map((article) => article.seenAt)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
-
   function updateFilter(name, value) {
     setFilters((current) => ({ ...current, [name]: value || WORLD_PULSE_FILTER_ALL }));
     setSelectedPoint(null);
@@ -853,84 +842,63 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
   return (
     <main className="pulse-shell">
-      <section className="top-strip" aria-label="Synthèse du tableau de bord">
+      <section className="top-strip" aria-label="Introduction de l'observatoire">
         <div className="title-block">
-          <p className="eyebrow">Monitor mondial · RSS public temps réel · GDELT Web N-Grams · canari DOC · cache serveur ≥15 min</p>
+          <p className="eyebrow">Atlas vivant de l'actualité mondiale</p>
           <div className="title-heading">
             <span className="title-logo-frame">
-              <img className="title-logo" src="/brand/pouls-du-monde-logo-master.webp" alt="Le Pouls du Monde" width="120" height="85" decoding="async" />
+              <img className="title-logo" src="/brand/pouls-du-monde-logo-master.webp" alt="Le Pouls du Monde" width="148" height="104" decoding="async" />
             </span>
-            <h1>Le Pouls du Monde</h1>
+            <h1>Le Pouls <span>du Monde</span></h1>
           </div>
           <p>
-            Le Pouls du Monde suit les événements cités dans l'actualité. La carte situe uniquement les pays mentionnés clairement dans les articles RSS. Les couleurs représentent les thèmes; les médias, tendances GDELT et articles non localisés restent distingués.
+            Voyez les événements cités dans l'actualité prendre forme sur une carte. Chaque signal est relié à une source publique et localisé seulement lorsque le texte le permet vraiment.
           </p>
+          <div className="hero-proof" aria-label="Principes de lecture">
+            <span>Sources publiques</span>
+            <span>Localisation prudente</span>
+            <span>Méthode visible</span>
+          </div>
         </div>
         <div className={`status-panel state-${payload.state || "loading"}`}>
           <span className="status-dot" aria-hidden="true" />
           <div>
-            <strong>{loading ? "Actualisation" : stateLabel}</strong>
+            <p>État du monde</p>
+            <strong>{loading ? "Actualisation en cours" : stateLabel}</strong>
             <span>
-              Source active : {activeSource} · Généré : {formatDate(payload.generatedAt)} · Fraîcheur : {freshness}
+              Dernière lecture : {formatDate(payload.generatedAt)}<br />
+              {payload.source?.cached ? "Données vérifiées en cache" : `Source active : ${activeSource}`}
             </span>
           </div>
+          <a href="#carte">Explorer la carte <span aria-hidden="true">↓</span></a>
         </div>
       </section>
 
-      <section className="metric-grid" aria-label="Synthèse source et cache">
-        <Metric label="Articles RSS" value={loading ? "—" : counts.rssArticles} hint={`Collectés ${counts.rssArticlesFetched} · localisés ${counts.eventLocalizedArticles} · tronqués ${counts.rssArticlesTruncated}`} />
-        <Metric label="Événements localisés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} point(s) visuels · preuve titre/résumé`} />
-        <Metric label="Pays événementiels" value={loading ? "—" : counts.eventCountries} hint="Nom de pays ou capitale non ambiguë, sans secours média" />
-        <Metric label="Non localisés" value={loading ? "—" : unlocalizedCount} hint="Aucune preuve forte dans le titre/résumé RSS" />
-        <Metric label="Couverture RSS" value={loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount}`} hint={`${rssMediaCountryCount} pays sources · ${rssRegionCount} régions · ${rssSourceErrorCount} flux en erreur`} />
-        <Metric label="Médias provenance" value={loading ? "—" : counts.rssMediaSources} hint={`${rssMediaCountryCount} pays médias déclarés · couche séparée`} />
-        <Metric label="Clusters événements" value={loading ? "—" : counts.articleClusters} hint="Même pays événementiel + même catégorie + proximité" />
-        <Metric label="Catégories RSS" value={loading ? "—" : counts.rssCategories} hint={`RSS public · registre 12 thèmes · couverture ${formatPercent(rssCoverage)}`} />
-        <Metric label="Non déterminé RSS" value={loading ? "—" : counts.rssUnclassifiedArticles} hint="Hors taxonomie utile · aucun mot-clé déterministe" />
-        <Metric label="Docs GDELT N-Grams" value={loading ? "—" : counts.gdeltNgramsDocuments} hint={`GDELT Web N-Grams TOC · ${gdeltScope.period || "cycle 15 min"}`} />
-        <Metric label="Termes suivis" value={loading ? "—" : gdeltRawTrendCount} hint={`${counts.gdeltNgramsCategories} thème(s) fiables · ${gdeltEmergingTrendCount} contextualisé(s) · couverture ${formatPercent(gdeltCoverage)}`} />
-        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "cache serveur" : `${sourceMetric} généré maintenant`} />
+      <section className="metric-grid metric-grid-primary" aria-label="Repères du moment">
+        <Metric label="Signaux cartographiés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} repère(s) visibles maintenant`} />
+        <Metric label="Pays concernés" value={loading ? "—" : counts.eventCountries} hint="Pays cités clairement dans les articles" />
+        <Metric label="Sources en ligne" value={loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount}`} hint={`${rssMediaCountryCount} pays médias · ${rssSourceErrorCount} incident(s)`} />
+        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "lecture servie depuis le cache vérifié" : `${sourceMetric} actualisé maintenant`} />
       </section>
 
-      <section className="top-categories-row" aria-label="Catégories RSS principales">
-        <CountList title="Catégories RSS" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
-      </section>
-
-      <TemporalPanel
-        timeWindows={exploration.timeWindows}
-        nonDetermined={exploration.nonDetermined}
-        categories={exploration.categories}
-      />
-
-      <MomentTrendsPanel trends={globalTrends} />
-
-      <FilterControls
-        filters={exploration.filters}
-        options={exploration.filterOptions}
-        resultCount={articles.length}
-        totalCount={rawArticles.length}
-        onChange={updateFilter}
-        onReset={resetFilters}
-      />
-
-      <section className="main-grid">
+      <section className="main-grid" id="carte">
         <article className="panel map-panel">
           <div className="panel-heading map-heading">
             <div>
-              <p>Carte géographique</p>
-              <h2>Événements localisés</h2>
+              <p>La carte maintenant</p>
+              <h2>Où les signaux se concentrent-ils ?</h2>
             </div>
             <div className="map-heading-actions">
-              <span className="map-status-chip">{hasRealData ? mapStatusSummary : "visualisation suspendue"}</span>
+              <span className="map-status-chip">{loading ? "Lecture des sources…" : `${localizedCount} signal(aux) localisé(s) dans ${counts.eventCountries} pays`}</span>
               {unlocalizedCount > 0 ? (
                 <span className="off-map-chip" aria-label={`${unlocalizedCount} articles sans localisation fiable`}>
-                  <span>Hors carte · </span>
+                  <span>Hors carte</span>
                   <strong>{unlocalizedCount}</strong>
-                  <span> non localisés</span>
+                  <span>non localisés</span>
                 </span>
               ) : null}
               <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
-                {showMediaProvenance ? "Masquer provenance média" : "Afficher provenance média"}
+                {showMediaProvenance ? "Masquer les médias" : "Voir les médias"}
               </button>
             </div>
           </div>
@@ -949,116 +917,80 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           />
           <SignalLegend visibleLabel={mapStatusSummary} />
           <p className="map-note">
-            Chaque point représente un article dont le titre ou le résumé cite un pays ou une capitale non ambiguë. Les bulles regroupent des articles proches, du même pays et du même thème.
+            Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité dans le titre ou le résumé. Clique un pays, un point ou une bulle pour en lire le contexte.
           </p>
         </article>
         <aside className="side-stack">
+          <MomentTrendsPanel trends={globalTrends} />
           <ReadingPanel selection={exploration.selection} />
           <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
         </aside>
       </section>
 
-      <section className="bottom-grid" aria-label="Regroupements RSS et GDELT séparés">
-        <CountList title="Médias RSS" items={groupings.mediaSources || []} emptyLabel="Aucun média RSS reçu." />
-        <CountList title="Régions RSS" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
-        <CountList title="Pays événementiels RSS" items={groupings.eventCountries || groupings.countries || []} emptyLabel="Aucun pays événementiel détecté." />
-        <CountList title="Pays médias provenance" items={groupings.sourceCountries || []} emptyLabel="Aucun pays média RSS reçu." />
-        <CountList title="Articles non localisés" items={groupings.offMapReasons || []} emptyLabel="Aucun article non localisé." />
-        <CountList title="Domaines articles RSS" items={groupings.domains || []} emptyLabel="Aucun domaine RSS reçu." />
-        <GlobalTrends trends={globalTrends} />
-        <section className="panel mini-panel trace-panel">
-          <h2>Traçabilité</h2>
-          <dl>
-            <div>
-              <dt>État</dt>
-              <dd>{stateLabel}</dd>
-            </div>
-            <div>
-              <dt>Source active</dt>
-              <dd>{activeSource}</dd>
-            </div>
-            <div>
-              <dt>Généré</dt>
-              <dd>{formatDate(payload.generatedAt)}</dd>
-            </div>
-            <div>
-              <dt>Fraîcheur</dt>
-              <dd>{freshness}</dd>
-            </div>
-            <div>
-              <dt>Articles RSS</dt>
-              <dd>{loading ? "—" : `${counts.rssArticles} · collectés ${counts.rssArticlesFetched} · tronqués ${counts.rssArticlesTruncated}`}</dd>
-            </div>
-            <div>
-              <dt>Médias RSS uniques</dt>
-              <dd>{loading ? "—" : counts.rssMediaSources}</dd>
-            </div>
-            <div>
-              <dt>Pays médias provenance</dt>
-              <dd>{loading ? "—" : counts.rssKnownMediaCountries}</dd>
-            </div>
-            <div>
-              <dt>Pays événementiels</dt>
-              <dd>{loading ? "—" : counts.eventCountries}</dd>
-            </div>
-            <div>
-              <dt>Catégories RSS</dt>
-              <dd>{loading ? "—" : counts.rssCategories}</dd>
-            </div>
-            <div>
-              <dt>Non déterminé RSS</dt>
-              <dd>{loading ? "—" : `${counts.rssUnclassifiedArticles} · couverture ${formatPercent(rssCoverage)}`}</dd>
-            </div>
-            <div>
-              <dt>Docs GDELT N-Grams</dt>
-              <dd>{loading ? "—" : counts.gdeltNgramsDocuments}</dd>
-            </div>
-            <div>
-              <dt>Termes suivis</dt>
-              <dd>{loading ? "—" : `${gdeltRawTrendCount} termes · ${counts.gdeltNgramsCategories} thèmes fiables · ${gdeltEmergingTrendCount} contextualisés · couverture ${formatPercent(gdeltCoverage)}`}</dd>
-            </div>
-            <div>
-              <dt>Événements localisés</dt>
-              <dd>{loading ? "—" : `${localizedCount} particules · ${counts.articleClusters} clusters · ${visibleArticlePointCount} points visuels`}</dd>
-            </div>
-            <div>
-              <dt>Non localisés</dt>
-              <dd>{loading ? "—" : unlocalizedCount}</dd>
-            </div>
-            <div>
-              <dt>Dernier article</dt>
-              <dd>{formatDate(latestSeenAt)}</dd>
-            </div>
-            <div>
-              <dt>Cache</dt>
-              <dd>{payload.cache?.status || "—"}</dd>
-            </div>
-            <div>
-              <dt>Requête</dt>
-              <dd>{payload.query ? `${payload.query} · canari GDELT DOC uniquement` : "—"}</dd>
-            </div>
-          </dl>
-          {payload.error?.detail ? <p className="raw-error">{payload.error.detail}</p> : null}
-          <p className="muted">{payload.notice || "Aucune donnée décorative n'est ajoutée."}</p>
-        </section>
-      </section>
+      <FilterControls
+        filters={exploration.filters}
+        options={exploration.filterOptions}
+        resultCount={articles.length}
+        totalCount={rawArticles.length}
+        onChange={updateFilter}
+        onReset={resetFilters}
+      />
 
-      <SourceHealth items={sourceHealth} />
+      <details className="details-panel" id="methodologie">
+        <summary>
+          <span>
+            <small>Pour aller plus loin</small>
+            <strong>Transparence des données et lecture détaillée</strong>
+          </span>
+          <b aria-hidden="true">+</b>
+        </summary>
+        <div className="details-body">
+          <p className="details-intro">Les données détaillées restent accessibles ici : couverture des sources, catégories, fraîcheur et méthode de classement. Rien n'est simulé.</p>
+          <TemporalPanel
+            timeWindows={exploration.timeWindows}
+            nonDetermined={exploration.nonDetermined}
+            categories={exploration.categories}
+          />
+          <section className="bottom-grid" aria-label="Détails des signaux et des sources">
+            <CountList title="Thèmes dans le flux" items={groupings.rssCategories || groupings.labels || []} emptyLabel="Aucune catégorie RSS calculée." colorize />
+            <CountList title="Pays événementiels" items={groupings.eventCountries || groupings.countries || []} emptyLabel="Aucun pays événementiel détecté." />
+            <CountList title="Médias RSS" items={groupings.mediaSources || []} emptyLabel="Aucun média RSS reçu." />
+            <CountList title="Régions couvertes" items={groupings.sourceRegions || []} emptyLabel="Aucune région RSS reçue." />
+            <GlobalTrends trends={globalTrends} />
+            <section className="panel mini-panel trace-panel">
+              <h2>Traçabilité</h2>
+              <dl>
+                <div><dt>État</dt><dd>{stateLabel}</dd></div>
+                <div><dt>Source active</dt><dd>{activeSource}</dd></div>
+                <div><dt>Généré</dt><dd>{formatDate(payload.generatedAt)}</dd></div>
+                <div><dt>Fraîcheur</dt><dd>{freshness}</dd></div>
+                <div><dt>Articles reçus</dt><dd>{loading ? "—" : `${counts.rssArticles} · ${counts.eventLocalizedArticles} localisés`}</dd></div>
+                <div><dt>Couverture RSS</dt><dd>{loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount} sources · ${formatPercent(rssCoverage)}`}</dd></div>
+              </dl>
+              {payload.error?.detail ? <p className="raw-error">{payload.error.detail}</p> : null}
+              <p className="muted">{payload.notice || "Aucune donnée décorative n'est ajoutée."}</p>
+            </section>
+          </section>
+          <SourceHealth items={sourceHealth} />
+        </div>
+      </details>
 
       <style jsx global>{`
         :root {
           color-scheme: dark;
-          --bg: #07110f;
-          --bg-soft: #0d1d1a;
-          --panel: rgba(12, 29, 26, 0.88);
-          --panel-strong: rgba(18, 43, 38, 0.94);
-          --line: rgba(157, 191, 179, 0.19);
-          --line-strong: rgba(157, 191, 179, 0.34);
-          --ink: #eff8f3;
-          --muted: #9dbfb3;
-          --subtle: #6f9187;
-          --accent: #3ed6c3;
-          --warn: #f5bd4f;
+          --bg: #051117;
+          --bg-soft: #0a1d25;
+          --panel: rgba(11, 31, 39, 0.88);
+          --panel-strong: rgba(13, 40, 50, 0.96);
+          --line: rgba(173, 213, 213, 0.17);
+          --line-strong: rgba(140, 211, 208, 0.38);
+          --ink: #effafa;
+          --muted: #abc4c5;
+          --subtle: #71999a;
+          --accent: #5fdac9;
+          --accent-blue: #78adff;
+          --gold: #e9bf6d;
+          --warn: #efc36a;
           --danger: #ff6f61;
           --ok: #8ee37d;
           --shadow: 0 24px 90px rgba(0, 0, 0, 0.38);
@@ -1070,9 +1002,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           margin: 0;
           min-height: 100%;
           background:
-            radial-gradient(circle at 15% 10%, rgba(62, 214, 195, 0.16), transparent 28rem),
-            radial-gradient(circle at 85% 0%, rgba(245, 189, 79, 0.12), transparent 26rem),
-            linear-gradient(180deg, #07110f 0%, #0a1715 48%, #07110f 100%);
+            radial-gradient(circle at 13% 7%, rgba(95, 218, 201, 0.15), transparent 30rem),
+            radial-gradient(circle at 88% 0%, rgba(120, 173, 255, 0.13), transparent 28rem),
+            radial-gradient(circle at 54% 72%, rgba(233, 191, 109, 0.05), transparent 32rem),
+            linear-gradient(180deg, #051117 0%, #071820 48%, #051117 100%);
           color: var(--ink);
           font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
         }
@@ -1084,14 +1017,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
 
         .pulse-shell {
-          width: min(1480px, calc(100% - 32px));
+          width: min(1320px, calc(100% - 32px));
           margin: 0 auto;
           padding: 28px 0 40px;
         }
 
         .top-strip {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(280px, 390px);
+          grid-template-columns: minmax(0, 1fr) minmax(285px, 355px);
           gap: 18px;
           align-items: stretch;
           margin-bottom: 18px;
@@ -1105,11 +1038,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
 
         .title-block {
-          min-height: 190px;
+          min-height: 250px;
           padding: clamp(24px, 4vw, 44px);
           display: flex;
           flex-direction: column;
           justify-content: flex-end;
+          background:
+            linear-gradient(118deg, rgba(95, 218, 201, 0.1), transparent 44%),
+            var(--panel);
         }
 
         .eyebrow, .panel-heading p {
@@ -1146,10 +1082,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
         }
         h1 {
-          font-size: clamp(2.9rem, 7vw, 7.2rem);
-          line-height: 0.88;
+          font-size: clamp(3rem, 6.1vw, 6.2rem);
+          line-height: 0.9;
           letter-spacing: -0.08em;
-          max-width: 9ch;
+          max-width: 11ch;
+        }
+        h1 span {
+          display: block;
+          color: var(--accent);
         }
 
         .title-block > p:last-child {
@@ -1159,6 +1099,23 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           font-size: clamp(0.9rem, 1.17vw, 1.06rem);
           line-height: 1.65;
         }
+        .hero-proof {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 18px;
+        }
+        .hero-proof span {
+          padding: 6px 8px;
+          border: 1px solid rgba(95, 218, 201, 0.22);
+          border-radius: 999px;
+          color: #bfe6e1;
+          background: rgba(95, 218, 201, 0.06);
+          font-size: 0.61rem;
+          font-weight: 800;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+        }
 
         .status-panel {
           padding: 24px;
@@ -1166,11 +1123,34 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           gap: 16px;
           align-items: flex-start;
           justify-content: space-between;
-          background: var(--panel-strong);
+          flex-wrap: wrap;
+          background:
+            radial-gradient(circle at 90% 0%, rgba(120, 173, 255, 0.16), transparent 38%),
+            var(--panel-strong);
         }
 
+        .status-panel p {
+          margin: 0 0 12px;
+          color: var(--accent-blue);
+          font-size: 0.63rem;
+          font-weight: 800;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
         .status-panel strong { display: block; font-size: 1.17rem; margin-bottom: 8px; }
         .status-panel span:not(.status-dot) { color: var(--muted); line-height: 1.45; }
+        .status-panel > a {
+          width: 100%;
+          margin-top: auto;
+          padding-top: 14px;
+          border-top: 1px solid var(--line);
+          color: var(--accent);
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-decoration: none;
+        }
+        .status-panel > a span { float: right; color: var(--accent); }
         .status-dot {
           flex: 0 0 auto;
           width: 15px;
@@ -1193,7 +1173,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .metric-card {
           padding: 18px;
-          min-height: 118px;
+          min-height: 132px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
@@ -1206,7 +1186,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           text-transform: uppercase;
         }
         .metric-card strong {
-          font-size: clamp(1.8rem, 3.6vw, 3.78rem);
+          font-size: clamp(2rem, 3.3vw, 3.3rem);
           line-height: 0.9;
           letter-spacing: -0.08em;
           font-variant-numeric: tabular-nums;
@@ -1319,6 +1299,55 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           line-height: 1.2;
         }
         .category-chips .non-thematic { border-color: rgba(245, 189, 79, 0.28); color: var(--warn); }
+
+        .details-panel {
+          margin-top: 18px;
+          border: 1px solid var(--line);
+          background: rgba(10, 29, 37, 0.72);
+          box-shadow: 0 20px 70px rgba(0, 0, 0, 0.18);
+        }
+        .details-panel summary {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 20px;
+          cursor: pointer;
+          list-style: none;
+        }
+        .details-panel summary::-webkit-details-marker { display: none; }
+        .details-panel summary small,
+        .details-panel summary strong { display: block; }
+        .details-panel summary small {
+          margin-bottom: 5px;
+          color: var(--accent);
+          font-size: 0.61rem;
+          font-weight: 800;
+          letter-spacing: 0.13em;
+          text-transform: uppercase;
+        }
+        .details-panel summary strong { color: var(--ink); font-size: 1rem; letter-spacing: -0.02em; }
+        .details-panel summary b {
+          width: 31px;
+          height: 31px;
+          display: grid;
+          flex: 0 0 auto;
+          place-items: center;
+          border: 1px solid var(--line-strong);
+          border-radius: 50%;
+          color: var(--accent);
+          font-size: 1.1rem;
+          transition: transform 0.18s ease;
+        }
+        .details-panel[open] summary b { transform: rotate(45deg); }
+        .details-body { padding: 0 20px 20px; }
+        .details-intro {
+          max-width: 700px;
+          margin: 0 0 18px;
+          color: var(--muted);
+          font-size: 0.82rem;
+          line-height: 1.6;
+        }
 
         .main-grid {
           display: grid;
@@ -1863,11 +1892,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
 
         @media (max-width: 680px) {
-          .pulse-shell { width: min(100% - 20px, 1480px); padding-top: 10px; }
-          .title-block, .status-panel, .panel, .metric-card { border-radius: 0; }
+          .pulse-shell { width: min(100% - 20px, 1320px); padding-top: 10px; }
+          .title-block, .status-panel, .panel, .metric-card, .details-panel { border-radius: 0; }
           .metric-grid, .bottom-grid, .filter-grid { grid-template-columns: 1fr; }
           .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack { gap: 10px; margin-bottom: 10px; }
-          .title-block { min-height: 320px; padding: 24px; }
+          .title-block { min-height: 330px; padding: 24px; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .title-heading { align-items: flex-start; gap: 10px; }
           .title-logo-frame { height: clamp(58px, 16vw, 76px); align-items: flex-start; }
@@ -1881,6 +1910,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .signal-legend ul { display: grid; grid-template-columns: 1fr; }
           .signal-legend li { min-width: 0; }
           .panel-heading { flex-direction: column; }
+          .details-panel { margin-top: 10px; }
+          .details-panel summary, .details-body { padding-left: 16px; padding-right: 16px; }
+          .hero-proof span { font-size: 0.56rem; }
         }
 
         @media (prefers-reduced-motion: reduce) {

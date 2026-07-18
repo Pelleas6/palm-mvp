@@ -34,13 +34,15 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(pageSource, /<WorldPulseDashboard initialPayload=\{initialPayload\}/);
   assert.match(componentSource, /function useGdeltPulse\(initialPayload\)/);
   assert.match(componentSource, /useState\(\(\) => initialPayload \|\| \{ state: "loading" \}\)/);
-  assert.match(componentSource, /Le Pouls du Monde suit les événements cités dans l'actualité/);
+  assert.match(componentSource, /Atlas vivant de l'actualité mondiale/);
+  assert.match(componentSource, /Voyez les événements cités dans l'actualité prendre forme sur une carte/);
   assert.match(componentSource, /À cet instant : \$\{localizedCount\} événements localisés dans \$\{counts\.eventCountries\} pays/);
-  assert.match(componentSource, /Chaque point représente un article dont le titre ou le résumé cite un pays ou une capitale non ambiguë/);
-  assert.match(componentSource, /<TemporalPanel[\s\S]+<MomentTrendsPanel trends=\{globalTrends\} \/>[\s\S]+<FilterControls[\s\S]+<section className="main-grid">/);
-  assert.match(componentSource, /<section className="top-categories-row"[\s\S]+<CountList title="Catégories RSS"[\s\S]+colorize \/>[\s\S]+<\/section>/);
-  assert.match(componentSource, /<Metric label="Couverture RSS"/);
-  assert.match(componentSource, /<img className="title-logo"[\s\S]+src="\/brand\/pouls-du-monde-logo-master\.webp"[\s\S]+alt="Le Pouls du Monde"[\s\S]+width="120" height="85"/);
+  assert.match(componentSource, /Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité/);
+  assert.match(componentSource, /<section className="main-grid" id="carte">/);
+  assert.match(componentSource, /<FilterControls[\s\S]+<details className="details-panel" id="methodologie">[\s\S]+<TemporalPanel/);
+  assert.match(componentSource, /<Metric label="Signaux cartographiés"/);
+  assert.match(componentSource, /<Metric label="Sources en ligne"/);
+  assert.match(componentSource, /<img className="title-logo"[\s\S]+src="\/brand\/pouls-du-monde-logo-master\.webp"[\s\S]+alt="Le Pouls du Monde"[\s\S]+width="148" height="104"/);
   assert.match(componentSource, /\.title-logo-frame \{[\s\S]+height: clamp\(78px, 8vw, 118px\)/);
   assert.match(componentSource, /\.title-logo \{[\s\S]+width: auto;[\s\S]+height: auto;[\s\S]+object-fit: contain/);
   assert.match(componentSource, /\.title-logo-frame \{ height: clamp\(58px, 16vw, 76px\)/);
@@ -55,6 +57,7 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.doesNotMatch(componentSource, /BANNED_WORDS/);
   assert.doesNotMatch(componentSource, /<CountList title="Catégories GDELT N-Grams"/);
   assert.match(componentSource, /--count-row-color/);
+  assert.match(componentSource, /\.details-panel \{/);
 });
 
 test("validated dashboard payload exposes matching RSS counts and rendered collections", async () => {

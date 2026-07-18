@@ -1,4 +1,5 @@
 import Header from "../../components/Header";
+import Footer from "../../components/Footer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default function SourceHealthPage() {
 
   return (
     <>
-      <Header dark={true} />
+      <Header backLink="/" />
       <main className="health-shell">
         <section className="health-hero">
           <p>Le Pouls du Monde</p>
@@ -67,25 +68,26 @@ export default function SourceHealthPage() {
 
         <style>{`
           :root { color-scheme: dark; }
-          body { margin: 0; background: #07110f; color: #eff8f3; font-family: "Aptos", "Segoe UI", Arial, sans-serif; }
-          .health-shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 48px; }
-          .health-hero, .health-meta > div, .health-table { border: 1px solid rgba(157, 191, 179, 0.2); background: rgba(12, 29, 26, 0.9); box-shadow: 0 24px 90px rgba(0,0,0,.34); }
+          body { margin: 0; background: #051117; color: #effafa; font-family: "Aptos", "Segoe UI", Arial, sans-serif; }
+          .health-shell { width: min(1320px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 48px; }
+          .health-hero, .health-meta > div, .health-table { border: 1px solid rgba(173, 213, 213, 0.17); background: rgba(11, 31, 39, 0.9); box-shadow: 0 24px 90px rgba(0,0,0,.34); }
           .health-hero { padding: clamp(24px, 4vw, 44px); margin-bottom: 18px; }
-          .health-hero p { margin: 0 0 10px; color: #3ed6c3; letter-spacing: .16em; text-transform: uppercase; font-size: .74rem; font-weight: 800; }
+          .health-hero p { margin: 0 0 10px; color: #5fdac9; letter-spacing: .16em; text-transform: uppercase; font-size: .74rem; font-weight: 800; }
           .health-hero h1 { margin: 0 0 16px; font-size: clamp(2.4rem, 6vw, 5.2rem); line-height: .95; letter-spacing: -.07em; }
-          .health-hero span, .health-meta span, .empty { color: #9dbfb3; }
+          .health-hero span, .health-meta span, .empty { color: #abc4c5; }
           .health-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
           .health-meta > div { padding: 18px; display: grid; gap: 12px; }
           .health-meta span { font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
           .health-meta strong { font-size: clamp(1rem, 2vw, 1.6rem); overflow-wrap: anywhere; }
           .health-table { padding: 14px; overflow-x: auto; }
-          .health-row { display: grid; grid-template-columns: 1.2fr .9fr minmax(240px, 2fr) .45fr .55fr .45fr .7fr; gap: 10px; align-items: center; padding: 12px; border-bottom: 1px solid rgba(157, 191, 179, 0.14); min-width: 920px; }
-          .health-head { color: #9dbfb3; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; }
-          .health-row .url { color: #9dbfb3; overflow-wrap: anywhere; }
+          .health-row { display: grid; grid-template-columns: 1.2fr .9fr minmax(240px, 2fr) .45fr .55fr .45fr .7fr; gap: 10px; align-items: center; padding: 12px; border-bottom: 1px solid rgba(173, 213, 213, 0.14); min-width: 920px; }
+          .health-head { color: #abc4c5; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; }
+          .health-row .url { color: #abc4c5; overflow-wrap: anywhere; }
           .health-row strong { color: #8ee37d; }
-          @media (max-width: 760px) { .health-meta { grid-template-columns: 1fr; } .health-shell { width: min(100% - 20px, 1180px); padding-top: 18px; } }
+          @media (max-width: 760px) { .health-meta { grid-template-columns: 1fr; } .health-shell { width: min(100% - 20px, 1320px); padding-top: 18px; } }
         `}</style>
       </main>
+      <Footer />
     </>
   );
 }

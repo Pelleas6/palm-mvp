@@ -1,77 +1,108 @@
-export default function Header({ backLink = "/", dark = false }) {
-  const theme = dark ? {
-    bg: "#07110f",
-    card: "#0c1d1a",
-    border: "rgba(157, 191, 179, 0.2)",
-    gold: "#C9A84C",
-    text: "#eff8f3",
-    sage: "#7A9E7E",
-  } : {
-    bg: "#FAF7F2",
-    card: "#FFFFFF",
-    border: "#E8E0D0",
-    gold: "#C9A84C",
-    text: "#3A3228",
-    sage: "#7A9E7E",
-  };
+"use client";
 
-  const topbar = {
-    position: "sticky",
-    top: 0,
-    zIndex: 50,
-    backgroundColor: dark ? "rgba(7, 17, 15, 0.95)" : "rgba(250, 247, 242, 0.95)",
-    backdropFilter: "blur(8px)",
-    borderBottom: `1px solid ${theme.border}`,
-  };
-
-  const topbarInner = {
-    maxWidth: 1180,
-    margin: "0 auto",
-    padding: "14px 18px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  };
-
-  const brand = {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    textDecoration: "none",
-  };
-
-  const brandTitle = {
-    fontWeight: 700,
-    fontSize: 18,
-    color: theme.text,
-    letterSpacing: "0.02em",
-  };
-
-  const backBtn = {
-    textDecoration: "none",
-    color: theme.sage,
-    fontSize: 13,
-    border: `1px solid ${theme.border}`,
-    backgroundColor: theme.card,
-    padding: "8px 12px",
-    borderRadius: 10,
-  };
-
+export default function Header({ backLink = null }) {
   return (
-    <div style={topbar}>
-      <div style={topbarInner}>
-        <a href="/" style={brand}>
-          <span style={{ fontSize: 22 }}>◉</span>
-          <span style={brandTitle}>Le Pouls du Monde</span>
+    <header className="site-header">
+      <div className="site-header-inner">
+        <a className="site-brand" href="/" aria-label="Le Pouls du Monde — accueil">
+          <span className="site-brand-mark" aria-hidden="true">
+            <img src="/brand/pouls-du-monde-logo-master.webp" alt="" width="54" height="40" />
+          </span>
+          <span>
+            <small>Observatoire vivant</small>
+            <strong>Le Pouls du Monde</strong>
+          </span>
         </a>
 
-        {backLink && (
-          <a href={backLink} style={backBtn}>
-            ← Retour
-          </a>
+        {backLink ? (
+          <a className="header-back" href={backLink}>← Retour à l’observatoire</a>
+        ) : (
+          <nav className="site-nav" aria-label="Navigation principale">
+            <a href="/#carte">La carte</a>
+            <a href="/#methodologie">La méthode</a>
+            <a href="/sante-sources">Les sources</a>
+          </nav>
         )}
       </div>
-    </div>
+
+      <style jsx>{`
+        .site-header {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          border-bottom: 1px solid rgba(173, 213, 213, 0.14);
+          background: rgba(5, 17, 23, 0.9);
+          backdrop-filter: blur(18px);
+        }
+        .site-header-inner {
+          width: min(1320px, calc(100% - 32px));
+          min-height: 70px;
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+        }
+        .site-brand {
+          display: inline-flex;
+          align-items: center;
+          min-width: 0;
+          gap: 10px;
+          color: #f1fbfb;
+          text-decoration: none;
+        }
+        .site-brand-mark {
+          width: 42px;
+          height: 42px;
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border: 1px solid rgba(95, 218, 201, 0.27);
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(95, 218, 201, 0.16), rgba(95, 218, 201, 0.03));
+        }
+        .site-brand-mark img { width: 54px; height: 40px; object-fit: contain; }
+        .site-brand small,
+        .site-brand strong { display: block; }
+        .site-brand small {
+          margin-bottom: 2px;
+          color: #80aaa9;
+          font-size: 0.56rem;
+          font-weight: 800;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+        }
+        .site-brand strong { font-size: 0.92rem; letter-spacing: -0.02em; }
+        .site-nav { display: flex; align-items: center; gap: 7px; }
+        .site-nav a,
+        .header-back {
+          padding: 8px 10px;
+          border: 1px solid transparent;
+          color: #abc4c5;
+          font-size: 0.72rem;
+          font-weight: 750;
+          letter-spacing: 0.03em;
+          text-decoration: none;
+          transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+        }
+        .site-nav a:hover,
+        .header-back:hover {
+          border-color: rgba(95, 218, 201, 0.24);
+          background: rgba(95, 218, 201, 0.06);
+          color: #f1fbfb;
+        }
+        .site-nav a:focus-visible,
+        .header-back:focus-visible,
+        .site-brand:focus-visible { outline: 2px solid #5fdac9; outline-offset: 4px; }
+        @media (max-width: 680px) {
+          .site-header-inner { width: min(100% - 20px, 1320px); min-height: 62px; }
+          .site-brand small { display: none; }
+          .site-nav { gap: 0; }
+          .site-nav a { padding: 8px 7px; font-size: 0.64rem; }
+          .site-nav a:nth-child(2) { display: none; }
+          .header-back { padding-right: 0; font-size: 0.67rem; }
+        }
+      `}</style>
+    </header>
   );
 }
