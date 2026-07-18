@@ -1,9 +1,11 @@
 import InformationPage from "../../components/InformationPage";
+import { pageMetadata } from "../../lib/site-metadata.js";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Mentions légales — Le Pouls du Monde",
   description: "Informations légales et conditions de lecture de l'observatoire Le Pouls du Monde.",
-};
+  path: "/mentions-legales",
+});
 
 export default function MentionsLegalesPage() {
   return (
@@ -19,10 +21,17 @@ export default function MentionsLegalesPage() {
       <p>Les données proviennent de services tiers. Elles peuvent contenir des retards, des imprécisions ou des interruptions. Elles ne remplacent pas les informations des autorités compétentes, des médias d'origine ou des professionnels concernés.</p>
 
       <h2>Hébergement</h2>
-      <p>Le site est hébergé sur l'infrastructure Vercel.</p>
+      <p>Le site est hébergé par Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis.</p>
+      <p>Vercel intervient comme hébergeur technique et n’est pas l’éditeur du contenu de l’observatoire.</p>
 
       <h2>Propriété intellectuelle</h2>
       <p>Les textes, l'identité visuelle, le code et la mise en page du site ne peuvent être reproduits sans autorisation. Les articles consultés restent la propriété de leurs éditeurs respectifs.</p>
+
+      <h2>Responsabilité éditoriale</h2>
+      <p>Le Pouls du Monde organise des liens et des signaux issus de publications publiques. Il n’écrit pas à la place des médias cités et n’attribue pas aux sources d’origine les regroupements ou visualisations produits par l’observatoire.</p>
+
+      <h2>Méthode et corrections</h2>
+      <p>La méthode de localisation, les limites de lecture et l’état des sources sont publiés sur le site. Lorsqu’une incohérence est confirmée dans l’affichage ou le traitement, elle doit être corrigée dans une version ultérieure sans modifier la publication d’origine.</p>
 
       <h2>Éditeur et contact</h2>
       <p>L'identité complète de l'éditeur, son statut, son adresse de contact et, le cas échéant, ses informations d'immatriculation doivent être publiés ici avant toute exploitation commerciale ou communication publique du site.</p>

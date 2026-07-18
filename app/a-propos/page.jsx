@@ -1,9 +1,11 @@
 import InformationPage from "../../components/InformationPage";
+import { pageMetadata } from "../../lib/site-metadata.js";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "À propos — Le Pouls du Monde",
   description: "La méthode de lecture et les principes de transparence de Le Pouls du Monde.",
-};
+  path: "/a-propos",
+});
 
 export default function AProposPage() {
   return (
@@ -23,6 +25,13 @@ export default function AProposPage() {
 
       <h2>Un outil d'exploration</h2>
       <p>Le site est conçu pour faire émerger des questions et donner envie de consulter les sources, pas pour produire une vérité définitive. La section de transparence de l'accueil permet de vérifier comment les données ont été construites.</p>
+
+      <h2>Pour aller plus loin</h2>
+      <ul>
+        <li><a href="/carte-actualite-mondiale">Comprendre la carte de l’actualité mondiale</a></li>
+        <li><a href="/methode-localisation-actualite">Lire la méthode de localisation</a></li>
+        <li><a href="/sources-rss-internationales">Consulter les principes de sélection des sources</a></li>
+      </ul>
     </InformationPage>
   );
 }

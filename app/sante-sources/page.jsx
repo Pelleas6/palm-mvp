@@ -1,9 +1,15 @@
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { getWorldPulseDashboardPayload } from "../../lib/world-pulse.js";
+import { pageMetadata } from "../../lib/site-metadata.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const metadata = pageMetadata({
+  title: "Santé des sources",
+  description: "État technique et fraîcheur des sources publiques lues par Le Pouls du Monde.",
+  path: "/sante-sources",
+});
 
 function healthStateLabel(state) {
   const labels = {

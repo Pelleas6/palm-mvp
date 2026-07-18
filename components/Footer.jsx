@@ -13,6 +13,9 @@ export default function Footer() {
         <VisitCounter />
         <nav aria-label="Informations du site">
           <a href="/a-propos">À propos</a>
+          <a href="/carte-actualite-mondiale">Comprendre la carte</a>
+          <a href="/methode-localisation-actualite">Méthode</a>
+          <a href="/sources-rss-internationales">Sources RSS</a>
           <a href="/sante-sources">Santé des sources</a>
           <a href="/confidentialite">Confidentialité</a>
           <a href="/mentions-legales">Mentions légales</a>

@@ -1,4 +1,5 @@
 import "./globals.css";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_ORIGIN } from "../lib/site-metadata.js";
 
 // Ces règles arrivent dans le premier octet HTML, avant les styles détaillés
 // du tableau de bord client : l'utilisateur ne voit donc jamais une page
@@ -19,16 +20,51 @@ const criticalShellCss = `
 `;
 
 export const metadata = {
-  title: "Le Pouls du Monde — l'actualité mondiale en mouvement",
-  description: "Un observatoire visuel des signaux médiatiques mondiaux : événements localisés, sources et tendances, avec une méthode transparente.",
-  keywords: ["actualité mondiale", "carte du monde", "GDELT", "RSS", "signaux médiatiques", "Le Pouls du Monde"],
+  metadataBase: new URL(SITE_ORIGIN),
+  title: "Le Pouls du Monde | Carte de l’actualité mondiale",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
   openGraph: {
-    title: "Le Pouls du Monde",
-    description: "Voir les signaux médiatiques mondiaux prendre forme sur une carte vivante.",
+    title: "Le Pouls du Monde | Carte de l’actualité mondiale",
+    description: SITE_DESCRIPTION,
+    url: "/",
     type: "website",
     locale: "fr_FR",
+    siteName: SITE_NAME,
   },
-  robots: { index: true, follow: true },
+  twitter: {
+    card: "summary",
+    title: "Le Pouls du Monde | Carte de l’actualité mondiale",
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+};
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_ORIGIN}/#website`,
+      url: SITE_ORIGIN,
+      name: SITE_NAME,
+      inLanguage: "fr-FR",
+      description: SITE_DESCRIPTION,
+      publisher: { "@id": `${SITE_ORIGIN}/#organization` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${SITE_ORIGIN}/#organization`,
+      name: SITE_NAME,
+      url: SITE_ORIGIN,
+      description: "Observatoire visuel des signaux médiatiques mondiaux.",
+    },
+  ],
 };
 
 export const viewport = {
@@ -41,6 +77,10 @@ export default function RootLayout({ children }) {
     <html lang="fr">
       <head>
         <style dangerouslySetInnerHTML={{ __html: criticalShellCss }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
+        />
       </head>
       <body>{children}</body>
     </html>

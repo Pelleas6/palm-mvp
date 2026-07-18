@@ -1,9 +1,11 @@
 import InformationPage from "../../components/InformationPage";
+import { pageMetadata } from "../../lib/site-metadata.js";
 
-export const metadata = {
+export const metadata = pageMetadata({
   title: "Confidentialité — Le Pouls du Monde",
   description: "Comment Le Pouls du Monde traite les données nécessaires à son fonctionnement.",
-};
+  path: "/confidentialite",
+});
 
 export default function ConfidentialitePage() {
   return (

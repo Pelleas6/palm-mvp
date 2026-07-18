@@ -16,8 +16,8 @@ export default function Header({ backLink = null }) {
         ) : (
           <nav className="site-nav" aria-label="Navigation principale">
             <a href="/#carte">La carte</a>
-            <a href="/#methodologie">La méthode</a>
-            <a href="/sante-sources">Les sources</a>
+            <a href="/methode-localisation-actualite">La méthode</a>
+            <a href="/sources-rss-internationales">Les sources</a>
           </nav>
         )}
       </div>
