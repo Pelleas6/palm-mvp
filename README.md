@@ -39,6 +39,16 @@ COUNTER_API_COUNTER=explorations
 
 Optionnellement, le nom de l'espace public V1 peut être remplacé avec `COUNTER_API_NAMESPACE`.
 
+## Fiabilité et protection
+
+- la page relit son instantané toutes les 30 secondes, mais les flux externes restent mis en cache côté serveur pendant au moins 15 minutes ;
+- si une nouvelle lecture échoue, le dernier instantané valide peut être servi pendant 24 heures (`stale-if-error`) au lieu de vider la carte ;
+- les flux sont lus avec une concurrence limitée, un délai RSS de 5,5 secondes et une taille de réponse maximale de 1,5 Mo ;
+- les routes publiques appliquent un lissage anti-rafale par instance et retournent une réponse `429` avec délai de reprise plutôt que de surcharger les sources ;
+- les en-têtes de sécurité désactivent l'encadrement par des tiers, les types MIME ambigus et les permissions navigateur inutiles.
+
+Le lissage applicatif complète la protection d'infrastructure. Pour une exposition importante, activer aussi les protections anti-DDoS / WAF du fournisseur d'hébergement au niveau du domaine.
+
 ## Pages publiques
 
 - `/` — carte et exploration des signaux

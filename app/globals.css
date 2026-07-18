@@ -2,6 +2,12 @@
   color-scheme: dark;
   background: #051117;
   --font-sans: "Segoe UI Variable", "Aptos", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #051117;
+  --panel: rgba(11, 31, 39, 0.88);
+  --line: rgba(173, 213, 213, 0.17);
+  --ink: #effafa;
+  --muted: #abc4c5;
+  --accent: #5fdac9;
 }
 
 html {
@@ -22,4 +28,39 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* Socle chargé par le layout : il garde une hiérarchie lisible même avant que
+   les styles fins du tableau de bord soient appliqués. */
+.pulse-shell {
+  width: min(1320px, calc(100% - 32px));
+  min-height: 72vh;
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+.pulse-shell .top-strip,
+.pulse-shell .metric-grid,
+.pulse-shell .map-experience {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.pulse-shell .title-block,
+.pulse-shell .status-panel,
+.pulse-shell .panel,
+.pulse-shell .metric-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.pulse-shell .title-block { min-height: 238px; padding: clamp(24px, 3.4vw, 40px); }
+.pulse-shell .map-panel-wide { padding: 18px; }
+.pulse-shell .signal-field { padding: 8px; overflow: hidden; background: #07110f; }
+.pulse-shell .map-viewport { position: relative; width: 100%; aspect-ratio: 2 / 1; overflow: hidden; }
+
+@media (max-width: 680px) {
+  .pulse-shell { width: min(1320px, calc(100% - 20px)); padding-top: 10px; }
+  .pulse-shell .title-block { min-height: 0; padding: 24px; }
 }

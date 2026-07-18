@@ -29,6 +29,9 @@ test("dashboard payload contract keeps API, server page and component on the sam
   const pageSource = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
   const componentSource = await readFile(new URL("../components/WorldPulseDashboard.js", import.meta.url), "utf8");
   const layoutSource = await readFile(new URL("../app/layout.js", import.meta.url), "utf8");
+  const globalsSource = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const headerSource = await readFile(new URL("../components/Header.jsx", import.meta.url), "utf8");
+  const nextConfigSource = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
   const loadingSource = await readFile(new URL("../app/loading.jsx", import.meta.url), "utf8");
   const sourceHealthPage = await readFile(new URL("../app/sante-sources/page.jsx", import.meta.url), "utf8");
 
@@ -40,13 +43,19 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /useState\(\(\) => initialPayload \|\| \{ state: "loading" \}\)/);
   assert.match(componentSource, /if \(!hasUsableInitialPayload\(initialPayload\)\) load\(\{ showLoading: true \}\);/);
   assert.match(layoutSource, /import "\.\/globals\.css"/);
+  assert.match(layoutSource, /criticalShellCss/);
+  assert.match(globalsSource, /\.pulse-shell/);
   assert.match(loadingSource, /Préparation de la carte/);
   assert.match(componentSource, /Atlas vivant de l'actualité mondiale/);
   assert.match(componentSource, /Voyez les événements cités dans l'actualité prendre forme sur une carte/);
   assert.match(componentSource, /const REFRESH_MS = 30 \* 1000/);
   assert.match(componentSource, /Survolez un repère sur ordinateur ou touchez-le sur mobile/);
   assert.match(componentSource, /<section className="map-experience" id="carte">/);
+  assert.match(componentSource, /className="map-viewport"/);
+  assert.match(componentSource, /aspect-ratio: 2 \/ 1/);
   assert.match(componentSource, /<section className="insight-grid"/);
+  assert.match(componentSource, /<SituationBrief/);
+  assert.match(componentSource, /Exporter les données CSV/);
   assert.match(componentSource, /className="particle-layer"/);
   assert.match(componentSource, /className=\{`particle \$\{className\}/);
   assert.match(componentSource, /Point = un article · bulle = plusieurs articles proches du même thème/);
@@ -56,10 +65,11 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /\.top-strip \{[\s\S]+align-items: start/);
   assert.match(componentSource, /<Metric label="Signaux cartographiés"/);
   assert.match(componentSource, /<Metric label="Sources en ligne"/);
-  assert.match(componentSource, /<img className="title-logo"[\s\S]+src="\/brand\/pouls-du-monde-logo-master\.webp"[\s\S]+alt="Le Pouls du Monde"[\s\S]+width="120" height="85"/);
-  assert.match(componentSource, /\.title-logo-frame \{[\s\S]+width: clamp\(76px, 8vw, 108px\)/);
-  assert.match(componentSource, /\.title-logo \{[\s\S]+width: 100%;[\s\S]+height: 100%;[\s\S]+object-fit: contain/);
-  assert.match(componentSource, /\.title-logo-frame \{ width: clamp\(66px, 19vw, 88px\)/);
+  assert.doesNotMatch(componentSource, /pouls-du-monde-logo-master\.webp/);
+  assert.doesNotMatch(headerSource, /pouls-du-monde-logo-master\.webp/);
+  assert.doesNotMatch(headerSource, /site-brand-mark/);
+  assert.match(nextConfigSource, /Content-Security-Policy/);
+  assert.match(nextConfigSource, /poweredByHeader: false/);
   assert.match(componentSource, /momentTrends = sourceTrends\.filter\(isDisplayableTrendChip\)\.slice\(0, 3\)/);
   assert.match(componentSource, /Tendances du moment/);
   assert.match(componentSource, /hasTrendContext/);

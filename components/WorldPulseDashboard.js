@@ -167,16 +167,18 @@ async function copyText(text) {
 }
 
 function formatBriefForCopy(brief, generatedAt) {
+  const safeBrief = brief || {};
+  const topMedia = Array.isArray(safeBrief.topMedia) ? safeBrief.topMedia : [];
   const lines = [
     "Le Pouls du Monde — brief de situation",
     `Lecture : ${formatDate(generatedAt)}`,
-    `Flux reçu : ${brief.articles} article(s) · ${brief.localizedArticles} localisé(s) dans ${brief.countries} pays`,
-    brief.headline,
+    `Flux reçu : ${safeBrief.articles || 0} article(s) · ${safeBrief.localizedArticles || 0} localisé(s) dans ${safeBrief.countries || 0} pays`,
+    safeBrief.headline || "Aucun point de concentration ne peut encore être établi.",
   ];
-  if (brief.topCategory) lines.push(`Thème le plus présent : ${brief.topCategory.label} (${brief.topCategory.count})`);
-  if (brief.topMedia.length > 0) lines.push(`Médias les plus présents : ${brief.topMedia.map((item) => `${item.label} (${item.count})`).join(", ")}`);
-  lines.push(`Localisation vérifiable dans le texte : ${brief.localizationPct}% · ${brief.unlocalizedArticles} article(s) à qualifier.`);
-  lines.push(`Méthode : ${brief.methodNote}`);
+  if (safeBrief.topCategory) lines.push(`Thème le plus présent : ${safeBrief.topCategory.label} (${safeBrief.topCategory.count})`);
+  if (topMedia.length > 0) lines.push(`Médias les plus présents : ${topMedia.map((item) => `${item.label} (${item.count})`).join(", ")}`);
+  lines.push(`Localisation vérifiable dans le texte : ${safeBrief.localizationPct || 0}% · ${safeBrief.unlocalizedArticles || 0} article(s) à qualifier.`);
+  lines.push(`Méthode : ${safeBrief.methodNote || "lecture limitée aux articles réellement reçus."}`);
   return lines.join("\n");
 }
 
@@ -188,6 +190,11 @@ function countFromPayload(payloadCounts, key, fallback = 0) {
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
+
+// Les coordonnées sont calculées sur le même canevas 1000 × 500 que le SVG.
+// Cette marge protège les petits États insulaires sans jamais laisser une bulle
+// déborder dans le cadre décoratif extérieur.
+const MAP_POINT_BOUNDS = Object.freeze({ left: 2, right: 98, top: 2.5, bottom: 97.5 });
 
 function WorldMapBackdrop({ availableCountryCodes = [], selectedCountryCodes = [], onSelectCountry = () => {} }) {
   const selectableCodes = new Set(availableCountryCodes);
@@ -277,6 +284,16 @@ function useGdeltPulse(initialPayload) {
           });
           return;
         }
+        if (!response.ok || ["error", "unavailable", "rate_limited"].includes(data.state)) {
+          applyClientError({
+            state: "error",
+            error: { reason: data?.error?.reason || `Rafraîchissement non disponible (${response.status})` },
+            articles: [],
+            counts: EMPTY_COUNTS,
+            groupings: { domains: [], countries: [], languages: [], labels: [] },
+          });
+          return;
+        }
         setPayload(data);
         hasPayload = true;
       } catch (error) {
@@ -340,8 +357,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
     showMediaMarkers ? mediaMarkers.map((point, index) => ({
       ...point,
       kind: "media",
-      left: clamp(point.x, 1.2, 98.8),
-      top: clamp(point.y, 1.8, 98.2),
+      left: clamp(point.x, MAP_POINT_BOUNDS.left, MAP_POINT_BOUNDS.right),
+      top: clamp(point.y, MAP_POINT_BOUNDS.top, MAP_POINT_BOUNDS.bottom),
       size: point.size || 8,
       color: colorForLabel(point.label),
       delay: `${(index % 12) * 0.08}s`,
@@ -351,8 +368,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
     articleParticles.filter((point) => !point.clusterId).map((point, index) => ({
       ...point,
       kind: "article",
-      left: clamp(point.x, 1.2, 98.8),
-      top: clamp(point.y, 1.8, 98.2),
+      left: clamp(point.x, MAP_POINT_BOUNDS.left, MAP_POINT_BOUNDS.right),
+      top: clamp(point.y, MAP_POINT_BOUNDS.top, MAP_POINT_BOUNDS.bottom),
       size: point.size || 4,
       color: colorForLabel(point.label),
       delay: `${((index + 4) % 18) * 0.06}s`,
@@ -363,8 +380,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       ...point,
       kind: "article-cluster",
       mediaName: point.mediaNames?.join(", ") || point.location?.label || "Cluster articles",
-      left: clamp(point.x, 1.2, 98.8),
-      top: clamp(point.y, 1.8, 98.2),
+      left: clamp(point.x, MAP_POINT_BOUNDS.left, MAP_POINT_BOUNDS.right),
+      top: clamp(point.y, MAP_POINT_BOUNDS.top, MAP_POINT_BOUNDS.bottom),
       size: point.size || 14,
       color: colorForLabel(point.label),
       delay: `${((index + 8) % 18) * 0.06}s`,
@@ -421,35 +438,37 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
 
   return (
     <div className="signal-field" aria-label="Carte du monde des événements localisés : points et bulles par proximité et thème">
-      <WorldMapBackdrop
-        availableCountryCodes={availableCountryCodes}
-        selectedCountryCodes={selectedPoint?.type === "country" ? [selectedPoint.code] : []}
-        onSelectCountry={(code) => onSelectCountry({ type: "country", code })}
-      />
-      <div className="field-grid" aria-hidden="true" />
-      {loading && !hasVisiblePoints ? (
-        <div className="state-copy">
-          <div className="loader" aria-hidden="true" />
-          <strong>Interrogation RSS public puis tendances GDELT Web N-Grams</strong>
-          <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
+      <div className="map-viewport">
+        <WorldMapBackdrop
+          availableCountryCodes={availableCountryCodes}
+          selectedCountryCodes={selectedPoint?.type === "country" ? [selectedPoint.code] : []}
+          onSelectCountry={(code) => onSelectCountry({ type: "country", code })}
+        />
+        <div className="field-grid" aria-hidden="true" />
+        {loading && !hasVisiblePoints ? (
+          <div className="state-copy">
+            <div className="loader" aria-hidden="true" />
+            <strong>Interrogation RSS public puis tendances GDELT Web N-Grams</strong>
+            <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
+          </div>
+        ) : null}
+        {!loading && !hasVisiblePoints && unlocalized > 0 ? (
+          <div className="state-copy compact-state">
+            <strong>Aucun événement localisable sur la carte</strong>
+            <span>Les articles réels restent comptés non localisés pour ne pas inventer de pays d'événement.</span>
+          </div>
+        ) : null}
+        {!loading && !hasVisiblePoints && unlocalized === 0 ? (
+          <div className="state-copy">
+            <strong>{state === "unavailable" ? "Sources indisponibles" : "Aucun signal exploitable"}</strong>
+            <span>La visualisation reste vide tant qu'aucun article réel n'est reçu.</span>
+          </div>
+        ) : null}
+        <div className="particle-layer">
+          {particles.map((particle) => renderPoint(particle, "article-particle"))}
+          {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
+          {markers.map((marker) => renderPoint(marker, "media-marker"))}
         </div>
-      ) : null}
-      {!loading && !hasVisiblePoints && unlocalized > 0 ? (
-        <div className="state-copy compact-state">
-          <strong>Aucun événement localisable sur la carte</strong>
-          <span>Les articles réels restent comptés non localisés pour ne pas inventer de pays d'événement.</span>
-        </div>
-      ) : null}
-      {!loading && !hasVisiblePoints && unlocalized === 0 ? (
-        <div className="state-copy">
-          <strong>{state === "unavailable" ? "Sources indisponibles" : "Aucun signal exploitable"}</strong>
-          <span>La visualisation reste vide tant qu'aucun article réel n'est reçu.</span>
-        </div>
-      ) : null}
-      <div className="particle-layer">
-        {particles.map((particle) => renderPoint(particle, "article-particle"))}
-        {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
-        {markers.map((marker) => renderPoint(marker, "media-marker"))}
       </div>
     </div>
   );
@@ -650,6 +669,75 @@ function ReadingPanel({ selection }) {
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+function SituationBrief({ brief, generatedAt, articles, activeSources, auditedSources, loading = false }) {
+  const [feedback, setFeedback] = useState("");
+  const safeBrief = brief || {};
+  const topCountry = safeBrief.topCountry || null;
+  const topCategory = safeBrief.topCategory || null;
+  const topCategoryLabel = topCategory?.label === "Non déterminé" ? "À qualifier" : topCategory?.label || "—";
+  const topMedia = Array.isArray(safeBrief.topMedia) ? safeBrief.topMedia : [];
+  const safeArticles = Array.isArray(articles) ? articles : [];
+
+  async function handleCopy() {
+    try {
+      const copied = await copyText(formatBriefForCopy(safeBrief, generatedAt));
+      setFeedback(copied ? "Brief copié." : "Copie indisponible sur cet appareil.");
+    } catch {
+      setFeedback("Copie indisponible sur cet appareil.");
+    }
+  }
+
+  function handleDownload() {
+    const downloaded = downloadFilteredArticles(safeArticles);
+    setFeedback(downloaded ? `Export CSV prêt : ${safeArticles.length} article(s).` : "Export indisponible sur cet appareil.");
+  }
+
+  return (
+    <section className="panel situation-brief" aria-label="Analyse vérifiable et export des données filtrées">
+      <div className="panel-heading brief-heading">
+        <div>
+          <p>Analyse vérifiable</p>
+          <h2>Brief du flux</h2>
+        </div>
+        <span>{loading ? "mise à jour" : `${safeBrief.articles || 0} articles`}</span>
+      </div>
+      <p className="brief-headline">{safeBrief.headline || "Le flux est en attente d’articles exploitables."}</p>
+      <div className="brief-grid">
+        <div>
+          <span>Point le plus couvert</span>
+          <strong>{topCountry?.label || "Aucun pays confirmé"}</strong>
+          <small>{topCountry ? `${topCountry.articleCount} signal${topCountry.articleCount > 1 ? "aux" : ""} · ${safeBrief.concentrationPct || 0}% de la carte` : "Le texte ne nomme pas encore de pays avec assez de certitude."}</small>
+        </div>
+        <div>
+          <span>Thème dominant</span>
+          <strong>{topCategoryLabel}</strong>
+          <small>{topCategory ? `${topCategory.count} article${topCategory.count > 1 ? "s" : ""} dans le filtre actif` : "Aucune catégorie exploitable."}</small>
+        </div>
+        <div>
+          <span>Qualité de localisation</span>
+          <strong>{loading ? "—" : `${safeBrief.localizationPct || 0}%`}</strong>
+          <small>{safeBrief.localizedArticles || 0} localisés · {safeBrief.unlocalizedArticles || 0} à qualifier</small>
+        </div>
+        <div>
+          <span>Sources actives</span>
+          <strong>{loading ? "—" : `${activeSources}/${auditedSources}`}</strong>
+          <small>Contrôlées côté serveur et servies depuis le cache vérifié.</small>
+        </div>
+      </div>
+      <div className="brief-source-line">
+        <span>Médias les plus présents</span>
+        <p>{topMedia.length > 0 ? topMedia.map((item) => `${item.label} · ${item.count}`).join(" / ") : "Aucune répartition média exploitable sur le filtre actif."}</p>
+      </div>
+      <div className="brief-actions">
+        <button type="button" onClick={handleCopy} disabled={loading}>Copier le brief</button>
+        <button type="button" onClick={handleDownload} disabled={loading || safeArticles.length === 0}>Exporter les données CSV</button>
+      </div>
+      <p className="brief-feedback" role="status" aria-live="polite">{feedback}</p>
+      <p className="brief-method">{safeBrief.methodNote || "Cette analyse utilise uniquement les articles RSS réellement reçus et le filtre actuellement affiché."}</p>
     </section>
   );
 }
@@ -949,9 +1037,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <div className="title-block">
           <p className="eyebrow">Atlas vivant de l'actualité mondiale</p>
           <div className="title-heading">
-            <span className="title-logo-frame">
-              <img className="title-logo" src="/brand/pouls-du-monde-logo-master.webp" alt="Le Pouls du Monde" width="120" height="85" decoding="async" />
-            </span>
             <h1>Le Pouls <span>du Monde</span></h1>
           </div>
           <p>
@@ -1042,9 +1127,20 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         />
       </section>
 
-      <section className="insight-grid" aria-label="Lecture des signaux sélectionnés et des articles reçus">
-        <MomentTrendsPanel trends={globalTrends} loading={loading} />
+      <section className="analysis-grid" aria-label="Analyse vérifiable des articles actuellement filtrés">
+        <SituationBrief
+          brief={exploration.brief}
+          generatedAt={payload.generatedAt}
+          articles={articles}
+          activeSources={rssActiveSourceCount}
+          auditedSources={rssAuditedSourceCount}
+          loading={loading}
+        />
         <ReadingPanel selection={exploration.selection} />
+      </section>
+
+      <section className="insight-grid" aria-label="Tendances et articles reçus">
+        <MomentTrendsPanel trends={globalTrends} loading={loading} />
         <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} loading={loading} />
       </section>
 
@@ -1171,27 +1267,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         h1, h2 { margin: 0; text-wrap: pretty; }
         .title-heading {
-          display: flex;
-          align-items: center;
-          gap: clamp(12px, 1.7vw, 20px);
           min-width: 0;
-        }
-        .title-logo-frame {
-          width: clamp(76px, 8vw, 108px);
-          height: clamp(54px, 5.7vw, 77px);
-          flex: 0 0 clamp(76px, 8vw, 108px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-        }
-        .title-logo {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          background: transparent;
-          filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.24));
         }
         h1 {
           font-size: clamp(2.85rem, 5.7vw, 5.8rem);
@@ -1523,14 +1599,21 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           gap: 12px;
           margin-bottom: 18px;
         }
-        .insight-grid {
+        .analysis-grid {
           display: grid;
-          grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr) minmax(0, 1.18fr);
+          grid-template-columns: minmax(0, 1.36fr) minmax(300px, 0.64fr);
           gap: 18px;
           align-items: start;
           margin-bottom: 18px;
         }
-        .map-experience > *, .insight-grid > *, .map-panel, .reading-panel, .stream-panel {
+        .insight-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+          gap: 18px;
+          align-items: start;
+          margin-bottom: 18px;
+        }
+        .map-experience > *, .analysis-grid > *, .insight-grid > *, .map-panel, .reading-panel, .stream-panel {
           min-width: 0;
         }
         .map-panel {
@@ -1649,16 +1732,23 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           position: relative;
           width: 100%;
           min-width: 0;
-          aspect-ratio: 2.08 / 1;
-          min-height: clamp(410px, 45vw, 640px);
+          padding: 8px;
           overflow: hidden;
-          isolation: isolate;
           border: 1px solid var(--line-strong);
           background:
             radial-gradient(circle at 48% 45%, rgba(62, 214, 195, 0.13), transparent 35%),
             radial-gradient(circle at 70% 55%, rgba(131, 168, 255, 0.09), transparent 30%),
             linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 45%),
             #07110f;
+        }
+        .map-viewport {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 2 / 1;
+          overflow: hidden;
+          isolation: isolate;
+          border-radius: 18px;
+          box-shadow: inset 0 0 0 1px rgba(140, 211, 208, 0.22);
         }
         .world-map {
           position: absolute;
@@ -1884,6 +1974,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         /* Les points sont l'interface principale : aucune pastille blanche,
            seulement une lumière colorée et une zone tactile volontairement large. */
         .particle {
+          --particle-visual-scale: 1;
           position: absolute;
           z-index: 3;
           display: block;
@@ -1893,7 +1984,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           cursor: pointer;
           pointer-events: auto;
           touch-action: manipulation;
-          transform: translate(-50%, -50%);
+          transform: translate(-50%, -50%) scale(var(--particle-visual-scale));
           background: color-mix(in srgb, var(--particle-color) 60%, #0d1e1d);
           transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
         }
@@ -2104,7 +2195,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .brief-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 7px;
           margin-top: 13px;
         }
@@ -2157,7 +2248,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .brief-actions button:last-child { color: var(--muted); background: rgba(255, 255, 255, 0.025); border-color: var(--line); }
         .brief-actions button:hover,
         .brief-actions button:focus-visible { border-color: var(--accent); outline: none; }
+        .brief-actions button:disabled { cursor: not-allowed; opacity: 0.52; }
         .brief-feedback { min-height: 1.25em; margin: 9px 0 0; color: var(--accent); font-size: 0.66rem; line-height: 1.35; }
+        .brief-method { margin: 0; color: var(--subtle); font-size: 0.67rem; line-height: 1.45; }
 
         .mini-panel { min-height: 250px; box-shadow: none; }
         .muted { color: var(--muted); line-height: 1.55; }
@@ -2341,19 +2434,20 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 1080px) {
-          .top-strip, .insight-grid { grid-template-columns: 1fr; }
+          .top-strip, .analysis-grid, .insight-grid { grid-template-columns: 1fr; }
           .metric-grid, .bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .top-categories-row .count-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .time-grid { grid-template-columns: 1fr; }
           .stream-panel { max-height: none; }
           .article-list { max-height: none; }
+          .brief-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         @media (hover: none), (pointer: coarse) {
-          .particle::after { inset: -14px; }
+          .particle::after { inset: -34px; }
           .particle-tooltip { display: none; }
-          .particle:hover { transform: translate(-50%, -50%); }
+          .particle:hover { transform: translate(-50%, -50%) scale(var(--particle-visual-scale)); }
         }
 
         @media (max-width: 680px) {
@@ -2365,18 +2459,22 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .location-filter { align-items: flex-start; flex-direction: column; gap: 7px; }
           .location-filter > div { width: 100%; }
           .location-filter button { flex: 1 1 30%; padding-inline: 6px; }
-          .top-strip, .metric-grid, .bottom-grid, .map-experience, .insight-grid { gap: 10px; margin-bottom: 10px; }
+          .top-strip, .metric-grid, .bottom-grid, .map-experience, .analysis-grid, .insight-grid { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 0; padding: 24px; }
           .status-panel { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
           .status-panel > a { grid-column: 2; justify-self: start; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
-          .title-heading { align-items: center; gap: 10px; }
-          .title-logo-frame { width: clamp(66px, 19vw, 88px); height: clamp(47px, 13.5vw, 62px); flex-basis: clamp(66px, 19vw, 88px); }
           .top-categories-row .count-list { grid-template-columns: 1fr; }
           .map-heading-actions { justify-content: flex-start; width: 100%; }
           .map-status-chip, .off-map-chip, .layer-toggle { max-width: none; text-align: left; border-radius: 14px; width: 100%; }
           .panel { padding: 16px; }
-          .signal-field { min-height: 0; aspect-ratio: 1.55 / 1; }
+          .signal-field { padding: 5px; }
+          .map-viewport { border-radius: 11px; }
+          .particle { --particle-visual-scale: 0.62; }
+          .particle:hover,
+          .particle:focus-visible { transform: translate(-50%, -50%) scale(0.73); }
+          .cluster-count { font-size: calc(var(--cluster-font-size, 0.7rem) + 3px); }
+          .brief-grid { grid-template-columns: 1fr; }
           .signal-legend { display: flex; gap: 9px 12px; }
           .signal-legend ul { display: flex; flex: 1 0 100%; gap: 7px 12px; }
           .signal-legend li { min-width: 0; }

@@ -674,7 +674,7 @@ test("GDELT DOC canary uses a thirty-second default timeout", async () => {
     globalThis.clearTimeout = originalClearTimeout;
   }
 
-  assert.ok(timeoutCalls.includes(4000), "RSS gets a restrained 4s timeout to reduce false source failures");
+  assert.ok(timeoutCalls.includes(5500), "RSS gets 5.5s before being marked unavailable, which reduces false timeouts without removing the server-side concurrency cap");
   assert.ok(timeoutCalls.includes(2500), "Web N-Grams keeps its lightweight 2.5s fetch timeout");
   assert.equal(timeoutCalls.at(-1), 30_000, "GDELT DOC canary default timeout must be 30s");
 });
@@ -845,4 +845,26 @@ test("getWorldPulse returns unavailable with documented source states when RSS h
   assert.ok(payload.sourceHealth.some((entry) => entry.source === "Mock RSS" && entry.state === "HTTP_ERROR"));
   assert.ok(payload.sourceHealth.some((entry) => entry.source === "GDELT Web N-Grams TOC" && entry.state === "INVALID_RESPONSE"));
   assert.match(payload.notice, /Aucune donnée de démonstration/i);
+});
+
+test("RSS ingestion rejects oversized source bodies without exhausting the dashboard response", async () => {
+  const payload = await getWorldPulse({
+    cache: createPulseCache(),
+    fetchImpl: async (url) => {
+      const href = String(url);
+      if (href.includes("oversized.example")) {
+        return textResponse(`<rss><channel>${"x".repeat(1_600_000)}</channel></rss>`);
+      }
+      if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+      throw new Error(`unexpected fetch ${href}`);
+    },
+    now: () => new Date(FIXED_NOW),
+    gdeltCanaryDelayMs: 600_000,
+    rssFeeds: [{ name: "Oversized RSS", url: "https://oversized.example/feed.xml", language: "English", sourceCountry: "France" }],
+  });
+
+  const health = payload.sourceHealth.find((entry) => entry.source === "Oversized RSS");
+  assert.equal(payload.state, "unavailable");
+  assert.equal(health?.state, "INVALID_RESPONSE");
+  assert.match(health?.detail || "", /trop volumineuse/i);
 });

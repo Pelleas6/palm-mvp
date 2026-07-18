@@ -1,5 +1,22 @@
 import "./globals.css";
 
+// Ces règles arrivent dans le premier octet HTML, avant les styles détaillés
+// du tableau de bord client : l'utilisateur ne voit donc jamais une page
+// blanche ou une structure HTML brute pendant le chargement des bundles.
+const criticalShellCss = `
+  :root{color-scheme:dark;background:#051117}
+  html{min-height:100%;background:#051117}
+  body{min-height:100%;margin:0;background:#051117;color:#effafa;font-family:"Segoe UI Variable","Aptos",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .site-header{min-height:62px;border-bottom:1px solid rgba(173,213,213,.14);background:#051117}
+  .pulse-shell{width:min(1320px,calc(100% - 32px));min-height:72vh;margin:0 auto;padding:28px 0 40px}
+  .pulse-shell .top-strip,.pulse-shell .metric-grid,.pulse-shell .map-experience{display:grid;gap:12px;margin-bottom:18px}
+  .pulse-shell .title-block,.pulse-shell .status-panel,.pulse-shell .panel,.pulse-shell .metric-card{border:1px solid rgba(173,213,213,.17);background:#0b1f27}
+  .pulse-shell .title-block{min-height:238px;padding:clamp(24px,3.4vw,40px)}
+  .pulse-shell h1{margin:0;font-size:clamp(2.85rem,5.7vw,5.8rem);line-height:.94;letter-spacing:-.06em}
+  .pulse-shell h2{margin:0}.pulse-shell .map-panel-wide{padding:18px}.pulse-shell .signal-field{padding:8px;overflow:hidden;background:#07110f}.pulse-shell .map-viewport{position:relative;width:100%;aspect-ratio:2/1;overflow:hidden}
+  @media(max-width:680px){.pulse-shell{width:min(1320px,calc(100% - 20px));padding-top:10px}.pulse-shell .title-block{min-height:0;padding:24px}.pulse-shell h1{font-size:clamp(3.2rem,18vw,5rem)}}
+`;
+
 export const metadata = {
   title: "Le Pouls du Monde — l'actualité mondiale en mouvement",
   description: "Un observatoire visuel des signaux médiatiques mondiaux : événements localisés, sources et tendances, avec une méthode transparente.",
@@ -21,6 +38,9 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="fr">
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: criticalShellCss }} />
+      </head>
       <body>{children}</body>
     </html>
   );

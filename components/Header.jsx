@@ -5,9 +5,6 @@ export default function Header({ backLink = null }) {
     <header className="site-header">
       <div className="site-header-inner">
         <a className="site-brand" href="/" aria-label="Le Pouls du Monde — accueil">
-          <span className="site-brand-mark" aria-hidden="true">
-            <img src="/brand/pouls-du-monde-logo-master.webp" alt="" width="54" height="40" />
-          </span>
           <span>
             <small>Observatoire vivant</small>
             <strong>Le Pouls du Monde</strong>
@@ -47,21 +44,9 @@ export default function Header({ backLink = null }) {
           display: inline-flex;
           align-items: center;
           min-width: 0;
-          gap: 10px;
           color: #f1fbfb;
           text-decoration: none;
         }
-        .site-brand-mark {
-          width: 42px;
-          height: 42px;
-          display: grid;
-          place-items: center;
-          overflow: hidden;
-          border: 1px solid rgba(95, 218, 201, 0.27);
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(95, 218, 201, 0.16), rgba(95, 218, 201, 0.03));
-        }
-        .site-brand-mark img { width: 54px; height: 40px; object-fit: contain; }
         .site-brand small,
         .site-brand strong { display: block; }
         .site-brand small {
