@@ -204,7 +204,7 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage keeps 36 verified public feeds while widening India and Middle East coverage", async () => {
+test("default RSS coverage keeps 35 verified public feeds while widening India and Middle East coverage", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
@@ -213,7 +213,6 @@ test("default RSS coverage keeps 36 verified public feeds while widening India a
     ["France 24 Monde", "https://www.france24.com/fr/rss", "France"],
     ["France 24 Middle East", "https://www.france24.com/en/middle-east/rss", "France"],
     ["Deutsche Welle Top Stories", "https://rss.dw.com/rdf/rss-en-all", "Germany"],
-    ["DW Middle East", "https://rss.dw.com/rdf/rss-en-mid", "Germany"],
     ["Ukrainska Pravda English", "https://www.pravda.com.ua/eng/rss/", "Ukraine"],
     ["Daily Sabah World", "https://www.dailysabah.com/rss/world", "Turkey"],
     ["Africanews", "https://www.africanews.com/feed/rss", "Republic of Congo"],
@@ -266,11 +265,11 @@ test("default RSS coverage keeps 36 verified public feeds while widening India a
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 36);
-  assert.equal(payload.source.feeds.length, 36);
-  assert.equal(payload.counts.rssArticlesFetched, 36);
-  assert.equal(payload.counts.rssMediaSources, 36);
-  assert.equal(payload.counts.rssActiveSources, 36);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 35);
+  assert.equal(payload.source.feeds.length, 35);
+  assert.equal(payload.counts.rssArticlesFetched, 35);
+  assert.equal(payload.counts.rssMediaSources, 35);
+  assert.equal(payload.counts.rssActiveSources, 35);
   assert.equal(payload.counts.rssKnownMediaCountries, 32);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
@@ -673,7 +672,8 @@ test("GDELT DOC canary uses a thirty-second default timeout", async () => {
     globalThis.clearTimeout = originalClearTimeout;
   }
 
-  assert.ok(timeoutCalls.filter((timeoutMs) => timeoutMs === 2500).length >= 2, "RSS and Web N-Grams keep lightweight 2.5s fetch timeouts");
+  assert.ok(timeoutCalls.includes(4000), "RSS gets a restrained 4s timeout to reduce false source failures");
+  assert.ok(timeoutCalls.includes(2500), "Web N-Grams keeps its lightweight 2.5s fetch timeout");
   assert.equal(timeoutCalls.at(-1), 30_000, "GDELT DOC canary default timeout must be 30s");
 });
 
