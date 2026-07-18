@@ -169,6 +169,12 @@ async function copyText(text) {
 function formatBriefForCopy(brief, generatedAt) {
   const safeBrief = brief || {};
   const topMedia = Array.isArray(safeBrief.topMedia) ? safeBrief.topMedia : [];
+  const coveragePct = Number.isFinite(safeBrief.localizationCoveragePct)
+    ? safeBrief.localizationCoveragePct
+    : safeBrief.localizationPct || 0;
+  const qualityPct = Number.isFinite(safeBrief.localizationQualityPct)
+    ? safeBrief.localizationQualityPct
+    : 0;
   const lines = [
     "Le Pouls du Monde — brief de situation",
     `Lecture : ${formatDate(generatedAt)}`,
@@ -177,7 +183,8 @@ function formatBriefForCopy(brief, generatedAt) {
   ];
   if (safeBrief.topCategory) lines.push(`Thème le plus présent : ${safeBrief.topCategory.label} (${safeBrief.topCategory.count})`);
   if (topMedia.length > 0) lines.push(`Médias les plus présents : ${topMedia.map((item) => `${item.label} (${item.count})`).join(", ")}`);
-  lines.push(`Localisation vérifiable dans le texte : ${safeBrief.localizationPct || 0}% · ${safeBrief.unlocalizedArticles || 0} article(s) à qualifier.`);
+  lines.push(`Points cartographiés vérifiés : ${qualityPct}% · ${safeBrief.localizedArticles || 0} article(s) avec preuve.`);
+  lines.push(`Couverture cartographique : ${coveragePct}% du flux · ${safeBrief.unlocalizedArticles || 0} article(s) à localiser.`);
   lines.push(`Méthode : ${safeBrief.methodNote || "lecture limitée aux articles réellement reçus."}`);
   return lines.join("\n");
 }
@@ -408,6 +415,9 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       "--particle-color": point.color,
       "--particle-delay": point.delay,
       "--cluster-font-size": `${clamp(Math.round((point.size || 14) * 0.46), 10, 16)}px`,
+      "--cluster-mobile-font-size": `${clamp(Math.round((point.size || 14) * 0.26), 8, 12)}px`,
+      "--particle-mobile-scale": point.kind === "article-cluster" ? 0.48 : point.kind === "media" ? 0.58 : 0.72,
+      "--particle-mobile-active-scale": point.kind === "article-cluster" ? 0.58 : point.kind === "media" ? 0.68 : 0.84,
       "--particle-tooltip-left": tooltipNearLeft ? "0%" : tooltipNearRight ? "100%" : "50%",
       "--particle-tooltip-x": tooltipNearLeft ? "0%" : tooltipNearRight ? "-100%" : "-50%",
       "--particle-tooltip-top": tooltipNearTop ? "calc(100% + 10px)" : "auto",
@@ -678,7 +688,13 @@ function SituationBrief({ brief, generatedAt, articles, activeSources, auditedSo
   const safeBrief = brief || {};
   const topCountry = safeBrief.topCountry || null;
   const topCategory = safeBrief.topCategory || null;
-  const topCategoryLabel = topCategory?.label === "Non déterminé" ? "À qualifier" : topCategory?.label || "—";
+  const topCategoryLabel = topCategory?.label || "Aucun thème classé";
+  const coveragePct = Number.isFinite(safeBrief.localizationCoveragePct)
+    ? safeBrief.localizationCoveragePct
+    : safeBrief.localizationPct || 0;
+  const qualityPct = Number.isFinite(safeBrief.localizationQualityPct)
+    ? safeBrief.localizationQualityPct
+    : 0;
   const topMedia = Array.isArray(safeBrief.topMedia) ? safeBrief.topMedia : [];
   const safeArticles = Array.isArray(articles) ? articles : [];
 
@@ -715,12 +731,12 @@ function SituationBrief({ brief, generatedAt, articles, activeSources, auditedSo
         <div>
           <span>Thème dominant</span>
           <strong>{topCategoryLabel}</strong>
-          <small>{topCategory ? `${topCategory.count} article${topCategory.count > 1 ? "s" : ""} dans le filtre actif` : "Aucune catégorie exploitable."}</small>
+          <small>{topCategory ? `${topCategory.count} article${topCategory.count > 1 ? "s" : ""} dans le filtre actif` : "Les articles à qualifier sont exclus de ce classement."}</small>
         </div>
         <div>
-          <span>Qualité de localisation</span>
-          <strong>{loading ? "—" : `${safeBrief.localizationPct || 0}%`}</strong>
-          <small>{safeBrief.localizedArticles || 0} localisés · {safeBrief.unlocalizedArticles || 0} à qualifier</small>
+          <span>Points vérifiés</span>
+          <strong>{loading ? "—" : `${qualityPct}%`}</strong>
+          <small>{safeBrief.localizedArticles || 0} vérifiés · couverture {coveragePct}% du flux</small>
         </div>
         <div>
           <span>Sources actives</span>
@@ -2453,7 +2469,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         @media (max-width: 680px) {
           .pulse-shell { width: min(1320px, calc(100% - 20px)); padding-top: 10px; }
           .title-block, .status-panel, .panel, .metric-card, .details-panel { border-radius: 0; }
-          .metric-grid, .bottom-grid, .filter-grid { grid-template-columns: 1fr; }
+          .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .bottom-grid, .filter-grid { grid-template-columns: 1fr; }
+          .metric-card { min-height: 118px; padding: 14px 12px; }
+          .metric-card span { font-size: 0.56rem; letter-spacing: 0.1em; }
+          .metric-card strong { font-size: clamp(1.95rem, 10vw, 2.65rem); }
+          .metric-card small { font-size: 0.62rem; line-height: 1.35; }
           .compact-filter-panel .filter-grid { grid-template-columns: 1fr; }
           .compact-filter-panel .reset-filters { grid-column: auto; }
           .location-filter { align-items: flex-start; flex-direction: column; gap: 7px; }
@@ -2470,11 +2491,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .panel { padding: 16px; }
           .signal-field { padding: 5px; }
           .map-viewport { border-radius: 11px; }
-          .particle { --particle-visual-scale: 0.62; }
+          .particle { --particle-visual-scale: var(--particle-mobile-scale, 0.58); }
+          .particle::after { inset: -34px; }
           .particle:hover,
-          .particle:focus-visible { transform: translate(-50%, -50%) scale(0.73); }
-          .cluster-count { font-size: calc(var(--cluster-font-size, 0.7rem) + 3px); }
-          .brief-grid { grid-template-columns: 1fr; }
+          .particle:focus-visible { transform: translate(-50%, -50%) scale(var(--particle-mobile-active-scale, 0.7)); }
+          .cluster-count { font-size: var(--cluster-mobile-font-size, var(--cluster-font-size, 0.7rem)); }
+          .brief-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .signal-legend { display: flex; gap: 9px 12px; }
           .signal-legend ul { display: flex; flex: 1 0 100%; gap: 7px 12px; }
           .signal-legend li { min-width: 0; }

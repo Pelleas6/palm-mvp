@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildWorldPulseMapHubs, deriveWorldPulseExploration } from "../lib/world-pulse-exploration.js";
+import { buildWorldPulseBrief, buildWorldPulseMapHubs, deriveWorldPulseExploration } from "../lib/world-pulse-exploration.js";
 import { WORLD_PULSE_SIGNAL_LEGEND, WORLD_PULSE_UNCLASSIFIED_LABEL } from "../lib/world-pulse-signals.js";
 
 const BASE_PAYLOAD = {
@@ -255,7 +255,10 @@ test("country map signals aggregate RSS articles by country and replace overlapp
   assert.equal(view.countryHubs.length, 2);
   assert.equal(view.brief.localizedArticles, 4);
   assert.equal(view.brief.localizationPct, 100);
-  assert.match(view.brief.methodNote, /articles RSS réellement reçus/);
+  assert.equal(view.brief.localizationCoveragePct, 100);
+  assert.equal(view.brief.localizationQualityPct, 100);
+  assert.equal(view.brief.topCategory.label, "Climat/environnement");
+  assert.match(view.brief.methodNote, /points de la carte reposent/i);
 
   const hubs = buildWorldPulseMapHubs([
     { code: "BE", label: "Belgique", articleCount: 2, x: 50, y: 36, categories: [{ label: "Politique/élections", count: 2 }], mediaNames: ["A"], latestSeenAt: "2026-07-15T10:00:00.000Z" },
@@ -265,6 +268,40 @@ test("country map signals aggregate RSS articles by country and replace overlapp
   assert.equal(hubs[0].countryCount, 2);
   assert.deepEqual(hubs[0].countryCodes, ["NL", "BE"]);
   assert.equal(hubs[0].articleCount, 5);
+});
+
+test("brief excludes À qualifier from the dominant theme and separates point quality from coverage", () => {
+  const articles = [
+    ...BASE_PAYLOAD.articles,
+    {
+      ...BASE_PAYLOAD.articles[0],
+      id: "needs-location",
+      title: "Routine without a proven country",
+      eventCountry: null,
+      eventCountryIso: null,
+      confidence: 0,
+      label: "Non déterminé",
+    },
+    {
+      ...BASE_PAYLOAD.articles[1],
+      id: "unknown-two",
+      title: "Second routine without a proven country",
+      eventCountry: null,
+      eventCountryIso: null,
+      confidence: 0,
+      label: "Non déterminé",
+    },
+  ];
+  const brief = buildWorldPulseBrief({
+    articles,
+    countrySignals: [{ code: "FR", label: "France", articleCount: 2 }, { code: "US", label: "États-Unis", articleCount: 2 }],
+    offMapArticles: [{ id: "needs-location" }, { id: "unknown-two" }],
+  });
+
+  assert.equal(brief.topCategory.label, "Climat/environnement");
+  assert.equal(brief.localizationCoveragePct, 67);
+  assert.equal(brief.localizationQualityPct, 100);
+  assert.equal(brief.unlocalizedArticles, 2);
 });
 
 test("deriveWorldPulseExploration reports 6h/24h windows only from received RSS dates and flags incomplete coverage", () => {

@@ -14,8 +14,8 @@ function textResponse(body, status = 200, contentType = "application/rss+xml") {
   });
 }
 
-function rssItem({ title, link, pubDate = "Wed, 15 Jul 2026 11:55:00 GMT", description = "Public report." }) {
-  return `<item><title>${title}</title><link>${link}</link><pubDate>${pubDate}</pubDate><description>${description}</description></item>`;
+function rssItem({ title, link, pubDate = "Wed, 15 Jul 2026 11:55:00 GMT", description = "Public report.", content = "" }) {
+  return `<item><title>${title}</title><link>${link}</link><pubDate>${pubDate}</pubDate><description>${description}</description>${content ? `<content:encoded><![CDATA[${content}]]></content:encoded>` : ""}</item>`;
 }
 
 function rssResponse(items, status = 200) {
@@ -56,6 +56,61 @@ test("event geolocation detects only explicit countries or documented unambiguou
     assert.ok(result.confidence > 0.7, fixture.title);
     assert.ok(result.evidence?.field === "title" || result.evidence?.field === "summary", fixture.title);
   }
+});
+
+test("event geolocation recognizes explicit country names used by the enabled RSS languages", () => {
+  const fixtures = [
+    { title: "Estados Unidos anuncia nuevas medidas", iso: "US" },
+    { title: "A Alemanha aprova um novo orçamento", iso: "DE" },
+    { title: "Pemerintah Tiongkok mengumumkan kebijakan baru", iso: "CN" },
+    { title: "Korea Selatan prépare une réponse", iso: "KR" },
+    { title: "Los Emiratos Árabes Unidos publican un comunicado", iso: "AE" },
+  ];
+
+  for (const fixture of fixtures) {
+    const result = resolveEventCountryFromArticle({ title: fixture.title, summary: "" });
+    assert.equal(result.eventCountryIso, fixture.iso, fixture.title);
+    assert.equal(result.matchType, "country_name", fixture.title);
+    assert.equal(result.evidence?.field, "title", fixture.title);
+  }
+});
+
+test("event geolocation can use an explicit country from the RSS content lede", () => {
+  const result = resolveEventCountryFromArticle({
+    title: "Budget update",
+    summary: "Short bulletin.",
+    content: "Officials in Bogotá announced the new measures.",
+  });
+
+  assert.equal(result.eventCountryIso, "CO");
+  assert.equal(result.matchType, "capital_city");
+  assert.equal(result.evidence?.field, "content");
+  assert.ok(result.confidence >= 0.8);
+});
+
+test("RSS parsing keeps an explicit country found in namespaced content as auditable evidence", async () => {
+  const payload = await getWorldPulse({
+    cache: createPulseCache(),
+    fetchImpl: async (url) => {
+      const href = String(url);
+      if (href.includes("rss.example")) {
+        return rssResponse([rssItem({
+          title: "Budget update",
+          link: "https://rss.example/content-lede",
+          description: "Short bulletin without a location.",
+          content: "<p>Officials in Bogotá announced the new measures.</p>",
+        })]);
+      }
+      if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+      throw new Error(`unexpected fetch ${href}`);
+    },
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: [{ name: "Content Test RSS", url: "https://rss.example/feed.xml", language: "English", sourceCountry: "Canada", region: "North America" }],
+  });
+
+  assert.equal(payload.counts.eventLocalizedArticles, 1);
+  assert.equal(payload.articles[0].eventCountryIso, "CO");
+  assert.equal(payload.articles[0].evidence?.field, "content");
 });
 
 test("event geolocation leaves articles non localized without strong evidence and never falls back to media country or short aliases", () => {

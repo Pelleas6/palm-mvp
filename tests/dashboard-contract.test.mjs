@@ -58,8 +58,13 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /<section className="insight-grid"/);
   assert.match(componentSource, /<SituationBrief/);
   assert.match(componentSource, /Exporter les données CSV/);
+  assert.match(componentSource, /Points vérifiés/);
+  assert.match(componentSource, /Les articles à qualifier sont exclus de ce classement/);
   assert.match(componentSource, /className="particle-layer"/);
   assert.match(componentSource, /className=\{`particle \$\{className\}/);
+  assert.match(componentSource, /--particle-mobile-scale/);
+  assert.match(componentSource, /\.metric-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(componentSource, /\.brief-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
   assert.match(componentSource, /Point = un article · bulle = plusieurs articles proches du même thème/);
   assert.match(componentSource, /\.world-map \{[\s\S]+inset: 0;[\s\S]+width: 100%;[\s\S]+height: 100%;/);
   assert.match(componentSource, /WORLD_PULSE_LOCALIZATION_FILTERS/);
