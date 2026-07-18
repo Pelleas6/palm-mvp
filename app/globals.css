@@ -47,6 +47,12 @@ body {
   margin-bottom: 18px;
 }
 
+.pulse-shell .top-strip {
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+  align-items: start;
+  margin-bottom: 12px;
+}
+
 .pulse-shell .title-block,
 .pulse-shell .status-panel,
 .pulse-shell .panel,
@@ -55,7 +61,7 @@ body {
   background: var(--panel);
 }
 
-.pulse-shell .title-block { min-height: 238px; padding: clamp(24px, 3.4vw, 40px); }
+.pulse-shell .title-block { min-height: 0; padding: clamp(22px, 2.6vw, 32px); }
 .pulse-shell .map-panel-wide { padding: 18px; }
 .pulse-shell .signal-field { padding: 8px; overflow: hidden; background: #07110f; }
 .pulse-shell .map-viewport { position: relative; width: 100%; aspect-ratio: 2 / 1; overflow: hidden; }
@@ -76,5 +82,10 @@ body {
 
 @media (max-width: 680px) {
   .pulse-shell { width: min(1320px, calc(100% - 20px)); padding-top: 10px; }
-  .pulse-shell .title-block { min-height: 0; padding: 24px; }
+  .pulse-shell .top-strip { grid-template-columns: 1fr; }
+  .pulse-shell .title-block { min-height: 0; padding: 18px; }
+}
+
+@media (min-width: 681px) and (max-width: 1080px) {
+  .pulse-shell .top-strip { grid-template-columns: 1fr; }
 }

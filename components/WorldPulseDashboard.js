@@ -1078,13 +1078,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         </div>
       </section>
 
-      <section className="metric-grid metric-grid-primary" aria-label="Repères du moment">
-        <Metric label="Signaux cartographiés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} point(s) ou bulle(s) visible(s)`} />
-        <Metric label="Pays concernés" value={loading ? "—" : counts.eventCountries} hint="Pays cités clairement dans les articles" />
-        <Metric label="Sources en ligne" value={loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount}`} hint={`${rssMediaCountryCount} pays médias · ${rssSourceErrorCount} incident(s)`} />
-        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "lecture servie depuis le cache vérifié" : `${sourceMetric} actualisé maintenant`} />
-      </section>
-
       <section className="map-experience" id="carte">
         <article className="panel map-panel map-panel-wide">
             <div className="panel-heading map-heading">
@@ -1141,6 +1134,13 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           onChange={updateFilter}
           onReset={resetFilters}
         />
+      </section>
+
+      <section className="metric-grid metric-grid-primary" aria-label="Repères du moment">
+        <Metric label="Signaux cartographiés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} point(s) ou bulle(s) visible(s)`} />
+        <Metric label="Pays concernés" value={loading ? "—" : counts.eventCountries} hint="Pays cités clairement dans les articles" />
+        <Metric label="Sources en ligne" value={loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount}`} hint={`${rssMediaCountryCount} pays médias · ${rssSourceErrorCount} incident(s)`} />
+        <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "lecture servie depuis le cache vérifié" : `${sourceMetric} actualisé maintenant`} />
       </section>
 
       <section className="analysis-grid" aria-label="Analyse vérifiable des articles actuellement filtrés">
@@ -1248,10 +1248,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .top-strip {
           display: grid;
-          grid-template-columns: minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
           gap: 12px;
           align-items: start;
-          margin-bottom: 18px;
+          margin-bottom: 12px;
         }
 
         .title-block, .status-panel, .panel, .metric-card {
@@ -1262,11 +1262,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
 
         .title-block {
-          min-height: 238px;
-          padding: clamp(24px, 3.4vw, 40px);
+          min-height: 0;
+          padding: clamp(22px, 2.6vw, 32px);
           display: flex;
           flex-direction: column;
-          justify-content: flex-end;
+          justify-content: center;
           background:
             linear-gradient(118deg, rgba(95, 218, 201, 0.1), transparent 44%),
             var(--panel);
@@ -1286,10 +1286,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           min-width: 0;
         }
         h1 {
-          font-size: clamp(2.85rem, 5.7vw, 5.8rem);
+          font-size: clamp(2.7rem, 4.4vw, 4.8rem);
           line-height: 0.94;
           letter-spacing: -0.06em;
-          max-width: 11ch;
+          max-width: 12ch;
         }
         h1 span {
           display: block;
@@ -1298,16 +1298,16 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .title-block > p:last-child {
           max-width: 760px;
-          margin: 22px 0 0;
+          margin: 13px 0 0;
           color: var(--muted);
           font-size: clamp(0.9rem, 1.17vw, 1.06rem);
-          line-height: 1.65;
+          line-height: 1.55;
         }
         .hero-proof {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
-          margin-top: 18px;
+          margin-top: 12px;
         }
         .hero-proof span {
           padding: 6px 8px;
@@ -1322,6 +1322,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .status-panel {
           width: 100%;
+          align-self: start;
           padding: 14px 18px;
           display: grid;
           grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1613,7 +1614,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .map-experience {
           display: grid;
           gap: 12px;
-          margin-bottom: 18px;
+          margin-bottom: 12px;
+          scroll-margin-top: 84px;
         }
         .analysis-grid {
           display: grid;
@@ -2481,10 +2483,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .location-filter > div { width: 100%; }
           .location-filter button { flex: 1 1 30%; padding-inline: 6px; }
           .top-strip, .metric-grid, .bottom-grid, .map-experience, .analysis-grid, .insight-grid { gap: 10px; margin-bottom: 10px; }
-          .title-block { min-height: 0; padding: 24px; }
+          .title-block { min-height: 0; padding: 18px; }
           .status-panel { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
           .status-panel > a { grid-column: 2; justify-self: start; }
-          h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
+          h1 { font-size: clamp(2.55rem, 12vw, 3.7rem); }
+          .title-block > p:last-child { margin-top: 10px; font-size: 0.84rem; line-height: 1.48; }
+          .hero-proof { margin-top: 10px; }
           .top-categories-row .count-list { grid-template-columns: 1fr; }
           .map-heading-actions { justify-content: flex-start; width: 100%; }
           .map-status-chip, .off-map-chip, .layer-toggle { max-width: none; text-align: left; border-radius: 14px; width: 100%; }

@@ -53,6 +53,11 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /const REFRESH_MS = 30 \* 1000/);
   assert.match(componentSource, /Survolez un repère sur ordinateur ou touchez-le sur mobile/);
   assert.match(componentSource, /<section className="map-experience" id="carte">/);
+  assert.ok(
+    componentSource.indexOf('<section className="map-experience" id="carte">')
+      < componentSource.indexOf('<section className="metric-grid metric-grid-primary"'),
+    "the map must be placed before the metric cards on arrival"
+  );
   assert.match(componentSource, /className="map-viewport"/);
   assert.match(componentSource, /aspect-ratio: 2 \/ 1/);
   assert.match(componentSource, /<section className="insight-grid"/);
@@ -70,6 +75,7 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /WORLD_PULSE_LOCALIZATION_FILTERS/);
   assert.match(componentSource, /À localiser/);
   assert.match(componentSource, /\.top-strip \{[\s\S]+align-items: start/);
+  assert.match(componentSource, /grid-template-columns: minmax\(0, 1\.45fr\) minmax\(280px, 0\.55fr\)/);
   assert.match(componentSource, /<Metric label="Signaux cartographiés"/);
   assert.match(componentSource, /<Metric label="Sources en ligne"/);
   assert.doesNotMatch(componentSource, /pouls-du-monde-logo-master\.webp/);
