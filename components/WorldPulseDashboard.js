@@ -112,6 +112,72 @@ function formatArticleCount(count) {
   return `${safeCount} article${safeCount > 1 ? "s" : ""}`;
 }
 
+function escapeCsvCell(value) {
+  const raw = String(value ?? "").replace(/\r?\n/g, " ");
+  const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return /[",;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadFilteredArticles(articles) {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  const columns = ["Titre", "URL", "Média", "Domaine", "Pays événement", "Code pays", "Catégorie", "Langue", "Date RSS", "Pays média", "Région média"];
+  const rows = articles.map((article) => [
+    article.title,
+    article.url,
+    article.mediaName || article.sourceType,
+    article.domain,
+    article.eventCountry || "",
+    article.eventCountryIso || "",
+    article.label || "Non déterminé",
+    article.language,
+    article.seenAt,
+    article.sourceLocation?.label || article.sourceCountry,
+    article.sourceRegion,
+  ].map(escapeCsvCell).join(";"));
+  const blob = new Blob([[columns.map(escapeCsvCell).join(";"), ...rows].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "le-pouls-du-monde-signaux.csv";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+  return true;
+}
+
+async function copyText(text) {
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+  if (typeof document === "undefined") return false;
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  return copied;
+}
+
+function formatBriefForCopy(brief, generatedAt) {
+  const lines = [
+    "Le Pouls du Monde — brief de situation",
+    `Lecture : ${formatDate(generatedAt)}`,
+    `Flux reçu : ${brief.articles} article(s) · ${brief.localizedArticles} localisé(s) dans ${brief.countries} pays`,
+    brief.headline,
+  ];
+  if (brief.topCategory) lines.push(`Thème le plus présent : ${brief.topCategory.label} (${brief.topCategory.count})`);
+  if (brief.topMedia.length > 0) lines.push(`Médias les plus présents : ${brief.topMedia.map((item) => `${item.label} (${item.count})`).join(", ")}`);
+  lines.push(`Localisation vérifiable dans le texte : ${brief.localizationPct}% · ${brief.unlocalizedArticles} article(s) à qualifier.`);
+  lines.push(`Méthode : ${brief.methodNote}`);
+  return lines.join("\n");
+}
+
 function countFromPayload(payloadCounts, key, fallback = 0) {
   const value = payloadCounts?.[key];
   return Number.isFinite(value) ? value : fallback;
@@ -121,11 +187,12 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function WorldMapBackdrop({ availableCountryCodes = [], selectedCountryCode = null, onSelectCountry = () => {} }) {
+function WorldMapBackdrop({ availableCountryCodes = [], selectedCountryCodes = [], onSelectCountry = () => {} }) {
   const selectableCodes = new Set(availableCountryCodes);
+  const selectedCodes = new Set(selectedCountryCodes);
   function countryInteractionProps(country) {
     if (!country.code || !selectableCodes.has(country.code)) return {};
-    const selected = selectedCountryCode === country.code;
+    const selected = selectedCodes.has(country.code);
     const select = () => onSelectCountry(country.code);
     return {
       role: "button",
@@ -255,10 +322,10 @@ function SignalLegend({ localizedCount, eventCountryCount, summary }) {
       <div className="signal-legend-head">
         <div>
           <span>Légende de lecture</span>
-          <strong>Thème & volume</strong>
+          <strong>Thème & concentration</strong>
         </div>
         <p><b>{localizedCount}</b> signaux · <b>{eventCountryCount}</b> pays</p>
-        <small>Couleur atténuée = thème · diamètre = volume</small>
+        <small>Couleur atténuée = thème · chiffre = articles RSS</small>
       </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
@@ -272,100 +339,89 @@ function SignalLegend({ localizedCount, eventCountryCount, summary }) {
   );
 }
 
-function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry, showMediaMarkers }) {
-  const markers = useMemo(() => (
-    showMediaMarkers ? mediaMarkers.map((point, index) => ({
+function SignalField({ countryHubs, mediaMarkers, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry, showMediaMarkers }) {
+  const hubs = useMemo(() => (
+    countryHubs.map((point) => ({
       ...point,
-      kind: "media",
-      left: clamp(point.x, 1.2, 98.8),
-      top: clamp(point.y, 1.8, 98.2),
-      size: point.size || 8,
+      left: clamp(point.x, 2, 98),
+      top: clamp(point.y, 3, 97),
+      color: colorForLabel(point.category),
+    }))
+  ), [countryHubs]);
+  const provenance = useMemo(() => (
+    showMediaMarkers ? mediaMarkers.map((point) => ({
+      ...point,
+      left: clamp(point.x, 1.5, 98.5),
+      top: clamp(point.y, 2, 98),
       color: colorForLabel(point.label),
-      delay: `${(index % 12) * 0.08}s`,
     })) : []
   ), [mediaMarkers, showMediaMarkers]);
-  const particles = useMemo(() => (
-    articleParticles.filter((point) => !point.clusterId).map((point, index) => ({
-      ...point,
-      kind: "article",
-      left: clamp(point.x, 1.2, 98.8),
-      top: clamp(point.y, 1.8, 98.2),
-      size: point.size || 4,
-      color: colorForLabel(point.label),
-      delay: `${((index + 4) % 18) * 0.06}s`,
-    }))
-  ), [articleParticles]);
-  const clusters = useMemo(() => (
-    articleClusters.map((point, index) => ({
-      ...point,
-      kind: "article-cluster",
-      mediaName: point.mediaNames?.join(", ") || point.location?.label || "Cluster articles",
-      left: clamp(point.x, 1.2, 98.8),
-      top: clamp(point.y, 1.8, 98.2),
-      size: point.size || 14,
-      color: colorForLabel(point.label),
-      delay: `${((index + 8) % 18) * 0.06}s`,
-    }))
-  ), [articleClusters]);
-  const hasVisiblePoints = markers.length > 0 || particles.length > 0 || clusters.length > 0;
+  const selectedCountryCodes = selectedPoint?.type === "country"
+    ? [selectedPoint.code]
+    : selectedPoint?.type === "hub"
+      ? selectedPoint.countryCodes || []
+      : [];
+  const hasVisiblePoints = hubs.length > 0;
 
-  function renderPoint(point, className) {
-    const safeOffset = Math.ceil((point.size || 8) / 2 + 10);
-    const sourceCountry = point.sourceCountry || point.location?.label || "Non précisé";
-    const eventCountry = point.eventCountry || point.location?.label || "Non localisé";
-    const countLabel = point.kind === "media" ? formatArticleCount(point.articleCount) : point.kind === "article-cluster" ? formatArticleCount(point.count) : "1 article";
-    const geographyLabel = point.kind === "media" ? `Pays : ${sourceCountry}` : `Pays : ${eventCountry}`;
-    const tooltip = `${geographyLabel} — catégorie : ${point.label} — volume : ${countLabel}`;
-    const tooltipNearLeft = point.left < 22;
-    const tooltipNearRight = point.left > 78;
-    const tooltipNearTop = point.top < 24;
+  function renderHub(point) {
+    const isCountry = point.countryCount === 1;
+    const firstCountry = point.countries?.[0] || null;
+    const selection = isCountry
+      ? { type: "country", code: firstCountry?.code }
+      : { type: "hub", id: point.id, countryCodes: point.countryCodes, label: `Zone dense · ${point.countryCount} pays` };
+    const isSelected = isCountry
+      ? selectedPoint?.type === "country" && selectedPoint?.code === firstCountry?.code
+      : selectedPoint?.type === "hub" && selectedPoint?.id === point.id;
+    const targetHeight = clamp(Math.round(34 + Math.log2(point.articleCount + 1) * 4), 38, 50);
+    const targetWidth = clamp(Math.round((isCountry ? 40 : 58) + Math.sqrt(point.articleCount) * 4), 48, 92);
+    const safeOffsetX = Math.ceil(targetWidth / 2 + 8);
+    const safeOffsetY = Math.ceil(targetHeight / 2 + 8);
+    const countryNames = point.countries.map((country) => `${country.label} (${country.count})`).join(", ");
+    const geographyLabel = isCountry ? `Pays : ${firstCountry?.label || "Non précisé"}` : `Zone dense : ${countryNames}`;
+    const tooltip = `${geographyLabel} — thème dominant : ${point.category} — volume : ${formatArticleCount(point.articleCount)}`;
+    const tooltipNearLeft = point.left < 24;
+    const tooltipNearRight = point.left > 76;
+    const tooltipNearTop = point.top < 28;
     const style = {
-      left: `clamp(${safeOffset}px, ${point.left}%, calc(100% - ${safeOffset}px))`,
-      top: `clamp(${safeOffset}px, ${point.top}%, calc(100% - ${safeOffset}px))`,
-      width: `${point.size}px`,
-      height: `${point.size}px`,
-      "--particle-color": point.color,
-      "--particle-delay": point.delay,
-      "--cluster-font-size": `${clamp(Math.round((point.size || 14) * 0.46), 10, 16)}px`,
-      "--particle-safe-offset": `${safeOffset}px`,
-      "--particle-tooltip-left": tooltipNearLeft ? "0%" : tooltipNearRight ? "100%" : "50%",
-      "--particle-tooltip-x": tooltipNearLeft ? "0%" : tooltipNearRight ? "-100%" : "-50%",
-      "--particle-tooltip-top": tooltipNearTop ? "calc(100% + 10px)" : "auto",
-      "--particle-tooltip-bottom": tooltipNearTop ? "auto" : "calc(100% + 10px)",
+      left: `clamp(${safeOffsetX}px, ${point.left}%, calc(100% - ${safeOffsetX}px))`,
+      top: `clamp(${safeOffsetY}px, ${point.top}%, calc(100% - ${safeOffsetY}px))`,
+      "--beacon-color": point.color,
+      "--beacon-height": `${targetHeight}px`,
+      "--beacon-width": `${targetWidth}px`,
+      "--beacon-tooltip-left": tooltipNearLeft ? "0%" : tooltipNearRight ? "100%" : "50%",
+      "--beacon-tooltip-x": tooltipNearLeft ? "0%" : tooltipNearRight ? "-100%" : "-50%",
+      "--beacon-tooltip-top": tooltipNearTop ? "calc(100% + 10px)" : "auto",
+      "--beacon-tooltip-bottom": tooltipNearTop ? "auto" : "calc(100% + 10px)",
     };
-    const selectionType = point.kind === "media" ? "marker" : point.kind === "article-cluster" ? "cluster" : "article";
-    const isPanelPoint = point.kind === "media" || point.kind === "article-cluster";
-    const isSelected = selectedPoint?.type === selectionType && selectedPoint?.id === point.id;
-    const Tag = isPanelPoint ? "button" : point.url ? "a" : "button";
-    const linkProps = isPanelPoint
-      ? { type: "button", onClick: () => onSelectPoint({ type: selectionType, id: point.id }), "aria-pressed": isSelected }
-      : point.url
-        ? { href: point.url, target: "_blank", rel: "noreferrer" }
-        : { type: "button", onClick: () => onSelectPoint({ type: selectionType, id: point.id }), "aria-pressed": isSelected };
     return (
-      <Tag
-        key={`${point.kind}-${point.id}`}
-        className={`particle ${className}${isSelected ? " selected-particle" : ""}`}
-        {...linkProps}
+      <button
+        key={point.id}
+        type="button"
+        className={`country-beacon${isCountry ? " single-country-beacon" : " multi-country-beacon"}${isSelected ? " selected-beacon" : ""}`}
         style={style}
         title={tooltip}
         aria-label={tooltip}
+        aria-pressed={isSelected}
+        onClick={() => onSelectPoint(selection)}
       >
-        {point.kind === "article-cluster" ? <span className="cluster-count" aria-hidden="true">{point.count}</span> : null}
-        <span className="particle-tooltip" role="tooltip">
-          <span>{geographyLabel}</span>
-          <span>Catégorie : {point.label}</span>
-          <span>Volume : {countLabel}</span>
+        <span className="beacon-rail" aria-hidden="true" />
+        <strong>{point.articleCount}</strong>
+        {isCountry ? <span className="beacon-code" aria-hidden="true">{firstCountry?.code}</span> : <span className="beacon-code" aria-hidden="true">{point.countryCount} pays</span>}
+        <span className="beacon-tooltip" role="tooltip">
+          <strong>{isCountry ? firstCountry?.label : `${point.countryCount} pays proches`}</strong>
+          <span>{formatArticleCount(point.articleCount)} · {point.category}</span>
+          {!isCountry ? <span>{countryNames}</span> : null}
+          <span>{point.sourceCount} média{point.sourceCount > 1 ? "s" : ""} · cliquer pour lire</span>
         </span>
-      </Tag>
+      </button>
     );
   }
 
   return (
-    <div className="signal-field" aria-label="Carte du monde des événements localisés : particules et clusters événementiels, provenance média optionnelle">
+    <div className="signal-field" aria-label="Carte du monde des signaux RSS regroupés par pays ou par zone dense pour une lecture sans chevauchement">
       <WorldMapBackdrop
         availableCountryCodes={availableCountryCodes}
-        selectedCountryCode={selectedPoint?.type === "country" ? selectedPoint.code : null}
+        selectedCountryCodes={selectedCountryCodes}
         onSelectCountry={(code) => onSelectCountry({ type: "country", code })}
       />
       <div className="field-grid" aria-hidden="true" />
@@ -373,7 +429,7 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
         <div className="state-copy">
           <div className="loader" aria-hidden="true" />
           <strong>Interrogation RSS public puis tendances GDELT Web N-Grams</strong>
-          <span>Aucun point n'est dessiné avant retour d'une source réelle.</span>
+          <span>Aucun repère n'est dessiné avant retour d'une source réelle.</span>
         </div>
       ) : null}
       {!loading && !hasVisiblePoints && unlocalized > 0 ? (
@@ -389,9 +445,15 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
         </div>
       ) : null}
       <div className="particle-layer">
-        {particles.map((particle) => renderPoint(particle, "article-particle"))}
-        {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
-        {markers.map((marker) => renderPoint(marker, "media-marker"))}
+        {provenance.map((point) => (
+          <span
+            key={`source-${point.id}`}
+            className="provenance-speck"
+            aria-hidden="true"
+            style={{ left: `${point.left}%`, top: `${point.top}%`, "--source-color": point.color }}
+          />
+        ))}
+        {hubs.map(renderHub)}
       </div>
     </div>
   );
@@ -542,7 +604,7 @@ function TemporalPanel({ timeWindows, nonDetermined, categories }) {
 
 function ReadingPanel({ selection }) {
   return (
-    <section className="panel reading-panel" aria-label="Panneau de lecture des repères carte">
+    <section className="panel reading-panel" id="lecture-detail" aria-label="Panneau de lecture des repères carte">
       <div className="panel-heading">
         <div>
           <p>Lecture au clic ou clavier</p>
@@ -592,6 +654,95 @@ function ReadingPanel({ selection }) {
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+function MapCountryPicker({ countrySignals, selectedPoint, onSelect }) {
+  const selectedValue = selectedPoint?.type === "country" ? selectedPoint.code : "";
+  const countries = [...countrySignals].sort((left, right) => left.label.localeCompare(right.label, "fr"));
+  return (
+    <label className="map-country-picker">
+      <span>Ouvrir un pays</span>
+      <select
+        value={selectedValue}
+        aria-label="Ouvrir le dossier d'un pays événementiel"
+        onChange={(event) => onSelect(event.target.value ? { type: "country", code: event.target.value } : null)}
+      >
+        <option value="">Choisir dans les {countries.length} pays</option>
+        {countries.map((country) => (
+          <option key={country.code} value={country.code}>{country.label} · {country.articleCount}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function MapFocusCard({ selection, onClear }) {
+  if (!selection) {
+    return (
+      <div className="map-focus-card map-focus-guidance" aria-live="polite">
+        <span>Lecture de la carte</span>
+        <p>Survolez un repère sur ordinateur, touchez-le sur mobile, ou choisissez directement un pays. Les zones denses regroupent seulement des pays voisins pour éviter tout chevauchement.</p>
+      </div>
+    );
+  }
+  const countryText = selection.eventCountries.map((country) => country.label).join(", ");
+  return (
+    <div className="map-focus-card" aria-live="polite">
+      <div>
+        <span>Focus de carte</span>
+        <strong>{selection.label}</strong>
+        <p>{selection.articleCount} article(s) · {countryText || "pays événementiel non précisé"} · dernière réception {formatDate(selection.latestSeenAt)}</p>
+      </div>
+      <div className="map-focus-actions">
+        <a href="#lecture-detail">Lire le dossier</a>
+        <button type="button" onClick={onClear}>Fermer</button>
+      </div>
+    </div>
+  );
+}
+
+function SituationBrief({ brief, generatedAt, actionLabel, onCopy, onExport }) {
+  const topCountry = brief.topCountry;
+  const topCategory = brief.topCategory;
+  return (
+    <section className="panel situation-brief" aria-label="Brief de situation basé sur les signaux RSS reçus">
+      <div className="panel-heading brief-heading">
+        <div>
+          <p>Lecture utile</p>
+          <h2>Brief de situation</h2>
+        </div>
+        <span>{brief.articles} signal{brief.articles > 1 ? "aux" : ""}</span>
+      </div>
+      <p className="brief-headline">{brief.headline}</p>
+      <div className="brief-grid">
+        <div>
+          <span>Point le plus couvert</span>
+          <strong>{topCountry?.label || "—"}</strong>
+          <small>{topCountry ? `${topCountry.articleCount} signal${topCountry.articleCount > 1 ? "aux" : ""} · ${brief.concentrationPct}% de la carte` : "Aucun pays localisé"}</small>
+        </div>
+        <div>
+          <span>Thème le plus présent</span>
+          <strong>{topCategory?.label || "—"}</strong>
+          <small>{topCategory ? `${topCategory.count} article${topCategory.count > 1 ? "s" : ""} dans le filtre actif` : "Aucun thème"}</small>
+        </div>
+        <div>
+          <span>Qualité de lecture</span>
+          <strong>{brief.localizationPct}%</strong>
+          <small>{brief.localizedArticles} localisés · {brief.unlocalizedArticles} à qualifier</small>
+        </div>
+      </div>
+      <div className="brief-source-line">
+        <span>Médias les plus présents</span>
+        <p>{brief.topMedia.length > 0 ? brief.topMedia.map((item) => `${item.label} · ${item.count}`).join("  /  ") : "Aucun média dans le filtre actif."}</p>
+      </div>
+      <div className="brief-actions">
+        <button type="button" onClick={onCopy}>Copier le brief</button>
+        <button type="button" onClick={onExport}>Exporter les données CSV</button>
+      </div>
+      <p className="brief-feedback" aria-live="polite">{actionLabel || `Brief généré depuis la lecture du ${formatDate(generatedAt)}.`}</p>
+      <p className="map-note">{brief.methodNote}</p>
     </section>
   );
 }
@@ -802,13 +953,17 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   });
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [showMediaProvenance, setShowMediaProvenance] = useState(false);
+  const [briefAction, setBriefAction] = useState("");
   const rawArticles = Array.isArray(payload.articles) ? payload.articles : [];
   const exploration = useMemo(() => deriveWorldPulseExploration(payload, filters, selectedPoint), [payload, filters, selectedPoint]);
   const articles = exploration.articles;
   const mediaMarkers = exploration.mediaMarkers;
   const articleParticles = exploration.articleParticles;
   const articleClusters = exploration.articleClusters;
+  const countrySignals = exploration.countrySignals || [];
+  const countryHubs = exploration.countryHubs || [];
   const offMapArticles = exploration.offMapArticles;
+  const brief = exploration.brief || { articles: 0, localizedArticles: 0, unlocalizedArticles: 0, localizationPct: 0, countries: 0, topCountry: null, topCategory: null, topMedia: [], concentrationPct: 0, headline: "Aucun signal exploitable.", methodNote: "" };
   const sourceHealth = Array.isArray(payload.sourceHealth) ? payload.sourceHealth : [];
   const globalTrends = payload.globalTrends || { documents: 0, labels: [], categories: [], thematicCategories: [], rawTrends: [], classifiedTrends: [], emergingTrends: [], classification: { coveragePct: 0, unclassified: 0 }, topTitles: [], cycleMinutes: 15, delayMinutes: 5 };
   const payloadCounts = payload.counts || {};
@@ -856,7 +1011,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
   const rssScope = dataScopes.rss || { period: "RSS public · cache ≥15 min", classificationCoveragePct: counts.rssClassificationCoveragePct };
   const localizedCount = counts.localized;
   const unlocalizedCount = counts.unlocalized;
-  const visibleArticlePointCount = articleParticles.filter((particle) => !particle.clusterId).length + articleClusters.length;
+  const visibleArticlePointCount = countryHubs.length;
   const rssCoverage = countFromPayload(counts, "rssClassificationCoveragePct", Number(rssScope.classificationCoveragePct || 0));
   const rssHealthItems = sourceHealth.filter((item) => item?.source && !["GDELT Web N-Grams TOC", "GDELT 2.0 DOC API canary", "Cache serveur"].includes(item.source));
   const rssActiveSourceCount = countFromPayload(payloadCounts, "rssActiveSources", rssHealthItems.filter((item) => item.state === "OK").length);
@@ -886,6 +1041,20 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       location: WORLD_PULSE_LOCALIZATION_FILTERS.ALL,
     });
     setSelectedPoint(null);
+  }
+
+  async function copyBrief() {
+    try {
+      const copied = await copyText(formatBriefForCopy(brief, payload.generatedAt));
+      setBriefAction(copied ? "Brief copié dans le presse-papiers." : "La copie n'est pas disponible dans ce navigateur.");
+    } catch {
+      setBriefAction("La copie du brief a échoué. Réessaie depuis un navigateur autorisant le presse-papiers.");
+    }
+  }
+
+  function exportCsv() {
+    const exported = downloadFilteredArticles(articles);
+    setBriefAction(exported ? `${articles.length} ligne(s) exportée(s) dans un fichier CSV.` : "L'export CSV n'est pas disponible dans ce navigateur.");
   }
 
   return (
@@ -923,7 +1092,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
       </section>
 
       <section className="metric-grid metric-grid-primary" aria-label="Repères du moment">
-        <Metric label="Signaux cartographiés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} repère(s) visibles maintenant`} />
+        <Metric label="Signaux cartographiés" value={loading ? "—" : counts.eventLocalizedArticles} hint={`${visibleArticlePointCount} repère(s) pays/zone visibles`} />
         <Metric label="Pays concernés" value={loading ? "—" : counts.eventCountries} hint="Pays cités clairement dans les articles" />
         <Metric label="Sources en ligne" value={loading ? "—" : `${rssActiveSourceCount}/${rssAuditedSourceCount}`} hint={`${rssMediaCountryCount} pays médias · ${rssSourceErrorCount} incident(s)`} />
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "lecture servie depuis le cache vérifié" : `${sourceMetric} actualisé maintenant`} />
@@ -939,6 +1108,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               </div>
               <div className="map-heading-actions">
                 <span className="map-status-chip">{loading ? "Lecture des sources…" : `${localizedCount} signaux · ${counts.eventCountries} pays`}</span>
+                <MapCountryPicker countrySignals={countrySignals} selectedPoint={selectedPoint} onSelect={setSelectedPoint} />
                 {unlocalizedCount > 0 ? (
                   <button
                     type="button"
@@ -958,9 +1128,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               </div>
             </div>
             <SignalField
+              countryHubs={countryHubs}
               mediaMarkers={mediaMarkers}
-              articleParticles={articleParticles}
-              articleClusters={articleClusters}
               unlocalized={unlocalizedCount}
               state={payload.state}
               loading={loading}
@@ -970,13 +1139,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               onSelectCountry={setSelectedPoint}
               showMediaMarkers={showMediaProvenance}
             />
+            <MapFocusCard selection={exploration.selection} onClear={() => setSelectedPoint(null)} />
             <SignalLegend
               localizedCount={localizedCount}
               eventCountryCount={counts.eventCountries}
               summary={mapStatusSummary}
             />
             <p className="map-note">
-              Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité dans le titre ou le résumé. Les articles sans preuve restent dans « À localiser ». Clique un pays, un point ou une bulle pour en lire le contexte.
+              Chaque repère représente un pays ou une zone de pays voisins : son volume correspond aux articles RSS reçus. Les zones denses évitent les repères superposés ; chaque pays reste sélectionnable sur la carte ou dans le menu.
             </p>
           </article>
           <FilterControls
@@ -992,6 +1162,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           />
         </div>
         <aside className="side-stack">
+          <SituationBrief brief={brief} generatedAt={payload.generatedAt} actionLabel={briefAction} onCopy={copyBrief} onExport={exportCsv} />
           <MomentTrendsPanel trends={globalTrends} loading={loading} />
           <ReadingPanel selection={exploration.selection} />
           <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} loading={loading} />
@@ -1564,6 +1735,38 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           letter-spacing: 0.01em;
           cursor: pointer;
         }
+        .map-country-picker {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-height: 32px;
+          max-width: 210px;
+          padding: 0 8px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.025);
+          color: var(--muted);
+        }
+        .map-country-picker > span {
+          color: var(--subtle);
+          font-size: 0.58rem;
+          font-weight: 760;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .map-country-picker select {
+          min-width: 0;
+          max-width: 126px;
+          border: 0;
+          background: transparent;
+          color: var(--ink);
+          font: inherit;
+          font-size: 0.69rem;
+          outline: none;
+          cursor: pointer;
+        }
+        .map-country-picker option { color: #07110f; }
 
         .signal-field {
           position: relative;
@@ -1637,112 +1840,169 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           background-size: 52px 52px;
           mask-image: radial-gradient(circle at center, black 0 50%, transparent 86%);
         }
-        .signal-field::before, .signal-field::after {
-          content: "";
-          position: absolute;
-          z-index: 2;
-          pointer-events: none;
-          border: 1px solid rgba(157, 191, 179, 0.16);
-          border-radius: 999px;
-          inset: 18%;
-        }
-        .signal-field::after { inset: 34%; border-style: dashed; }
         .particle-layer {
           position: absolute;
           z-index: 3;
           inset: 0;
           pointer-events: none;
         }
-
-        .particle {
+        .provenance-speck {
           position: absolute;
           z-index: 3;
-          display: block;
-          padding: 0;
-          border: 0;
+          width: 5px;
+          height: 5px;
+          border-radius: 2px;
+          pointer-events: none;
+          transform: translate(-50%, -50%);
+          background: color-mix(in srgb, var(--source-color) 62%, #102a27);
+          box-shadow: 0 0 8px color-mix(in srgb, var(--source-color) 28%, transparent);
+          opacity: 0.7;
+        }
+        .country-beacon {
+          position: absolute;
+          z-index: 4;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-width: var(--beacon-width);
+          height: var(--beacon-height);
+          padding: 0 10px 0 8px;
+          border: 1px solid color-mix(in srgb, var(--beacon-color) 52%, rgba(157, 191, 179, 0.28));
+          border-radius: 11px;
+          appearance: none;
+          background:
+            linear-gradient(100deg, color-mix(in srgb, var(--beacon-color) 20%, #0b1917), rgba(7, 18, 16, 0.94)),
+            #07110f;
+          color: var(--ink);
           cursor: pointer;
           pointer-events: auto;
           transform: translate(-50%, -50%);
-          border-radius: 999px;
-          background: color-mix(in srgb, var(--particle-color) 62%, #0d1e1d);
-          transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+          transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
         }
-        button.particle { appearance: none; }
-        .media-marker {
-          z-index: 4;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 66%, var(--ink));
-          box-shadow: 0 0 0 3px color-mix(in srgb, var(--particle-color) 12%, transparent), 0 5px 12px rgba(0, 0, 0, 0.28);
-        }
-        .article-particle {
-          z-index: 3;
-          border: none;
-          opacity: 0.78;
-          animation: pulseFloat 4.8s ease-in-out infinite;
-          animation-delay: var(--particle-delay);
-          box-shadow: 0 0 0 1px color-mix(in srgb, var(--particle-color) 20%, transparent), 0 0 8px color-mix(in srgb, var(--particle-color) 38%, transparent);
-        }
-        .article-cluster {
-          z-index: 4;
-          display: grid;
-          place-items: center;
-          border: 2px solid color-mix(in srgb, var(--particle-color) 70%, var(--ink));
-          background: color-mix(in srgb, var(--particle-color) 20%, #0b1d1b);
-          box-shadow: 0 0 0 3px color-mix(in srgb, var(--particle-color) 11%, transparent), 0 6px 14px rgba(0, 0, 0, 0.34);
-        }
-        .cluster-count {
-          color: var(--ink);
-          font-size: var(--cluster-font-size, 0.7rem);
-          font-weight: 750;
-          line-height: 1;
-          letter-spacing: -0.03em;
-          text-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
-          font-variant-numeric: tabular-nums;
-        }
-        .particle::after {
+        .country-beacon::after {
           content: "";
           position: absolute;
           inset: -7px;
-          border-radius: inherit;
         }
-        .media-marker::after {
-          inset: -7px;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 22%, transparent);
+        .country-beacon:hover,
+        .country-beacon:focus-visible {
+          z-index: 7;
+          border-color: color-mix(in srgb, var(--beacon-color) 82%, var(--accent));
+          background: linear-gradient(100deg, color-mix(in srgb, var(--beacon-color) 30%, #0b1917), rgba(7, 18, 16, 0.98));
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.36);
+          outline: none;
+          transform: translate(-50%, calc(-50% - 2px));
         }
-        .particle:hover { z-index: 5; transform: translate(-50%, -50%) scale(1.45); }
-        .selected-particle {
-          z-index: 6;
-          outline: 2px solid var(--ink);
-          outline-offset: 5px;
+        .selected-beacon {
+          z-index: 8;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent), 0 12px 24px rgba(0, 0, 0, 0.36);
         }
-        .particle-tooltip {
-          position: absolute;
-          z-index: 6;
-          left: var(--particle-tooltip-left, 50%);
-          top: var(--particle-tooltip-top, auto);
-          bottom: var(--particle-tooltip-bottom, calc(100% + 10px));
-          width: max-content;
-          max-width: min(170px, calc(100vw - 24px));
-          display: grid;
-          gap: 3px;
-          padding: 7px 8px;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 45%, var(--line));
-          background: rgba(5, 14, 12, 0.96);
+        .beacon-rail {
+          width: 3px;
+          height: calc(var(--beacon-height) * 0.52);
+          border-radius: 2px;
+          background: var(--beacon-color);
+          box-shadow: 0 0 8px color-mix(in srgb, var(--beacon-color) 44%, transparent);
+        }
+        .country-beacon > strong {
+          color: #e4f2ee;
+          font-size: clamp(0.78rem, 1.8vw, 1rem);
+          font-weight: 760;
+          line-height: 1;
+          letter-spacing: -0.03em;
+          font-variant-numeric: tabular-nums;
+        }
+        .beacon-code {
           color: var(--muted);
-          font-size: 0.61rem;
-          line-height: 1.25;
+          font-size: 0.59rem;
+          font-weight: 760;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .single-country-beacon .beacon-code { color: color-mix(in srgb, var(--beacon-color) 78%, var(--ink)); }
+        .beacon-tooltip {
+          position: absolute;
+          z-index: 9;
+          left: var(--beacon-tooltip-left, 50%);
+          top: var(--beacon-tooltip-top, auto);
+          bottom: var(--beacon-tooltip-bottom, calc(100% + 10px));
+          width: max-content;
+          max-width: min(230px, calc(100vw - 28px));
+          display: grid;
+          gap: 4px;
+          padding: 9px 10px;
+          border: 1px solid color-mix(in srgb, var(--beacon-color) 46%, var(--line));
+          background: rgba(5, 14, 12, 0.97);
+          color: var(--muted);
+          font-size: 0.66rem;
+          font-weight: 500;
+          line-height: 1.35;
+          text-align: left;
+          text-transform: none;
+          letter-spacing: 0;
           white-space: normal;
           overflow-wrap: anywhere;
-          box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
+          box-shadow: 0 16px 42px rgba(0, 0, 0, 0.4);
           opacity: 0;
           pointer-events: none;
-          transform: translate(var(--particle-tooltip-x, -50%), 6px) scale(0.94);
+          transform: translate(var(--beacon-tooltip-x, -50%), 6px) scale(0.97);
           transition: opacity 0.16s ease, transform 0.16s ease;
         }
-        .particle:hover .particle-tooltip,
-        .particle:focus-visible .particle-tooltip {
+        .beacon-tooltip strong { color: var(--ink); font-size: 0.74rem; }
+        .country-beacon:hover .beacon-tooltip,
+        .country-beacon:focus-visible .beacon-tooltip {
           opacity: 1;
-          transform: translate(var(--particle-tooltip-x, -50%), 0) scale(1);
+          transform: translate(var(--beacon-tooltip-x, -50%), 0) scale(1);
         }
+        .map-focus-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          margin-top: 12px;
+          padding: 11px 12px;
+          border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+          border-left: 3px solid var(--accent);
+          background: linear-gradient(100deg, rgba(95, 218, 201, 0.08), rgba(255, 255, 255, 0.02));
+        }
+        .map-focus-card > div:first-child { min-width: 0; }
+        .map-focus-card > div:first-child > span {
+          display: block;
+          margin-bottom: 3px;
+          color: var(--accent);
+          font-size: 0.59rem;
+          font-weight: 760;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .map-focus-card strong { display: block; color: var(--ink); font-size: 0.86rem; line-height: 1.3; }
+        .map-focus-card p { margin: 4px 0 0; color: var(--muted); font-size: 0.69rem; line-height: 1.45; }
+        .map-focus-guidance { border-left-color: color-mix(in srgb, var(--accent) 46%, var(--line)); background: rgba(255, 255, 255, 0.018); }
+        .map-focus-actions {
+          display: flex;
+          flex: 0 0 auto;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+        .map-focus-actions a,
+        .map-focus-actions button {
+          min-height: 28px;
+          border: 1px solid var(--line);
+          background: transparent;
+          color: var(--accent);
+          padding: 0 8px;
+          font: inherit;
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .map-focus-actions button { color: var(--muted); }
 
         .state-copy {
           position: absolute;
@@ -1845,6 +2105,86 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           text-decoration: none;
         }
         .reading-sublist a:hover { color: var(--ink); }
+
+        .situation-brief {
+          border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+          background:
+            linear-gradient(135deg, rgba(95, 218, 201, 0.1), rgba(127, 155, 208, 0.05) 58%, rgba(255, 255, 255, 0.02)),
+            var(--panel);
+        }
+        .brief-heading { margin-bottom: 12px; }
+        .brief-heading > span {
+          color: var(--accent);
+          border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--line));
+          padding: 7px 9px;
+          border-radius: 999px;
+          font-size: 0.66rem;
+          white-space: nowrap;
+        }
+        .brief-headline {
+          margin: 0;
+          color: var(--ink);
+          font-size: 0.94rem;
+          font-weight: 650;
+          line-height: 1.45;
+          text-wrap: pretty;
+        }
+        .brief-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 7px;
+          margin-top: 13px;
+        }
+        .brief-grid > div {
+          display: grid;
+          align-content: start;
+          gap: 5px;
+          min-height: 108px;
+          padding: 10px;
+          border: 1px solid rgba(157, 191, 179, 0.18);
+          background: rgba(4, 16, 14, 0.22);
+        }
+        .brief-grid span,
+        .brief-source-line > span {
+          color: var(--subtle);
+          font-size: 0.57rem;
+          font-weight: 760;
+          letter-spacing: 0.09em;
+          line-height: 1.3;
+          text-transform: uppercase;
+        }
+        .brief-grid strong { color: var(--ink); font-size: 0.88rem; line-height: 1.2; overflow-wrap: anywhere; }
+        .brief-grid small { color: var(--muted); font-size: 0.63rem; line-height: 1.4; }
+        .brief-source-line {
+          display: grid;
+          gap: 4px;
+          margin-top: 12px;
+          padding-top: 11px;
+          border-top: 1px solid var(--line);
+        }
+        .brief-source-line p { margin: 0; color: var(--muted); font-size: 0.7rem; line-height: 1.45; }
+        .brief-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 13px;
+        }
+        .brief-actions button {
+          min-height: 32px;
+          border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--line));
+          border-radius: 8px;
+          background: rgba(95, 218, 201, 0.08);
+          color: var(--accent);
+          padding: 0 10px;
+          font: inherit;
+          font-size: 0.66rem;
+          font-weight: 720;
+          cursor: pointer;
+        }
+        .brief-actions button:last-child { color: var(--muted); background: rgba(255, 255, 255, 0.025); border-color: var(--line); }
+        .brief-actions button:hover,
+        .brief-actions button:focus-visible { border-color: var(--accent); outline: none; }
+        .brief-feedback { min-height: 1.25em; margin: 9px 0 0; color: var(--accent); font-size: 0.66rem; line-height: 1.35; }
 
         .mini-panel { min-height: 250px; box-shadow: none; }
         .muted { color: var(--muted); line-height: 1.55; }
@@ -2046,6 +2386,15 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .article-list { max-height: none; }
         }
 
+        @media (hover: none), (pointer: coarse) {
+          .country-beacon {
+            min-width: max(var(--beacon-width), 54px);
+            min-height: 44px;
+          }
+          .beacon-tooltip { display: none; }
+          .country-beacon:hover { transform: translate(-50%, -50%); }
+        }
+
         @media (max-width: 680px) {
           .pulse-shell { width: min(100% - 20px, 1320px); padding-top: 10px; }
           .title-block, .status-panel, .panel, .metric-card, .details-panel { border-radius: 0; }
@@ -2065,9 +2414,17 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .title-logo { max-width: min(44vw, 108px); }
           .top-categories-row .count-list { grid-template-columns: 1fr; }
           .map-heading-actions { justify-content: flex-start; width: 100%; }
-          .map-status-chip, .off-map-chip, .layer-toggle { max-width: none; text-align: left; border-radius: 14px; width: 100%; }
+          .map-status-chip, .off-map-chip, .layer-toggle, .map-country-picker { max-width: none; text-align: left; border-radius: 14px; width: 100%; }
+          .map-country-picker { justify-content: space-between; min-height: 38px; }
+          .map-country-picker select { max-width: min(62vw, 230px); }
           .panel { padding: 16px; }
           .signal-field { min-height: 0; aspect-ratio: 2 / 1; }
+          .country-beacon { padding-inline: 8px; }
+          .beacon-code { font-size: 0.56rem; }
+          .map-focus-card { align-items: flex-start; flex-direction: column; }
+          .map-focus-actions { justify-content: flex-start; }
+          .brief-grid { grid-template-columns: 1fr; }
+          .brief-grid > div { min-height: 0; }
           .signal-legend { grid-template-columns: 1fr; }
           .signal-legend-head { padding: 0 0 10px; border-right: 0; border-bottom: 1px solid var(--line); }
           .signal-legend ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }

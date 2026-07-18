@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { deriveWorldPulseExploration } from "../lib/world-pulse-exploration.js";
+import { buildWorldPulseMapHubs, deriveWorldPulseExploration } from "../lib/world-pulse-exploration.js";
 import { WORLD_PULSE_SIGNAL_LEGEND, WORLD_PULSE_UNCLASSIFIED_LABEL } from "../lib/world-pulse-signals.js";
 
 const BASE_PAYLOAD = {
@@ -234,6 +234,37 @@ test("deriveWorldPulseExploration builds reading summaries for countries, marker
   assert.equal(cluster.articleCount, 2);
   assert.deepEqual(cluster.sourceCountries, [{ code: "US", label: "États-Unis" }]);
   assert.ok(cluster.categories.some((item) => item.label === "Non déterminé" && item.count === 1));
+
+  const hub = deriveWorldPulseExploration(BASE_PAYLOAD, {}, {
+    type: "hub",
+    id: "hub:FR-US",
+    countryCodes: ["FR", "US"],
+    label: "Zone dense · 2 pays",
+  }).selection;
+  assert.equal(hub.kind, "hub");
+  assert.equal(hub.articleCount, 4);
+  assert.match(hub.basis, /Zone dense de lecture/);
+});
+
+test("country map signals aggregate RSS articles by country and replace overlapping targets with explicit zones", () => {
+  const view = deriveWorldPulseExploration(BASE_PAYLOAD);
+  assert.deepEqual(
+    view.countrySignals.map((signal) => [signal.code, signal.articleCount]).sort((left, right) => left[0].localeCompare(right[0])),
+    [["FR", 2], ["US", 2]]
+  );
+  assert.equal(view.countryHubs.length, 2);
+  assert.equal(view.brief.localizedArticles, 4);
+  assert.equal(view.brief.localizationPct, 100);
+  assert.match(view.brief.methodNote, /articles RSS réellement reçus/);
+
+  const hubs = buildWorldPulseMapHubs([
+    { code: "BE", label: "Belgique", articleCount: 2, x: 50, y: 36, categories: [{ label: "Politique/élections", count: 2 }], mediaNames: ["A"], latestSeenAt: "2026-07-15T10:00:00.000Z" },
+    { code: "NL", label: "Pays-Bas", articleCount: 3, x: 51.5, y: 33, categories: [{ label: "Politique/élections", count: 3 }], mediaNames: ["B"], latestSeenAt: "2026-07-15T11:00:00.000Z" },
+  ]);
+  assert.equal(hubs.length, 1);
+  assert.equal(hubs[0].countryCount, 2);
+  assert.deepEqual(hubs[0].countryCodes, ["NL", "BE"]);
+  assert.equal(hubs[0].articleCount, 5);
 });
 
 test("deriveWorldPulseExploration reports 6h/24h windows only from received RSS dates and flags incomplete coverage", () => {
