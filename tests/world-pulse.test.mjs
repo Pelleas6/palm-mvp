@@ -204,7 +204,7 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage keeps 35 verified public feeds while widening India and Middle East coverage", async () => {
+test("default RSS coverage keeps 34 verified public feeds while widening India and Middle East coverage", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
@@ -219,7 +219,6 @@ test("default RSS coverage keeps 35 verified public feeds while widening India a
     ["Premium Times", "https://www.premiumtimesng.com/feed", "Nigeria"],
     ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
     ["Arab News", "https://www.arabnews.com/rss.xml", "Saudi Arabia"],
-    ["Israel National News", "https://www.israelnationalnews.com/Rss.aspx?act=.1", "Israel"],
     ["The Daily Star", "https://www.thedailystar.net/rss.xml", "Bangladesh"],
     ["Kathmandu Post", "https://kathmandupost.com/rss", "Nepal"],
     ["Bangkok Post", "https://www.bangkokpost.com/rss/data/topstories.xml", "Thailand"],
@@ -265,12 +264,12 @@ test("default RSS coverage keeps 35 verified public feeds while widening India a
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 35);
-  assert.equal(payload.source.feeds.length, 35);
-  assert.equal(payload.counts.rssArticlesFetched, 35);
-  assert.equal(payload.counts.rssMediaSources, 35);
-  assert.equal(payload.counts.rssActiveSources, 35);
-  assert.equal(payload.counts.rssKnownMediaCountries, 32);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 34);
+  assert.equal(payload.source.feeds.length, 34);
+  assert.equal(payload.counts.rssArticlesFetched, 34);
+  assert.equal(payload.counts.rssMediaSources, 34);
+  assert.equal(payload.counts.rssActiveSources, 34);
+  assert.equal(payload.counts.rssKnownMediaCountries, 31);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
     assert.ok(payload.source.feeds.some((feed) => feed.name === name && feed.url === url && feed.sourceCountry === country), `${name} missing`);
