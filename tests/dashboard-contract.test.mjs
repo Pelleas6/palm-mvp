@@ -28,12 +28,18 @@ function ngramsTocResponse(entries = [
 test("dashboard payload contract keeps API, server page and component on the same validated object", async () => {
   const pageSource = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
   const componentSource = await readFile(new URL("../components/WorldPulseDashboard.js", import.meta.url), "utf8");
+  const layoutSource = await readFile(new URL("../app/layout.js", import.meta.url), "utf8");
+  const loadingSource = await readFile(new URL("../app/loading.jsx", import.meta.url), "utf8");
 
   assert.match(pageSource, /getWorldPulseDashboardPayload/);
   assert.match(pageSource, /export const dynamic = "force-dynamic"/);
   assert.match(pageSource, /<WorldPulseDashboard initialPayload=\{initialPayload\}/);
   assert.match(componentSource, /function useGdeltPulse\(initialPayload\)/);
+  assert.match(componentSource, /function hasUsableInitialPayload\(initialPayload\)/);
   assert.match(componentSource, /useState\(\(\) => initialPayload \|\| \{ state: "loading" \}\)/);
+  assert.match(componentSource, /if \(!hasUsableInitialPayload\(initialPayload\)\) load\(\{ showLoading: true \}\);/);
+  assert.match(layoutSource, /import "\.\/globals\.css"/);
+  assert.match(loadingSource, /Préparation de la carte/);
   assert.match(componentSource, /Atlas vivant de l'actualité mondiale/);
   assert.match(componentSource, /Voyez les événements cités dans l'actualité prendre forme sur une carte/);
   assert.match(componentSource, /À cet instant : \$\{localizedCount\} événements localisés dans \$\{counts\.eventCountries\} pays/);

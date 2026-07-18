@@ -163,9 +163,13 @@ function WorldMapBackdrop({ availableCountryCodes = [], selectedCountryCode = nu
   );
 }
 
+function hasUsableInitialPayload(initialPayload) {
+  return Boolean(initialPayload && !["unavailable", "error"].includes(initialPayload.state));
+}
+
 function useGdeltPulse(initialPayload) {
   const [payload, setPayload] = useState(() => initialPayload || { state: "loading" });
-  const [loading, setLoading] = useState(() => !initialPayload);
+  const [loading, setLoading] = useState(() => !hasUsableInitialPayload(initialPayload));
 
   useEffect(() => {
     let active = true;
@@ -184,8 +188,8 @@ function useGdeltPulse(initialPayload) {
       }));
     }
 
-    async function load() {
-      if (!hasPayload) setLoading(true);
+    async function load({ showLoading = false } = {}) {
+      if (showLoading) setLoading(true);
       try {
         const response = await fetch("/api/gdelt", { cache: "no-store" });
         const data = await response.json().catch(() => null);
@@ -216,7 +220,11 @@ function useGdeltPulse(initialPayload) {
       }
     }
 
-    load();
+    // Une réponse serveur exploitable est déjà affichée : la relire aussitôt
+    // provoquait un changement de contenu visible à chaque rechargement.
+    // On ne relance immédiatement que lorsqu'aucune donnée réelle n'a pu être
+    // servie par le serveur ; sinon la cadence normale prend le relais.
+    if (!hasUsableInitialPayload(initialPayload)) load({ showLoading: true });
     timer = window.setInterval(load, REFRESH_MS);
     return () => {
       active = false;
@@ -650,7 +658,7 @@ function isDisplayableTrendChip(item) {
     && hasTrendContext(item);
 }
 
-function MomentTrendsPanel({ trends }) {
+function MomentTrendsPanel({ trends, loading = false }) {
   const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
   const fallbackTrends = Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : [];
   const sourceTrends = rawTrends.length > 0 ? rawTrends : fallbackTrends;
@@ -665,9 +673,10 @@ function MomentTrendsPanel({ trends }) {
         </div>
         <span>Top {momentTrends.length}{discardedTrendCount > 0 ? ` · ${discardedTrendCount} écarté(s)` : ""}</span>
       </div>
-      {sourceTrends.length === 0 ? <p className="muted">Aucun terme contextuel disponible sur ce cycle.</p> : null}
-      {sourceTrends.length > 0 && momentTrends.length === 0 ? <p className="muted">Les termes reçus sont trop génériques ou sans contexte source fiable pour être affichés.</p> : null}
-      {momentTrends.length > 0 ? (
+      {loading ? <p className="muted">Les tendances se préparent avec les sources en cours de lecture.</p> : null}
+      {!loading && sourceTrends.length === 0 ? <p className="muted">Aucun terme contextuel disponible sur ce cycle.</p> : null}
+      {!loading && sourceTrends.length > 0 && momentTrends.length === 0 ? <p className="muted">Les termes reçus sont trop génériques ou sans contexte source fiable pour être affichés.</p> : null}
+      {!loading && momentTrends.length > 0 ? (
         <div className="moment-trend-chips">
           {momentTrends.map((item) => (
             <span key={item.term}>
@@ -715,7 +724,7 @@ function GlobalTrends({ trends }) {
   );
 }
 
-function ArticleStream({ articles, state, sourceName }) {
+function ArticleStream({ articles, state, sourceName, loading = false }) {
   return (
     <aside className="panel stream-panel">
       <div className="panel-heading">
@@ -724,8 +733,8 @@ function ArticleStream({ articles, state, sourceName }) {
       </div>
       {articles.length === 0 ? (
         <div className="stream-empty">
-          <strong>{state === "unavailable" ? "Sources non disponibles" : "Aucun article à afficher"}</strong>
-          <span>Cette zone n'utilise pas de contenu de démonstration.</span>
+          <strong>{loading ? "Lecture des sources…" : state === "unavailable" ? "Sources non disponibles" : "Aucun article à afficher"}</strong>
+          <span>{loading ? "Les articles réels apparaîtront dès que la lecture est terminée." : "Cette zone n'utilise pas de contenu de démonstration."}</span>
         </div>
       ) : null}
       <div className="article-list">
@@ -860,7 +869,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             <span>Méthode visible</span>
           </div>
         </div>
-        <div className={`status-panel state-${payload.state || "loading"}`}>
+        <div className={`status-panel state-${loading ? "loading" : payload.state || "loading"}`}>
           <span className="status-dot" aria-hidden="true" />
           <div>
             <p>État du monde</p>
@@ -921,9 +930,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           </p>
         </article>
         <aside className="side-stack">
-          <MomentTrendsPanel trends={globalTrends} />
+          <MomentTrendsPanel trends={globalTrends} loading={loading} />
           <ReadingPanel selection={exploration.selection} />
-          <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} />
+          <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} loading={loading} />
         </aside>
       </section>
 

@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "Le Pouls du Monde — l'actualité mondiale en mouvement",
   description: "Un observatoire visuel des signaux médiatiques mondiaux : événements localisés, sources et tendances, avec une méthode transparente.",

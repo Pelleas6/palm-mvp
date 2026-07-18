@@ -1,0 +1,24 @@
+:root {
+  color-scheme: dark;
+  background: #051117;
+}
+
+html {
+  min-height: 100%;
+  background: #051117;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(circle at 13% 7%, rgba(95, 218, 201, 0.15), transparent 30rem),
+    radial-gradient(circle at 88% 0%, rgba(120, 173, 255, 0.13), transparent 28rem),
+    linear-gradient(180deg, #051117 0%, #071820 48%, #051117 100%);
+  color: #effafa;
+  font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}

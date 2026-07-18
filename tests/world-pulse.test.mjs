@@ -157,20 +157,32 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage adds the four verified research feeds without removing the eleven existing sources", async () => {
+test("default RSS coverage spans 27 verified public feeds across previously uncovered media countries", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
     ["France 24 Monde", "https://www.france24.com/fr/rss", "France"],
     ["Deutsche Welle Top Stories", "https://rss.dw.com/rdf/rss-en-all", "Germany"],
+    ["Ukrainska Pravda English", "https://www.pravda.com.ua/eng/rss/", "Ukraine"],
+    ["Daily Sabah World", "https://www.dailysabah.com/rss/world", "Turkey"],
     ["Africanews", "https://www.africanews.com/feed/rss", "Republic of Congo"],
+    ["Premium Times", "https://www.premiumtimesng.com/feed", "Nigeria"],
     ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
+    ["Arab News", "https://www.arabnews.com/rss.xml", "Saudi Arabia"],
+    ["Dawn", "https://www.dawn.com/feeds/home", "Pakistan"],
     ["The Hindu International", "https://www.thehindu.com/news/international/feeder/default.rss", "India"],
+    ["The Daily Star", "https://www.thedailystar.net/rss.xml", "Bangladesh"],
+    ["Kathmandu Post", "https://kathmandupost.com/rss", "Nepal"],
+    ["Bangkok Post", "https://www.bangkokpost.com/rss/data/topstories.xml", "Thailand"],
+    ["VNExpress", "https://vnexpress.net/rss/tin-moi-nhat.rss", "Vietnam"],
+    ["Rappler", "https://www.rappler.com/feed/", "Philippines"],
+    ["CNA", "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "Singapore"],
     ["NHK World", "https://www3.nhk.or.jp/rss/news/cat0.xml", "Japan"],
     ["ABC Australia World", "https://www.abc.net.au/news/feed/51120/rss.xml", "Australia"],
     ["NPR World", "https://feeds.npr.org/1004/rss.xml", "United States"],
     ["CBC World", "https://www.cbc.ca/cmlink/rss-world", "Canada"],
     ["Agência Brasil", "https://agenciabrasil.ebc.com.br/rss.xml", "Brazil"],
+    ["El Tiempo Mundo", "https://www.eltiempo.com/rss/mundo.xml", "Colombia"],
     ["Antara", "https://www.antaranews.com/rss/terkini.xml", "Indonesia"],
     ["El País", "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "Spain"],
     ["RNZ", "https://www.rnz.co.nz/rss/national.xml", "New Zealand"],
@@ -198,17 +210,51 @@ test("default RSS coverage adds the four verified research feeds without removin
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 15);
-  assert.equal(payload.source.feeds.length, 15);
-  assert.equal(payload.counts.rssArticlesFetched, 15);
-  assert.equal(payload.counts.rssMediaSources, 15);
-  assert.equal(payload.counts.rssActiveSources, 15);
-  assert.equal(payload.counts.rssKnownMediaCountries, 15);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 27);
+  assert.equal(payload.source.feeds.length, 27);
+  assert.equal(payload.counts.rssArticlesFetched, 27);
+  assert.equal(payload.counts.rssMediaSources, 27);
+  assert.equal(payload.counts.rssActiveSources, 27);
+  assert.equal(payload.counts.rssKnownMediaCountries, 27);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
     assert.ok(payload.source.feeds.some((feed) => feed.name === name && feed.url === url && feed.sourceCountry === country), `${name} missing`);
     assert.ok(payload.sourceHealth.some((entry) => entry.source === name && entry.url === url && entry.state === "OK"), `${name} health missing`);
   }
+});
+
+test("RSS collection bounds concurrent requests as coverage grows", async () => {
+  const cache = createPulseCache();
+  let activeRequests = 0;
+  let peakRequests = 0;
+  const feeds = Array.from({ length: 20 }, (_, index) => ({
+    name: `Bounded RSS ${index + 1}`,
+    url: `https://rss.example/bounded-${index + 1}.xml`,
+    language: "English",
+    sourceCountry: "Canada",
+    region: "North America",
+  }));
+  const fetchImpl = async (url) => {
+    const href = String(url);
+    if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
+    activeRequests += 1;
+    peakRequests = Math.max(peakRequests, activeRequests);
+    await new Promise((resolve) => setTimeout(resolve, 3));
+    activeRequests -= 1;
+    return rssResponse([rssItem({ title: `Climate signal ${href}`, link: href })]);
+  };
+
+  const payload = await getWorldPulse({
+    cache,
+    fetchImpl,
+    now: () => new Date(FIXED_NOW),
+    rssFeeds: feeds,
+  });
+
+  assert.equal(payload.state, "ok");
+  assert.equal(payload.counts.rssActiveSources, 20);
+  assert.ok(peakRequests > 1);
+  assert.ok(peakRequests <= 12, `expected at most 12 concurrent RSS requests, got ${peakRequests}`);
 });
 
 test("GDELT Web N-Grams reuses the last real validated TOC when the next slot is missing", async () => {

@@ -34,6 +34,12 @@ test("event geolocation detects only explicit countries or documented unambiguou
     { title: "Argentina votes on reform", summary: "", iso: "AR", country: "Argentine", type: "country_name" },
     { title: "United Kingdom prepares emergency response", summary: "", iso: "GB", country: "Royaume-Uni", type: "country_name" },
     { title: "Market update", summary: "United States regulators opened an inquiry.", iso: "US", country: "États-Unis", type: "country_name" },
+    { title: "Pakistan prepares a new energy plan", summary: "", iso: "PK", country: "Pakistan", type: "country_name" },
+    { title: "Bangkok transport network closes after flooding", summary: "", iso: "TH", country: "Thaïlande", type: "capital_city" },
+    { title: "Vietnam considers a climate transition", summary: "", iso: "VN", country: "Viêt Nam", type: "country_name" },
+    { title: "Authorities meet in Dhaka", summary: "", iso: "BD", country: "Bangladesh", type: "capital_city" },
+    { title: "Kathmandu hosts regional talks", summary: "", iso: "NP", country: "Népal", type: "capital_city" },
+    { title: "Philippines launches a new public-health campaign", summary: "", iso: "PH", country: "Philippines", type: "country_name" },
     { title: "Diplomats meet in Tehran", summary: "", iso: "IR", country: "Iran", type: "capital_city" },
   ];
 
