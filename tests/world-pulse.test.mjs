@@ -204,11 +204,14 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage keeps 34 verified public feeds while widening India and Middle East coverage", async () => {
+test("default RSS coverage keeps 37 verified public feeds while widening regional coverage", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
+    ["BBC News Africa", "https://feeds.bbci.co.uk/news/world/africa/rss.xml", "United Kingdom"],
+    ["BBC News Asia", "https://feeds.bbci.co.uk/news/world/asia/rss.xml", "United Kingdom"],
     ["BBC News India", "https://feeds.bbci.co.uk/news/world/asia/india/rss.xml", "United Kingdom"],
+    ["BBC News Latin America", "https://feeds.bbci.co.uk/news/world/latin_america/rss.xml", "United Kingdom"],
     ["BBC News Middle East", "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml", "United Kingdom"],
     ["France 24 Monde", "https://www.france24.com/fr/rss", "France"],
     ["France 24 Middle East", "https://www.france24.com/en/middle-east/rss", "France"],
@@ -264,11 +267,11 @@ test("default RSS coverage keeps 34 verified public feeds while widening India a
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 34);
-  assert.equal(payload.source.feeds.length, 34);
-  assert.equal(payload.counts.rssArticlesFetched, 34);
-  assert.equal(payload.counts.rssMediaSources, 34);
-  assert.equal(payload.counts.rssActiveSources, 34);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 37);
+  assert.equal(payload.source.feeds.length, 37);
+  assert.equal(payload.counts.rssArticlesFetched, 37);
+  assert.equal(payload.counts.rssMediaSources, 37);
+  assert.equal(payload.counts.rssActiveSources, 37);
   assert.equal(payload.counts.rssKnownMediaCountries, 31);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
