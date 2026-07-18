@@ -204,7 +204,7 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage spans 36 verified public feeds across previously uncovered media countries", async () => {
+test("default RSS coverage spans 41 verified public feeds across a wider set of direct publishers", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
@@ -217,10 +217,15 @@ test("default RSS coverage spans 36 verified public feeds across previously unco
     ["Radio Dabanga", "https://www.dabangasudan.org/en/feed/", "Sudan"],
     ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
     ["Arab News", "https://www.arabnews.com/rss.xml", "Saudi Arabia"],
-    ["The Times of Israel", "https://www.timesofisrael.com/feed/", "Israel"],
+    ["Jerusalem Post", "https://rss.jpost.com/rss/rssfeedsfrontpage.aspx", "Israel"],
+    ["Israel National News", "https://www.israelnationalnews.com/Rss.aspx?act=.1", "Israel"],
     ["IRNA English", "https://en.irna.ir/rss", "Iran"],
     ["Dawn", "https://www.dawn.com/feeds/home", "Pakistan"],
-    ["The Hindu International", "https://www.thehindu.com/news/international/feeder/default.rss", "India"],
+    ["The Wire", "https://thewire.in/rss", "India"],
+    ["Scroll.in", "https://scroll.in/rss", "India"],
+    ["The Print", "https://theprint.in/feed/", "India"],
+    ["Hindustan Times", "https://www.hindustantimes.com/rss/top-news/rssfeed.xml", "India"],
+    ["Moneycontrol", "https://www.moneycontrol.com/rss/latestnews.xml", "India"],
     ["The Daily Star", "https://www.thedailystar.net/rss.xml", "Bangladesh"],
     ["Kathmandu Post", "https://kathmandupost.com/rss", "Nepal"],
     ["Bangkok Post", "https://www.bangkokpost.com/rss/data/topstories.xml", "Thailand"],
@@ -256,7 +261,7 @@ test("default RSS coverage spans 36 verified public feeds across previously unco
     const origin = new URL(href).origin;
     return rssResponse([
       rssItem({
-        title: `Technology climate signal in ${country}`,
+        title: `Technology climate signal in ${country} from ${namesByUrl.get(href)}`,
         link: `${origin}/palm-${namesByUrl.get(href).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
         description: `Verified public RSS feed for ${country}`,
       }),
@@ -266,11 +271,11 @@ test("default RSS coverage spans 36 verified public feeds across previously unco
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 36);
-  assert.equal(payload.source.feeds.length, 36);
-  assert.equal(payload.counts.rssArticlesFetched, 36);
-  assert.equal(payload.counts.rssMediaSources, 36);
-  assert.equal(payload.counts.rssActiveSources, 36);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 41);
+  assert.equal(payload.source.feeds.length, 41);
+  assert.equal(payload.counts.rssArticlesFetched, 41);
+  assert.equal(payload.counts.rssMediaSources, 41);
+  assert.equal(payload.counts.rssActiveSources, 41);
   assert.equal(payload.counts.rssKnownMediaCountries, 36);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
