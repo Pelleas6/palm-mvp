@@ -44,7 +44,9 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /if \(!hasUsableInitialPayload\(initialPayload\)\) load\(\{ showLoading: true \}\);/);
   assert.match(layoutSource, /import "\.\/globals\.css"/);
   assert.match(layoutSource, /criticalShellCss/);
+  assert.match(layoutSource, /\.route-loading/);
   assert.match(globalsSource, /\.pulse-shell/);
+  assert.match(globalsSource, /\.route-loading/);
   assert.match(loadingSource, /Préparation de la carte/);
   assert.match(componentSource, /Atlas vivant de l'actualité mondiale/);
   assert.match(componentSource, /Voyez les événements cités dans l'actualité prendre forme sur une carte/);

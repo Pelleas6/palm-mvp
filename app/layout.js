@@ -14,6 +14,7 @@ const criticalShellCss = `
   .pulse-shell .title-block{min-height:238px;padding:clamp(24px,3.4vw,40px)}
   .pulse-shell h1{margin:0;font-size:clamp(2.85rem,5.7vw,5.8rem);line-height:.94;letter-spacing:-.06em}
   .pulse-shell h2{margin:0}.pulse-shell .map-panel-wide{padding:18px}.pulse-shell .signal-field{padding:8px;overflow:hidden;background:#07110f}.pulse-shell .map-viewport{position:relative;width:100%;aspect-ratio:2/1;overflow:hidden}
+  .route-loading{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 42%,rgba(95,218,201,.15),transparent 18rem),#051117;color:#effafa}.route-loading section{width:min(360px,100%);display:grid;gap:12px;text-align:center}.route-loading p{margin:0;color:#5fdac9;font-size:.7rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.route-loading strong{font-size:1.08rem}.route-loading span{color:#9ebbbb;font-size:.8rem}.route-loading-line{height:2px;overflow:hidden;border-radius:999px;background:rgba(173,213,213,.16)}
   @media(max-width:680px){.pulse-shell{width:min(1320px,calc(100% - 20px));padding-top:10px}.pulse-shell .title-block{min-height:0;padding:24px}.pulse-shell h1{font-size:clamp(3.2rem,18vw,5rem)}}
 `;
 

@@ -853,7 +853,7 @@ test("RSS ingestion rejects oversized source bodies without exhausting the dashb
     fetchImpl: async (url) => {
       const href = String(url);
       if (href.includes("oversized.example")) {
-        return textResponse(`<rss><channel>${"x".repeat(1_600_000)}</channel></rss>`);
+        return textResponse(`<rss><channel>${"x".repeat(3_100_000)}</channel></rss>`);
       }
       if (href.includes("weblegacy/ngrams")) return ngramsTocResponse();
       throw new Error(`unexpected fetch ${href}`);
