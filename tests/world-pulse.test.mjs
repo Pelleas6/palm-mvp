@@ -712,6 +712,9 @@ test("getWorldPulse keeps every usable RSS article and renders all explicitly lo
   assert.equal(payload.counts.eventLocalizedArticles, 66);
   assert.equal(payload.counts.articleParticles, 66);
   assert.ok(payload.counts.articleClusters > 0, "dense same-category particles should expose visual clusters without dropping articles");
+  assert.ok(payload.articleClusters.every((cluster) => (
+    cluster.size === Math.max(20, Math.min(38, Math.round(13 + Math.sqrt(cluster.count) * 6)))
+  )), "cluster diameter must visibly encode the number of grouped articles");
   assert.equal(payload.mapPoints.length, payload.articleClusters.length + payload.articleParticles.filter((particle) => !particle.clusterId).length);
   assert.equal(payload.mediaMarkers.length, 11);
   assert.equal(payload.articleParticles.length, 66);

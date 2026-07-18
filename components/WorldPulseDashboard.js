@@ -249,13 +249,16 @@ function Metric({ label, value, hint }) {
   );
 }
 
-function SignalLegend({ visibleLabel }) {
+function SignalLegend({ localizedCount, eventCountryCount, summary }) {
   return (
-    <div className="signal-legend" aria-label="Registre déterministe des catégories de signaux RSS et GDELT">
+    <div className="signal-legend" aria-label={summary || "Légende des catégories de signaux RSS et GDELT"}>
       <div className="signal-legend-head">
-        <span>Couleur = catégorie · repère = type</span>
-        <strong>{visibleLabel}</strong>
-        <small>Événements localisés, clusters et provenance média restent distincts. « Non déterminé » reste hors taxonomie utile.</small>
+        <div>
+          <span>Légende de lecture</span>
+          <strong>Thème & volume</strong>
+        </div>
+        <p><b>{localizedCount}</b> signaux · <b>{eventCountryCount}</b> pays</p>
+        <small>Couleur atténuée = thème · diamètre = volume</small>
       </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
@@ -323,6 +326,7 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       height: `${point.size}px`,
       "--particle-color": point.color,
       "--particle-delay": point.delay,
+      "--cluster-font-size": `${clamp(Math.round((point.size || 14) * 0.46), 10, 16)}px`,
       "--particle-safe-offset": `${safeOffset}px`,
       "--particle-tooltip-left": tooltipNearLeft ? "0%" : tooltipNearRight ? "100%" : "50%",
       "--particle-tooltip-x": tooltipNearLeft ? "0%" : tooltipNearRight ? "-100%" : "-50%",
@@ -907,14 +911,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <div className={`status-panel state-${loading ? "loading" : payload.state || "loading"}`}>
           <span className="status-dot" aria-hidden="true" />
           <div>
-            <p>État du monde</p>
+            <p>Lecture des sources</p>
             <strong>{loading ? "Actualisation en cours" : stateLabel}</strong>
             <span>
               Dernière lecture : {formatDate(payload.generatedAt)}<br />
               {payload.source?.cached ? "Données vérifiées en cache" : `Source active : ${activeSource}`}
             </span>
           </div>
-          <a href="#carte">Explorer la carte <span aria-hidden="true">↓</span></a>
+          <a href="#carte">Voir la carte <span aria-hidden="true">→</span></a>
         </div>
       </section>
 
@@ -934,7 +938,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
                 <h2>Où les signaux se concentrent-ils ?</h2>
               </div>
               <div className="map-heading-actions">
-                <span className="map-status-chip">{loading ? "Lecture des sources…" : `${localizedCount} signal(aux) localisé(s) dans ${counts.eventCountries} pays`}</span>
+                <span className="map-status-chip">{loading ? "Lecture des sources…" : `${localizedCount} signaux · ${counts.eventCountries} pays`}</span>
                 {unlocalizedCount > 0 ? (
                   <button
                     type="button"
@@ -945,7 +949,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
                   >
                     <span>À localiser</span>
                     <strong>{unlocalizedCount}</strong>
-                    <span>articles</span>
+                    <span>à traiter</span>
                   </button>
                 ) : null}
                 <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
@@ -966,7 +970,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               onSelectCountry={setSelectedPoint}
               showMediaMarkers={showMediaProvenance}
             />
-            <SignalLegend visibleLabel={mapStatusSummary} />
+            <SignalLegend
+              localizedCount={localizedCount}
+              eventCountryCount={counts.eventCountries}
+              summary={mapStatusSummary}
+            />
             <p className="map-note">
               Un point apparaît uniquement lorsqu'un pays ou une capitale est clairement cité dans le titre ou le résumé. Les articles sans preuve restent dans « À localiser ». Clique un pays, un point ou une bulle pour en lire le contexte.
             </p>
@@ -1042,11 +1050,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           --muted: #abc4c5;
           --subtle: #71999a;
           --accent: #5fdac9;
-          --accent-blue: #78adff;
-          --gold: #e9bf6d;
-          --warn: #efc36a;
-          --danger: #ff6f61;
-          --ok: #8ee37d;
+          --accent-blue: #7f9bd0;
+          --gold: #c59a59;
+          --warn: #c59a59;
+          --danger: #d77a72;
+          --ok: #76aa7d;
           --shadow: 0 24px 90px rgba(0, 0, 0, 0.38);
         }
 
@@ -1061,7 +1069,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
             radial-gradient(circle at 54% 72%, rgba(233, 191, 109, 0.05), transparent 32rem),
             linear-gradient(180deg, #051117 0%, #071820 48%, #051117 100%);
           color: var(--ink);
-          font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+          font-family: var(--font-sans);
         }
 
         a { color: inherit; }
@@ -1080,7 +1088,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(285px, 355px);
           gap: 18px;
-          align-items: stretch;
+          align-items: start;
           margin-bottom: 18px;
         }
 
@@ -1106,8 +1114,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           margin: 0 0 10px;
           color: var(--accent);
           font-size: 0.67rem;
-          font-weight: 800;
-          letter-spacing: 0.16em;
+          font-weight: 700;
+          letter-spacing: 0.11em;
           text-transform: uppercase;
         }
 
@@ -1136,9 +1144,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
         }
         h1 {
-          font-size: clamp(3rem, 6.1vw, 6.2rem);
-          line-height: 0.9;
-          letter-spacing: -0.08em;
+          font-size: clamp(2.85rem, 5.7vw, 5.8rem);
+          line-height: 0.94;
+          letter-spacing: -0.06em;
           max-width: 11ch;
         }
         h1 span {
@@ -1156,7 +1164,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .hero-proof {
           display: flex;
           flex-wrap: wrap;
-          gap: 7px;
+          gap: 6px;
           margin-top: 18px;
         }
         .hero-proof span {
@@ -1165,58 +1173,60 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border-radius: 999px;
           color: #bfe6e1;
           background: rgba(95, 218, 201, 0.06);
-          font-size: 0.61rem;
-          font-weight: 800;
-          letter-spacing: 0.07em;
-          text-transform: uppercase;
+          font-size: 0.66rem;
+          font-weight: 650;
+          letter-spacing: 0.01em;
         }
 
         .status-panel {
-          padding: 24px;
-          display: flex;
-          gap: 16px;
-          align-items: flex-start;
-          justify-content: space-between;
-          flex-wrap: wrap;
+          align-self: start;
+          padding: 18px;
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          gap: 12px;
+          align-items: center;
           background:
             radial-gradient(circle at 90% 0%, rgba(120, 173, 255, 0.16), transparent 38%),
             var(--panel-strong);
         }
 
         .status-panel p {
-          margin: 0 0 12px;
+          margin: 0 0 5px;
           color: var(--accent-blue);
-          font-size: 0.63rem;
-          font-weight: 800;
-          letter-spacing: 0.14em;
+          font-size: 0.61rem;
+          font-weight: 700;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
         }
-        .status-panel strong { display: block; font-size: 1.17rem; margin-bottom: 8px; }
-        .status-panel span:not(.status-dot) { color: var(--muted); line-height: 1.45; }
+        .status-panel strong { display: block; font-size: 1.02rem; margin-bottom: 4px; letter-spacing: -0.02em; }
+        .status-panel span:not(.status-dot) { color: var(--muted); font-size: 0.75rem; line-height: 1.45; }
         .status-panel > a {
-          width: 100%;
-          margin-top: auto;
-          padding-top: 14px;
-          border-top: 1px solid var(--line);
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          width: auto;
+          margin: 0;
+          padding: 7px 0;
+          border: 0;
           color: var(--accent);
           font-size: 0.72rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
           text-decoration: none;
         }
-        .status-panel > a span { float: right; color: var(--accent); }
+        .status-panel > a span { color: var(--accent); }
         .status-dot {
           flex: 0 0 auto;
-          width: 15px;
-          height: 15px;
-          margin-top: 4px;
+          width: 11px;
+          height: 11px;
           border-radius: 999px;
           background: var(--warn);
-          box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.12);
+          box-shadow: 0 0 0 6px rgba(197, 154, 89, 0.12);
         }
-        .state-ok .status-dot { background: var(--ok); box-shadow: 0 0 0 8px rgba(142, 227, 125, 0.12); }
-        .state-partial .status-dot { background: var(--warn); box-shadow: 0 0 0 8px rgba(245, 189, 79, 0.16); }
-        .state-unavailable .status-dot, .state-error .status-dot { background: var(--danger); box-shadow: 0 0 0 8px rgba(255, 111, 97, 0.12); }
+        .state-ok .status-dot { background: var(--ok); box-shadow: 0 0 0 6px rgba(118, 170, 125, 0.12); }
+        .state-partial .status-dot { background: var(--warn); box-shadow: 0 0 0 6px rgba(197, 154, 89, 0.16); }
+        .state-unavailable .status-dot, .state-error .status-dot { background: var(--danger); box-shadow: 0 0 0 6px rgba(215, 122, 114, 0.12); }
 
         .metric-grid, .bottom-grid {
           display: grid;
@@ -1492,35 +1502,38 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .panel-heading h2, .mini-panel h2 { font-size: clamp(1.04rem, 1.8vw, 1.4rem); letter-spacing: -0.04em; }
         .map-heading-actions {
-          display: grid;
-          justify-items: end;
-          gap: 8px;
-          max-width: min(100%, 680px);
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 7px;
+          max-width: min(100%, 700px);
         }
         .map-status-chip,
         .off-map-chip {
           color: var(--muted);
-          font-size: 0.68rem;
+          display: inline-flex;
+          align-items: center;
+          min-height: 32px;
+          font-size: 0.71rem;
           border: 1px solid var(--line);
-          padding: 7px 10px;
+          padding: 6px 10px;
           border-radius: 999px;
-          max-width: min(100%, 620px);
-          text-align: right;
-          white-space: normal;
+          max-width: 100%;
+          text-align: left;
+          white-space: nowrap;
           overflow-wrap: anywhere;
         }
         .off-map-chip {
           display: inline-flex;
           align-items: center;
-          justify-self: end;
-          gap: 6px;
+          gap: 5px;
           width: fit-content;
-          background: rgba(255, 255, 255, 0.035);
+          background: rgba(255, 255, 255, 0.025);
           color: var(--subtle);
-          font-size: 0.61rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
+          font-size: 0.68rem;
+          font-weight: 700;
+          letter-spacing: 0.01em;
           font: inherit;
           cursor: pointer;
         }
@@ -1534,21 +1547,21 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .off-map-chip strong {
           color: var(--ink);
-          font-size: 0.77rem;
+          font-size: 0.75rem;
           line-height: 1;
           font-variant-numeric: tabular-nums;
         }
         .layer-toggle {
-          min-height: 34px;
+          min-height: 32px;
           border: 1px solid var(--line);
-          background: rgba(255, 255, 255, 0.04);
+          border-radius: 999px;
+          background: transparent;
           color: var(--accent);
           padding: 0 12px;
           font: inherit;
-          font-size: 0.65rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
+          font-size: 0.68rem;
+          font-weight: 700;
+          letter-spacing: 0.01em;
           cursor: pointer;
         }
 
@@ -1651,34 +1664,38 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           pointer-events: auto;
           transform: translate(-50%, -50%);
           border-radius: 999px;
-          background: var(--particle-color);
-          animation: pulseFloat 3.6s ease-in-out infinite;
-          animation-delay: var(--particle-delay);
+          background: color-mix(in srgb, var(--particle-color) 62%, #0d1e1d);
+          transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
         }
         button.particle { appearance: none; }
         .media-marker {
           z-index: 4;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 78%, var(--ink));
-          box-shadow: 0 0 0 5px color-mix(in srgb, var(--particle-color) 18%, transparent), 0 0 22px var(--particle-color);
+          border: 1px solid color-mix(in srgb, var(--particle-color) 66%, var(--ink));
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--particle-color) 12%, transparent), 0 5px 12px rgba(0, 0, 0, 0.28);
         }
         .article-particle {
           z-index: 3;
           border: none;
-          opacity: 0.92;
-          box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 24%, transparent), 0 0 11px var(--particle-color);
+          opacity: 0.78;
+          animation: pulseFloat 4.8s ease-in-out infinite;
+          animation-delay: var(--particle-delay);
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--particle-color) 20%, transparent), 0 0 8px color-mix(in srgb, var(--particle-color) 38%, transparent);
         }
         .article-cluster {
           z-index: 4;
           display: grid;
           place-items: center;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 84%, var(--ink));
-          box-shadow: 0 0 0 5px color-mix(in srgb, var(--particle-color) 18%, transparent), 0 0 24px var(--particle-color);
+          border: 2px solid color-mix(in srgb, var(--particle-color) 70%, var(--ink));
+          background: color-mix(in srgb, var(--particle-color) 20%, #0b1d1b);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--particle-color) 11%, transparent), 0 6px 14px rgba(0, 0, 0, 0.34);
         }
         .cluster-count {
-          color: #07110f;
-          font-size: 0.62rem;
-          font-weight: 900;
+          color: var(--ink);
+          font-size: var(--cluster-font-size, 0.7rem);
+          font-weight: 750;
           line-height: 1;
+          letter-spacing: -0.03em;
+          text-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
           font-variant-numeric: tabular-nums;
         }
         .particle::after {
@@ -1688,8 +1705,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           border-radius: inherit;
         }
         .media-marker::after {
-          inset: -10px;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 30%, transparent);
+          inset: -7px;
+          border: 1px solid color-mix(in srgb, var(--particle-color) 22%, transparent);
         }
         .particle:hover { z-index: 5; transform: translate(-50%, -50%) scale(1.45); }
         .selected-particle {
@@ -1903,57 +1920,60 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .signal-legend {
           display: grid;
           grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
-          gap: 14px;
-          align-items: stretch;
+          grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+          gap: 18px;
+          align-items: center;
           margin-top: 14px;
-          padding: 14px;
-          border: 1px solid var(--line);
-          background: rgba(255, 255, 255, 0.032);
+          padding: 13px 0 0;
+          border-top: 1px solid var(--line);
         }
         .signal-legend-head {
           display: grid;
-          gap: 5px;
+          gap: 3px;
           align-content: center;
+          padding-right: 18px;
+          border-right: 1px solid var(--line);
         }
         .signal-legend-head span,
         .signal-legend-head small {
           color: var(--muted);
-          font-size: 0.65rem;
-          font-weight: 800;
-          letter-spacing: 0.12em;
+          font-size: 0.63rem;
+          font-weight: 700;
+          letter-spacing: 0.09em;
           text-transform: uppercase;
         }
+        .signal-legend-head p { margin: 3px 0 1px; color: var(--muted); font-size: 0.72rem; }
+        .signal-legend-head p b { color: var(--ink); font-variant-numeric: tabular-nums; }
         .signal-legend-head strong {
           color: var(--ink);
-          font-size: clamp(1.04rem, 1.8vw, 1.4rem);
-          letter-spacing: -0.04em;
+          font-size: 1.06rem;
+          letter-spacing: -0.03em;
         }
         .signal-legend ul {
           list-style: none;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          align-items: center;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+          gap: 6px 12px;
+          align-items: start;
           margin: 0;
           padding: 0;
         }
         .signal-legend li {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          gap: 7px;
-          min-height: 34px;
-          padding: 7px 10px;
-          border: 1px solid var(--line);
+          gap: 6px;
+          min-height: 22px;
+          padding: 0;
           color: var(--muted);
-          background: rgba(255, 255, 255, 0.03);
-          font-size: 0.7rem;
+          font-size: 0.68rem;
+          line-height: 1.3;
         }
         .signal-legend i {
-          width: 11px;
-          height: 11px;
+          width: 8px;
+          height: 8px;
           border-radius: 999px;
           background: var(--legend-color);
-          box-shadow: 0 0 18px var(--legend-color);
+          box-shadow: 0 0 8px color-mix(in srgb, var(--legend-color) 48%, transparent);
         }
         .source-health-panel { margin-bottom: 22px; overflow: hidden; }
         .source-health-panel .panel-heading > span {
@@ -2037,17 +2057,20 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .location-filter button { flex: 1 1 30%; padding-inline: 6px; }
           .top-strip, .main-grid, .metric-grid, .bottom-grid, .side-stack, .map-stack { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 330px; padding: 24px; }
+          .status-panel { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+          .status-panel > a { grid-column: 2; justify-self: start; }
           h1 { font-size: clamp(3.2rem, 18vw, 5rem); }
           .title-heading { align-items: flex-start; gap: 10px; }
           .title-logo-frame { height: clamp(58px, 16vw, 76px); align-items: flex-start; }
           .title-logo { max-width: min(44vw, 108px); }
           .top-categories-row .count-list { grid-template-columns: 1fr; }
-          .map-heading-actions { justify-items: stretch; width: 100%; }
-          .map-status-chip, .off-map-chip { max-width: none; text-align: left; border-radius: 14px; justify-self: stretch; width: 100%; }
+          .map-heading-actions { justify-content: flex-start; width: 100%; }
+          .map-status-chip, .off-map-chip, .layer-toggle { max-width: none; text-align: left; border-radius: 14px; width: 100%; }
           .panel { padding: 16px; }
           .signal-field { min-height: 0; aspect-ratio: 2 / 1; }
           .signal-legend { grid-template-columns: 1fr; }
-          .signal-legend ul { display: grid; grid-template-columns: 1fr; }
+          .signal-legend-head { padding: 0 0 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+          .signal-legend ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .signal-legend li { min-width: 0; }
           .panel-heading { flex-direction: column; }
           .details-panel { margin-top: 10px; }

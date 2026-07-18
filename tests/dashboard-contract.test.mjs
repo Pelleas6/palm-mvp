@@ -51,6 +51,9 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /\.world-map \{[\s\S]+inset: 0;[\s\S]+width: 100%;[\s\S]+height: 100%;/);
   assert.match(componentSource, /WORLD_PULSE_LOCALIZATION_FILTERS/);
   assert.match(componentSource, /À localiser/);
+  assert.match(componentSource, /diamètre = volume/);
+  assert.match(componentSource, /--cluster-font-size/);
+  assert.match(componentSource, /\.top-strip \{[\s\S]+align-items: start/);
   assert.match(componentSource, /<Metric label="Signaux cartographiés"/);
   assert.match(componentSource, /<Metric label="Sources en ligne"/);
   assert.match(componentSource, /<img className="title-logo"[\s\S]+src="\/brand\/pouls-du-monde-logo-master\.webp"[\s\S]+alt="Le Pouls du Monde"[\s\S]+width="148" height="104"/);
