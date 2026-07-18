@@ -204,7 +204,7 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage keeps 37 verified public feeds while widening regional coverage", async () => {
+test("default RSS coverage keeps 43 verified public feeds while filling under-covered regions", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
@@ -220,8 +220,10 @@ test("default RSS coverage keeps 37 verified public feeds while widening regiona
     ["Daily Sabah World", "https://www.dailysabah.com/rss/world", "Turkey"],
     ["Africanews", "https://www.africanews.com/feed/rss", "Republic of Congo"],
     ["Premium Times", "https://www.premiumtimesng.com/feed", "Nigeria"],
+    ["RSF — Afrique", "https://rsf.org/fr/rss/afrique/feed.xml", "France"],
     ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
     ["Arab News", "https://www.arabnews.com/rss.xml", "Saudi Arabia"],
+    ["RSF — Maghreb / Moyen-Orient", "https://rsf.org/fr/rss/maghreb-moyen-orient/feed.xml", "France"],
     ["The Daily Star", "https://www.thedailystar.net/rss.xml", "Bangladesh"],
     ["Kathmandu Post", "https://kathmandupost.com/rss", "Nepal"],
     ["Bangkok Post", "https://www.bangkokpost.com/rss/data/topstories.xml", "Thailand"],
@@ -230,6 +232,7 @@ test("default RSS coverage keeps 37 verified public feeds while widening regiona
     ["Rappler", "https://www.rappler.com/feed/", "Philippines"],
     ["CNA", "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "Singapore"],
     ["NHK World", "https://www3.nhk.or.jp/rss/news/cat0.xml", "Japan"],
+    ["RSF — Asie-Pacifique", "https://rsf.org/fr/rss/asie-pacifique/feed.xml", "France"],
     ["ABC Australia World", "https://www.abc.net.au/news/feed/51120/rss.xml", "Australia"],
     ["NPR World", "https://feeds.npr.org/1004/rss.xml", "United States"],
     ["CBC World", "https://www.cbc.ca/cmlink/rss-world", "Canada"],
@@ -239,6 +242,9 @@ test("default RSS coverage keeps 37 verified public feeds while widening regiona
     ["El Tiempo Mundo", "https://www.eltiempo.com/rss/mundo.xml", "Colombia"],
     ["Agencia Andina", "https://andina.pe/agencia/rss.aspx", "Peru"],
     ["Cooperativa", "https://www.cooperativa.cl/noticias/site/tax/port/all/rss____1.xml", "Chile"],
+    ["RSF — Argentine", "https://rsf.org/fr/rss/am%C3%A9riques/argentine/feed.xml", "France"],
+    ["RSF — Haïti", "https://rsf.org/fr/rss/am%C3%A9riques/ha%C3%AFti/feed.xml", "France"],
+    ["RSF — Venezuela", "https://rsf.org/fr/rss/am%C3%A9riques/venezuela/feed.xml", "France"],
     ["Antara", "https://www.antaranews.com/rss/terkini.xml", "Indonesia"],
     ["El País", "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "Spain"],
     ["RNZ", "https://www.rnz.co.nz/rss/national.xml", "New Zealand"],
@@ -267,11 +273,11 @@ test("default RSS coverage keeps 37 verified public feeds while widening regiona
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 37);
-  assert.equal(payload.source.feeds.length, 37);
-  assert.equal(payload.counts.rssArticlesFetched, 37);
-  assert.equal(payload.counts.rssMediaSources, 37);
-  assert.equal(payload.counts.rssActiveSources, 37);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 43);
+  assert.equal(payload.source.feeds.length, 43);
+  assert.equal(payload.counts.rssArticlesFetched, 43);
+  assert.equal(payload.counts.rssMediaSources, 43);
+  assert.equal(payload.counts.rssActiveSources, 43);
   assert.equal(payload.counts.rssKnownMediaCountries, 31);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
