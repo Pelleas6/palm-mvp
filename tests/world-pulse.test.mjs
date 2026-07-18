@@ -204,7 +204,7 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage spans 27 verified public feeds across previously uncovered media countries", async () => {
+test("default RSS coverage spans 36 verified public feeds across previously uncovered media countries", async () => {
   const cache = createPulseCache();
   const expectedFeeds = [
     ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
@@ -214,13 +214,17 @@ test("default RSS coverage spans 27 verified public feeds across previously unco
     ["Daily Sabah World", "https://www.dailysabah.com/rss/world", "Turkey"],
     ["Africanews", "https://www.africanews.com/feed/rss", "Republic of Congo"],
     ["Premium Times", "https://www.premiumtimesng.com/feed", "Nigeria"],
+    ["Radio Dabanga", "https://www.dabangasudan.org/en/feed/", "Sudan"],
     ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
     ["Arab News", "https://www.arabnews.com/rss.xml", "Saudi Arabia"],
+    ["The Times of Israel", "https://www.timesofisrael.com/feed/", "Israel"],
+    ["IRNA English", "https://en.irna.ir/rss", "Iran"],
     ["Dawn", "https://www.dawn.com/feeds/home", "Pakistan"],
     ["The Hindu International", "https://www.thehindu.com/news/international/feeder/default.rss", "India"],
     ["The Daily Star", "https://www.thedailystar.net/rss.xml", "Bangladesh"],
     ["Kathmandu Post", "https://kathmandupost.com/rss", "Nepal"],
     ["Bangkok Post", "https://www.bangkokpost.com/rss/data/topstories.xml", "Thailand"],
+    ["Laotian Times", "https://laotiantimes.com/feed/", "Laos"],
     ["VNExpress", "https://vnexpress.net/rss/tin-moi-nhat.rss", "Vietnam"],
     ["Rappler", "https://www.rappler.com/feed/", "Philippines"],
     ["CNA", "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "Singapore"],
@@ -228,11 +232,16 @@ test("default RSS coverage spans 27 verified public feeds across previously unco
     ["ABC Australia World", "https://www.abc.net.au/news/feed/51120/rss.xml", "Australia"],
     ["NPR World", "https://feeds.npr.org/1004/rss.xml", "United States"],
     ["CBC World", "https://www.cbc.ca/cmlink/rss-world", "Canada"],
+    ["Mexico News Daily", "https://mexiconewsdaily.com/feed/", "Mexico"],
+    ["Prensa Libre", "https://www.prensalibre.com/feed/", "Guatemala"],
     ["Agência Brasil", "https://agenciabrasil.ebc.com.br/rss.xml", "Brazil"],
     ["El Tiempo Mundo", "https://www.eltiempo.com/rss/mundo.xml", "Colombia"],
+    ["Agencia Andina", "https://andina.pe/agencia/rss.aspx", "Peru"],
+    ["Cooperativa", "https://www.cooperativa.cl/noticias/site/tax/port/all/rss____1.xml", "Chile"],
     ["Antara", "https://www.antaranews.com/rss/terkini.xml", "Indonesia"],
     ["El País", "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "Spain"],
     ["RNZ", "https://www.rnz.co.nz/rss/national.xml", "New Zealand"],
+    ["FBC News", "https://www.fbcnews.com.fj/rss/", "Fiji"],
     ["SABC News", "https://www.sabcnews.com/sabcnews/feed/", "South Africa"],
   ];
   const countriesByUrl = new Map(expectedFeeds.map(([, url, country]) => [url, country]));
@@ -257,12 +266,12 @@ test("default RSS coverage spans 27 verified public feeds across previously unco
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 27);
-  assert.equal(payload.source.feeds.length, 27);
-  assert.equal(payload.counts.rssArticlesFetched, 27);
-  assert.equal(payload.counts.rssMediaSources, 27);
-  assert.equal(payload.counts.rssActiveSources, 27);
-  assert.equal(payload.counts.rssKnownMediaCountries, 27);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 36);
+  assert.equal(payload.source.feeds.length, 36);
+  assert.equal(payload.counts.rssArticlesFetched, 36);
+  assert.equal(payload.counts.rssMediaSources, 36);
+  assert.equal(payload.counts.rssActiveSources, 36);
+  assert.equal(payload.counts.rssKnownMediaCountries, 36);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
     assert.ok(payload.source.feeds.some((feed) => feed.name === name && feed.url === url && feed.sourceCountry === country), `${name} missing`);
