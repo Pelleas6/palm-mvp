@@ -34,6 +34,7 @@ test("dashboard payload contract keeps API, server page and component on the sam
   const nextConfigSource = await readFile(new URL("../next.config.mjs", import.meta.url), "utf8");
   const loadingSource = await readFile(new URL("../app/loading.jsx", import.meta.url), "utf8");
   const sourceHealthPage = await readFile(new URL("../app/sante-sources/page.jsx", import.meta.url), "utf8");
+  const apiRouteSource = await readFile(new URL("../app/api/gdelt/route.js", import.meta.url), "utf8");
 
   assert.match(pageSource, /getWorldPulseDashboardPayload/);
   assert.match(pageSource, /export const dynamic = "force-dynamic"/);
@@ -41,7 +42,7 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /function useGdeltPulse\(initialPayload\)/);
   assert.match(componentSource, /function hasUsableInitialPayload\(initialPayload\)/);
   assert.match(componentSource, /useState\(\(\) => initialPayload \|\| \{ state: "loading" \}\)/);
-  assert.match(componentSource, /if \(!hasUsableInitialPayload\(initialPayload\)\) load\(\{ showLoading: true \}\);/);
+  assert.match(componentSource, /if \(!hasUsableInitialPayload\(initialPayload\)\) refreshIfChanged\(\{ showLoading: true \}\);/);
   assert.match(layoutSource, /import "\.\/globals\.css"/);
   assert.match(layoutSource, /criticalShellCss/);
   assert.match(layoutSource, /\.route-loading/);
@@ -51,6 +52,13 @@ test("dashboard payload contract keeps API, server page and component on the sam
   assert.match(componentSource, /Atlas vivant de l'actualité mondiale/);
   assert.match(componentSource, /Voyez les événements cités dans l'actualité prendre forme sur une carte/);
   assert.match(componentSource, /const REFRESH_MS = 30 \* 1000/);
+  assert.match(componentSource, /method: "HEAD"/);
+  assert.match(componentSource, /If-None-Match/);
+  assert.match(componentSource, /x-world-pulse-version/);
+  assert.match(componentSource, /particle-layer > \.article-particle:nth-child\(-n \+ 64\)/);
+  assert.match(apiRouteSource, /export async function HEAD/);
+  assert.match(apiRouteSource, /X-World-Pulse-Version/);
+  assert.match(apiRouteSource, /ETag/);
   assert.match(componentSource, /Survolez un repère sur ordinateur ou touchez-le sur mobile/);
   assert.match(componentSource, /<section className="map-experience" id="carte">/);
   assert.ok(
@@ -129,6 +137,8 @@ test("validated dashboard payload exposes matching RSS counts and rendered colle
   assert.ok(Array.isArray(payload.globalTrends.rawTrends));
   assert.ok(Array.isArray(payload.globalTrends.emergingTrends));
   assert.ok(payload.counts.articles > 0);
+  assert.equal(Object.hasOwn(payload.articles[0], "summary"), false);
+  assert.equal(Object.hasOwn(payload.articles[0], "image"), false);
   assert.ok(payload.dataScopes.rss);
   assert.ok(payload.dataScopes.gdeltNgrams);
 });

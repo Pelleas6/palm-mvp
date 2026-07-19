@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { geoEquirectangular, geoGraticule10, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
@@ -12,8 +12,8 @@ import {
   deriveWorldPulseExploration,
 } from "../lib/world-pulse-exploration.js";
 
-// Le navigateur relit le snapshot léger toutes les 30 s. Le serveur conserve
-// son cache des sources, ce qui évite de relancer les flux RSS à chaque cycle.
+// Le navigateur sonde la version du snapshot toutes les 30 s. Le serveur garde
+// les flux RSS en cache, et le payload complet n'est relu que s'il a changé.
 const REFRESH_MS = 30 * 1000;
 const EMPTY_COUNTS = {
   articles: 0,
@@ -257,25 +257,22 @@ function hasUsableInitialPayload(initialPayload) {
 function useGdeltPulse(initialPayload) {
   const [payload, setPayload] = useState(() => initialPayload || { state: "loading" });
   const [loading, setLoading] = useState(() => !hasUsableInitialPayload(initialPayload));
+  const versionRef = useRef(initialPayload?.generatedAt || null);
 
   useEffect(() => {
     let active = true;
     let timer;
-    let hasPayload = Boolean(initialPayload);
+    let refreshing = false;
+    let hasPayload = hasUsableInitialPayload(initialPayload);
+    versionRef.current = initialPayload?.generatedAt || null;
 
     function applyClientError(errorPayload) {
       if (!hasPayload) {
         setPayload(errorPayload);
-        return;
       }
-      setPayload((current) => ({
-        ...current,
-        clientError: errorPayload.error,
-        notice: `${current.notice || ""} Dernier rafraîchissement client non appliqué : ${errorPayload.error.reason}.`.trim(),
-      }));
     }
 
-    async function load({ showLoading = false } = {}) {
+    async function loadFullPayload({ showLoading = false } = {}) {
       if (showLoading) setLoading(true);
       try {
         const response = await fetch("/api/gdelt", { cache: "no-store" });
@@ -303,6 +300,7 @@ function useGdeltPulse(initialPayload) {
         }
         setPayload(data);
         hasPayload = true;
+        versionRef.current = response.headers.get("x-world-pulse-version") || data.generatedAt || null;
       } catch (error) {
         if (!active) return;
         applyClientError({
@@ -317,12 +315,43 @@ function useGdeltPulse(initialPayload) {
       }
     }
 
+    async function refreshIfChanged({ showLoading = false } = {}) {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        if (!hasPayload) {
+          await loadFullPayload({ showLoading });
+          return;
+        }
+        const knownVersion = versionRef.current;
+        const response = await fetch("/api/gdelt", {
+          method: "HEAD",
+          cache: "no-store",
+          headers: knownVersion ? { "If-None-Match": `W/"${knownVersion}"` } : undefined,
+        });
+        if (!active || response.status === 304 || !response.ok) return;
+        const nextVersion = response.headers.get("x-world-pulse-version");
+        if (!nextVersion || nextVersion !== knownVersion) await loadFullPayload();
+      } catch (error) {
+        if (!active) return;
+        applyClientError({
+          state: "error",
+          error: { reason: "Impossible de vérifier la version locale /api/gdelt", detail: String(error?.message || error) },
+          articles: [],
+          counts: EMPTY_COUNTS,
+          groupings: { domains: [], countries: [], languages: [], labels: [] },
+        });
+      } finally {
+        refreshing = false;
+      }
+    }
+
     // Une réponse serveur exploitable est déjà affichée : la relire aussitôt
     // provoquait un changement de contenu visible à chaque rechargement.
     // On ne relance immédiatement que lorsqu'aucune donnée réelle n'a pu être
     // servie par le serveur ; sinon la cadence normale prend le relais.
-    if (!hasUsableInitialPayload(initialPayload)) load({ showLoading: true });
-    timer = window.setInterval(load, REFRESH_MS);
+    if (!hasUsableInitialPayload(initialPayload)) refreshIfChanged({ showLoading: true });
+    timer = window.setInterval(refreshIfChanged, REFRESH_MS);
     return () => {
       active = false;
       window.clearInterval(timer);
@@ -416,8 +445,8 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       "--particle-delay": point.delay,
       "--cluster-font-size": `${clamp(Math.round((point.size || 14) * 0.46), 10, 16)}px`,
       "--cluster-mobile-font-size": `${clamp(Math.round((point.size || 14) * 0.26), 8, 12)}px`,
-      "--particle-mobile-scale": point.kind === "article-cluster" ? 0.48 : point.kind === "media" ? 0.58 : 0.72,
-      "--particle-mobile-active-scale": point.kind === "article-cluster" ? 0.58 : point.kind === "media" ? 0.68 : 0.84,
+      "--particle-mobile-scale": point.kind === "article-cluster" ? 0.42 : point.kind === "media" ? 0.52 : 0.62,
+      "--particle-mobile-active-scale": point.kind === "article-cluster" ? 0.52 : point.kind === "media" ? 0.62 : 0.74,
       "--particle-tooltip-left": tooltipNearLeft ? "0%" : tooltipNearRight ? "100%" : "50%",
       "--particle-tooltip-x": tooltipNearLeft ? "0%" : tooltipNearRight ? "-100%" : "-50%",
       "--particle-tooltip-top": tooltipNearTop ? "calc(100% + 10px)" : "auto",
@@ -2018,8 +2047,15 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           opacity: 0.82;
           background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--particle-color) 80%, #e7fffa), color-mix(in srgb, var(--particle-color) 48%, #09201c) 58%, rgba(7, 18, 16, 0.18));
           box-shadow: 0 0 7px color-mix(in srgb, var(--particle-color) 58%, transparent), 0 0 16px color-mix(in srgb, var(--particle-color) 18%, transparent);
-          animation: pulseFloat 4.8s ease-in-out infinite;
-          animation-delay: var(--particle-delay);
+          animation: none;
+        }
+        /* Une poignée de points reste vivante sur ordinateur, sans imposer des
+           centaines de recalculs de filtre/opacity au navigateur. */
+        @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+          .particle-layer > .article-particle:nth-child(-n + 64) {
+            animation: pulseFloat 4.8s ease-in-out infinite;
+            animation-delay: var(--particle-delay);
+          }
         }
         .article-cluster {
           z-index: 4;
