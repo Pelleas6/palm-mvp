@@ -139,6 +139,9 @@ test("validated dashboard payload exposes matching RSS counts and rendered colle
   assert.ok(payload.counts.articles > 0);
   assert.equal(Object.hasOwn(payload.articles[0], "summary"), false);
   assert.equal(Object.hasOwn(payload.articles[0], "image"), false);
+  assert.equal(Object.hasOwn(payload, "mapPoints"), false);
+  assert.equal(Object.hasOwn(payload.articleParticles[0] || {}, "positioning"), false);
+  assert.equal(Object.hasOwn(payload.articleParticles[0] || {}, "coordinates"), false);
   assert.ok(payload.dataScopes.rss);
   assert.ok(payload.dataScopes.gdeltNgrams);
 });
