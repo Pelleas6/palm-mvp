@@ -1,6 +1,6 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import WorldMap from "../components/WorldMap";
+import WorldMapGuard from "../components/WorldMapGuard";
 import DeferredWorldPulseDashboard from "../components/DeferredWorldPulseDashboard";
 
 export default function Home() {
@@ -8,7 +8,7 @@ export default function Home() {
     <>
       <Header backLink={null} />
       <div id="carte">
-        <WorldMap />
+        <WorldMapGuard />
       </div>
       <DeferredWorldPulseDashboard />
       <Footer />
