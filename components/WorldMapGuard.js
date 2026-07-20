@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import WorldMap from "./WorldMap";
 import { WORLD_PULSE_SIGNAL_LEGEND } from "../lib/world-pulse-signals.js";
 
-const PATCH_FLAG = Symbol.for("le-pouls-du-monde.maplibre-category-clusters.v1");
+const PATCH_FLAG = Symbol.for("le-pouls-du-monde.maplibre-category-clusters.v2");
 const PALETTE = WORLD_PULSE_SIGNAL_LEGEND.map((category) => ({
   ...category,
   key: `category_${category.id}`,
@@ -32,6 +32,72 @@ const CLUSTER_COLOR = [
   "#aab9b5",
 ];
 
+function unwrapRing(ring) {
+  if (!Array.isArray(ring) || ring.length < 2) return ring;
+
+  let offset = 0;
+  let previousLongitude = Number(ring[0]?.[0]);
+
+  return ring.map((coordinate, index) => {
+    if (!Array.isArray(coordinate) || coordinate.length < 2) return coordinate;
+
+    const longitude = Number(coordinate[0]);
+    const latitude = Number(coordinate[1]);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return coordinate;
+
+    if (index === 0) {
+      previousLongitude = longitude;
+      return [...coordinate];
+    }
+
+    let adjustedLongitude = longitude + offset;
+    const delta = adjustedLongitude - previousLongitude;
+
+    if (delta > 180) {
+      offset -= 360;
+      adjustedLongitude -= 360;
+    } else if (delta < -180) {
+      offset += 360;
+      adjustedLongitude += 360;
+    }
+
+    previousLongitude = adjustedLongitude;
+    return [adjustedLongitude, latitude, ...coordinate.slice(2)];
+  });
+}
+
+function normalizeGeometry(geometry) {
+  if (!geometry || !Array.isArray(geometry.coordinates)) return geometry;
+
+  if (geometry.type === "Polygon") {
+    return {
+      ...geometry,
+      coordinates: geometry.coordinates.map(unwrapRing),
+    };
+  }
+
+  if (geometry.type === "MultiPolygon") {
+    return {
+      ...geometry,
+      coordinates: geometry.coordinates.map((polygon) => polygon.map(unwrapRing)),
+    };
+  }
+
+  return geometry;
+}
+
+function normalizeCountryCollection(data) {
+  if (!data || data.type !== "FeatureCollection" || !Array.isArray(data.features)) return data;
+
+  return {
+    ...data,
+    features: data.features.map((feature) => ({
+      ...feature,
+      geometry: normalizeGeometry(feature?.geometry),
+    })),
+  };
+}
+
 function patchMapLibre(maplibregl) {
   const prototype = maplibregl?.Map?.prototype;
   if (!prototype || prototype[PATCH_FLAG]) return;
@@ -46,7 +112,14 @@ function patchMapLibre(maplibregl) {
     writable: false,
   });
 
-  prototype.addSource = function addSourceWithCategoryClusters(id, source) {
+  prototype.addSource = function addSourceWithMapFixes(id, source) {
+    if (id === "countries" && source?.type === "geojson") {
+      return originalAddSource.call(this, id, {
+        ...source,
+        data: normalizeCountryCollection(source.data),
+      });
+    }
+
     if (id === "signals" && source?.type === "geojson" && source?.cluster) {
       return originalAddSource.call(this, id, {
         ...source,
@@ -56,6 +129,7 @@ function patchMapLibre(maplibregl) {
         },
       });
     }
+
     return originalAddSource.call(this, id, source);
   };
 
