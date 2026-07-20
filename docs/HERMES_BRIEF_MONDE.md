@@ -1,10 +1,12 @@
 # Publication d’un brief mondial par Hermes
 
-## Première version : publication versionnée par GitHub
+## Production : historique persistant + publication versionnée par GitHub
 
 Le premier format ne dépend pas encore d’une base éditoriale. Hermes publie en modifiant `content/briefs.json`, puis en poussant le commit sur `main`. Vercel reconstruit alors les pages publiques.
 
-Cette méthode est volontairement simple pour tester le rendu et le niveau éditorial avant d’automatiser l’historique des signaux.
+Le contenu public reste versionné dans Git (`content/briefs.json`) afin que chaque édition soit relisible et réversible. Les signaux RSS et leur état de source sont désormais archivés séparément dans Supabase : cela donne à Hermes une période réelle à analyser, au lieu d’un instantané de cache.
+
+Le protocole récurrent et les preuves exigées sont dans `docs/HERMES_AUTOMATION_BRIEF_MONDE.md`.
 
 ## Règles non négociables
 
@@ -53,5 +55,6 @@ Ajouter un objet JSON valide dans le tableau `content/briefs.json` :
 2. Mettre `status` à `published` uniquement après validation éditoriale.
 3. Committer et pousser sur `main` avec un message explicite, par exemple `content: publish weekly world brief 2026-07-26`.
 4. Vérifier après le déploiement Vercel : `/brief-mondial` puis l’URL générée par `slug`.
+5. Enregistrer la preuve de publication dans `POST /api/brief-history/brief-audit` avec le SHA Git, l’URL Vercel finale et la période utilisée.
 
-Les données brutes et les comparaisons historiques seront ajoutées dans une seconde étape, après validation de ce format.
+Un `status: "published"` sans réponse HTTP 200 de l’URL finale n’est jamais une publication valide.
