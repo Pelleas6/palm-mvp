@@ -68,5 +68,16 @@
       }
     ],
     "methodNote": "Cette édition décrit un instantané du flux public reçu le 20 juillet 2026. Elle ne mesure ni la gravité réelle des événements ni l’exhaustivité de l’actualité mondiale."
+  },
+  {
+    "slug": "test-connexion-hermes-20-juillet-2026",
+    "status": "draft",
+    "pilot": false,
+    "title": "Test de connexion Hermes",
+    "publishedAt": null,
+    "metrics": [],
+    "sections": [],
+    "sources": [],
+    "methodNote": "Entrée de test technique."
   }
 ]
