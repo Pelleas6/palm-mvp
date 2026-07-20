@@ -7,17 +7,31 @@ const CANONICAL_ALIASES = new Set([
   "palm-mvp-git-main-ma-ligne-de-vie.vercel.app",
 ]);
 
-// URL publiques de l'ancien service de lecture de mains. Elles doivent rester
-// explorables afin que les moteurs constatent leur suppression définitive.
+// URL publiques confirmées de l'ancien service de lecture de mains. Elles
+// restent explorables afin que les moteurs constatent leur suppression
+// définitive au moyen d'un statut HTTP 410, plus explicite qu'une redirection.
 const LEGACY_PUBLIC_PATHS = new Set([
+  "/ligne-de-vie",
+  "/ligne-de-vie-courte",
   "/ligne-de-coeur",
   "/ligne-de-tete",
+  "/signification-ligne-de-vie-cassee",
   "/lecture-main-gauche-droite",
+  "/lecture-complete-des-lignes-de-la-main",
+  "/lecture-des-lignes-de-la-main",
   "/lecture-de-main",
   "/lecture-de-mains",
+  "/chiromancie",
+  "/chiromancie-en-ligne",
   "/analyse-main",
   "/analyse-de-main",
+  "/analyse-de-mains",
+  "/analyse-des-lignes-de-la-main",
   "/analyse-energetique",
+  "/lecture-personnalisee",
+  "/comment-ca-marche",
+  "/faq",
+  "/tarifs",
   "/commande",
   "/paiement",
   "/merci",
@@ -28,7 +42,7 @@ const LEGACY_PUBLIC_PATHS = new Set([
 ]);
 
 // Anciens endpoints privés. Le proxy les neutralise même si une ancienne
-// fonction devait encore subsister dans l'historique ou un déploiement.
+// fonction devait encore subsister dans l'historique ou un vieux déploiement.
 const LEGACY_API_PATHS = new Set([
   "/api/analyze",
   "/api/create-checkout",
