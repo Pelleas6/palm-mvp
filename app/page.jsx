@@ -1,5 +1,6 @@
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import InteractiveWorldMap from "../components/InteractiveWorldMap";
 import WorldPulseDashboard from "../components/WorldPulseDashboard";
 import { getWorldPulseDashboardPayload } from "../lib/world-pulse.js";
 
@@ -12,7 +13,10 @@ export default async function Home() {
   return (
     <>
       <Header backLink={null} />
-      <WorldPulseDashboard initialPayload={initialPayload} />
+      <InteractiveWorldMap initialPayload={initialPayload} />
+      <div className="legacy-world-dashboard">
+        <WorldPulseDashboard initialPayload={initialPayload} />
+      </div>
       <Footer />
     </>
   );
