@@ -5,6 +5,7 @@ const routes = [
   ["/carte-actualite-mondiale", "weekly", 0.9],
   ["/methode-localisation-actualite", "monthly", 0.85],
   ["/sources-rss-internationales", "weekly", 0.85],
+  ["/brief-mondial", "weekly", 0.85],
   ["/a-propos", "monthly", 0.7],
   ["/sante-sources", "daily", 0.65],
   ["/confidentialite", "yearly", 0.3],

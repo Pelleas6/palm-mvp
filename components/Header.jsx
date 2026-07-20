@@ -16,7 +16,8 @@ export default function Header({ backLink = null }) {
         ) : (
           <nav className="site-nav" aria-label="Navigation principale">
             <a href="/#carte">La carte</a>
-            <a href="/methode-localisation-actualite">La méthode</a>
+            <a href="/brief-mondial">Le brief</a>
+            <a className="site-nav-secondary" href="/methode-localisation-actualite">La méthode</a>
             <a href="/sources-rss-internationales">Les sources</a>
           </nav>
         )}
@@ -84,7 +85,7 @@ export default function Header({ backLink = null }) {
           .site-brand small { display: none; }
           .site-nav { gap: 0; }
           .site-nav a { padding: 8px 7px; font-size: 0.64rem; }
-          .site-nav a:nth-child(2) { display: none; }
+          .site-nav-secondary { display: none; }
           .header-back { padding-right: 0; font-size: 0.67rem; }
         }
       `}</style>

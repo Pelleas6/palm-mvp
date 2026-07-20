@@ -25,8 +25,10 @@ function ngramsTocResponse(entries = [
   return textResponse(entries.map((entry) => JSON.stringify(entry)).join("\n"), 200, "application/x-ndjson");
 }
 
-test("dashboard payload contract keeps API, server page and component on the same validated object", async () => {
+test("dashboard payload contract keeps the deferred dashboard and map entry points coherent", async () => {
   const pageSource = await readFile(new URL("../app/page.jsx", import.meta.url), "utf8");
+  const deferredDashboardSource = await readFile(new URL("../components/DeferredWorldPulseDashboard.js", import.meta.url), "utf8");
+  const mapGuardSource = await readFile(new URL("../components/WorldMapGuard.js", import.meta.url), "utf8");
   const componentSource = await readFile(new URL("../components/WorldPulseDashboard.js", import.meta.url), "utf8");
   const layoutSource = await readFile(new URL("../app/layout.js", import.meta.url), "utf8");
   const globalsSource = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -36,9 +38,12 @@ test("dashboard payload contract keeps API, server page and component on the sam
   const sourceHealthPage = await readFile(new URL("../app/sante-sources/page.jsx", import.meta.url), "utf8");
   const apiRouteSource = await readFile(new URL("../app/api/gdelt/route.js", import.meta.url), "utf8");
 
-  assert.match(pageSource, /getWorldPulseDashboardPayload/);
-  assert.match(pageSource, /export const dynamic = "force-dynamic"/);
-  assert.match(pageSource, /<WorldPulseDashboard initialPayload=\{initialPayload\}/);
+  assert.match(pageSource, /<WorldMapGuard \/>/);
+  assert.match(pageSource, /<DeferredWorldPulseDashboard \/>/);
+  assert.match(deferredDashboardSource, /dynamic\(\(\) => import\("\.\/WorldPulseDashboard"\)/);
+  assert.match(deferredDashboardSource, /IntersectionObserver/);
+  assert.match(deferredDashboardSource, /Charger les analyses détaillées/);
+  assert.match(mapGuardSource, /import\("maplibre-gl"\)/);
   assert.match(componentSource, /function useGdeltPulse\(initialPayload\)/);
   assert.match(componentSource, /function hasUsableInitialPayload\(initialPayload\)/);
   assert.match(componentSource, /useState\(\(\) => initialPayload \|\| \{ state: "loading" \}\)/);

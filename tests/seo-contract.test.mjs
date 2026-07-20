@@ -16,7 +16,7 @@ test("SEO routes publish a crawl policy and every public reference page", async 
 
   assert.match(robots, /sitemap\.xml/);
   assert.match(robots, /disallow: \["\/api\/"\]/);
-  for (const path of ["/", "/carte-actualite-mondiale", "/methode-localisation-actualite", "/sources-rss-internationales"]) {
+  for (const path of ["/", "/carte-actualite-mondiale", "/methode-localisation-actualite", "/sources-rss-internationales", "/brief-mondial"]) {
     assert.ok(sitemap.includes(`"${path}"`), `sitemap should include ${path}`);
   }
 });

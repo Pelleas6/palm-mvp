@@ -1,0 +1,72 @@
+[
+  {
+    "slug": "edition-pilote-20-juillet-2026",
+    "status": "published",
+    "pilot": true,
+    "eyebrow": "Édition pilote",
+    "periodLabel": "Point de situation · 20 juillet 2026",
+    "publishedAt": "2026-07-20T17:30:00.000Z",
+    "readingTime": "4 min de lecture",
+    "title": "Lire les signaux avant de leur donner un sens.",
+    "standfirst": "Cette première édition montre la forme que prendra le brief du Pouls du Monde : une lecture factuelle du flux, des sources citées et des limites visibles — sans confondre intensité médiatique et importance réelle d’un événement.",
+    "lead": "Au moment de cette lecture, 940 articles provenant de 42 médias publics ont été reçus. 503 signaux ont pu être localisés dans 74 pays ; les autres restent volontairement hors carte lorsqu’un pays d’événement n’est pas établi avec assez de certitude.",
+    "metrics": [
+      {
+        "value": "940",
+        "label": "articles reçus",
+        "detail": "Flux RSS publics, instantané de lecture"
+      },
+      {
+        "value": "503",
+        "label": "signaux localisés",
+        "detail": "Pays d’événement identifiés avec prudence"
+      },
+      {
+        "value": "42",
+        "label": "médias actifs",
+        "detail": "Dans 30 pays d’origine médiatique"
+      }
+    ],
+    "sections": [
+      {
+        "title": "Ce que l’on peut observer",
+        "paragraphs": [
+          "La carte fait ressortir des concentrations de couverture, notamment en Espagne, en Iran, en Allemagne, en Ukraine, en Inde et en Argentine. Ces positions ne sont pas un classement de gravité : elles décrivent la présence de ces pays dans le flux reçu à cet instant.",
+          "Les thèmes déterminés par le registre du site ne couvrent pas tous les titres. Les articles restants sont conservés comme « non déterminés » ou hors carte plutôt que forcés dans une catégorie ou un pays. C’est une limite assumée, utile pour éviter une lecture artificiellement précise."
+        ]
+      },
+      {
+        "title": "Comment lire ce premier brief",
+        "paragraphs": [
+          "Un brief professionnel ne doit pas répéter une liste de titres. Il doit distinguer les données de l’observatoire, le contexte apporté par les sources et les zones d’incertitude. Dans les futures éditions, chaque point important renverra vers les articles et médias qui permettent de le vérifier.",
+          "Les contenus à qualifier ne devront pas prendre le dessus dans l’analyse. Le système privilégiera les articles localisés et les sources diversifiées, puis signalera lorsqu’une couverture dépend trop fortement d’un seul média ou d’un seul pays d’origine."
+        ]
+      },
+      {
+        "title": "Ce qui viendra ensuite",
+        "paragraphs": [
+          "Lorsque l’historique aura été enregistré sur plusieurs jours, Hermes pourra comparer une période avec la précédente : pays plus présents, thèmes en progression, évolution de la diversité des sources et exemples vérifiables. Le texte restera un brouillon éditorial à valider avant publication.",
+          "Le visuel pourra s’appuyer sur la carte du site elle-même : une représentation des zones actives et de leur évolution, sans reprendre d’images de presse externes sans droit d’usage."
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Carte vivante — instantané du flux RSS public",
+        "url": "/#carte",
+        "note": "Base chiffrée de cette édition pilote"
+      },
+      {
+        "label": "Méthode de localisation",
+        "url": "/methode-localisation-actualite",
+        "note": "Règles et limites de placement des signaux"
+      },
+      {
+        "label": "Sources RSS internationales",
+        "url": "/sources-rss-internationales",
+        "note": "Médias consultés et principes de sélection"
+      }
+    ],
+    "methodNote": "Cette édition décrit un instantané du flux public reçu le 20 juillet 2026. Elle ne mesure ni la gravité réelle des événements ni l’exhaustivité de l’actualité mondiale."
+  }
+]
