@@ -7,7 +7,9 @@ export default function Home() {
   return (
     <>
       <Header backLink={null} />
-      <WorldMap />
+      <div id="carte">
+        <WorldMap />
+      </div>
       <DeferredWorldPulseDashboard />
       <Footer />
     </>
