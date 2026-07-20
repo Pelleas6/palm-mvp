@@ -1,3 +1,4 @@
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_ORIGIN } from "../lib/site-metadata.js";
 
