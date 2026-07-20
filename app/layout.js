@@ -29,6 +29,9 @@ export const metadata = {
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   alternates: { canonical: "/" },
+  verification: {
+    google: "z3do0K5J5Kk1zgY0nhmEliHiGZdeZLc7_ZTCFUJX-mA",
+  },
   openGraph: {
     title: "Le Pouls du Monde | Carte de l’actualité mondiale",
     description: SITE_DESCRIPTION,
