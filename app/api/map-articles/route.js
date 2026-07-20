@@ -31,6 +31,16 @@ function compactArticle(article) {
   };
 }
 
+function articleHeaders(payload) {
+  const headers = new Headers(responseHeadersForPayload(payload));
+  headers.set(
+    "Cache-Control",
+    "public, max-age=20, s-maxage=60, stale-while-revalidate=300",
+  );
+  headers.set("Vary", "Accept-Encoding");
+  return headers;
+}
+
 export async function GET(request) {
   try {
     const payload = await getWorldPulseDashboardPayload();
@@ -71,7 +81,7 @@ export async function GET(request) {
     };
 
     return Response.json(body, {
-      headers: responseHeadersForPayload(payload),
+      headers: articleHeaders(payload),
     });
   } catch (error) {
     console.error("Map articles route error:", error);
