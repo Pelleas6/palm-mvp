@@ -188,7 +188,7 @@ export default function WorldMapGuard() {
 
       <style jsx>{`
         .map-guard-loading {
-          width: min(1440px, calc(100% - 40px));
+          width: min(1320px, calc(100% - 32px));
           min-height: 74vh;
           margin: 0 auto;
           display: grid;
@@ -212,7 +212,7 @@ export default function WorldMapGuard() {
           isolation: isolate;
         }
         #carte > .world-map .world-map__wrap {
-          width: min(1440px, calc(100% - 40px));
+          width: min(1320px, calc(100% - 32px));
         }
         #carte > .world-map .world-map__header {
           min-height: 188px;
@@ -239,11 +239,18 @@ export default function WorldMapGuard() {
           }
         }
         @media (max-width: 760px) {
-          #carte > .world-map .world-map__wrap { width: 100%; }
-          #carte > .world-map .world-map__header { padding: 18px 16px 20px; }
+          #carte > .world-map .world-map__wrap {
+            width: min(1320px, calc(100% - 20px));
+          }
+          #carte > .world-map .world-map__header { padding: 18px 6px 20px; }
           #carte > .world-map .world-map__header h1 {
             font-size: clamp(1.9rem, 9.5vw, 2.7rem);
             line-height: 1.02;
+          }
+          #carte > .world-map .map-shell {
+            border-right: 1px solid rgba(137, 194, 195, .24);
+            border-left: 1px solid rgba(137, 194, 195, .24);
+            border-radius: 16px;
           }
         }
       `}</style>
