@@ -43,6 +43,10 @@ function uniqueSorted(values) {
 
 function compactHeaders(payload) {
   const headers = new Headers(responseHeadersForPayload(payload));
+  headers.set(
+    "Cache-Control",
+    "public, max-age=15, s-maxage=30, stale-while-revalidate=300",
+  );
   headers.set("Vary", "Accept-Encoding");
   return headers;
 }
