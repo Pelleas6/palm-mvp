@@ -70,14 +70,77 @@
     "methodNote": "Cette édition décrit un instantané du flux public reçu le 20 juillet 2026. Elle ne mesure ni la gravité réelle des événements ni l’exhaustivité de l’actualité mondiale."
   },
   {
-    "slug": "test-connexion-hermes-20-juillet-2026",
-    "status": "draft",
+    "slug": "point-de-situation-20-juillet-2026",
+    "status": "published",
     "pilot": false,
-    "title": "Test de connexion Hermes",
-    "publishedAt": null,
-    "metrics": [],
-    "sections": [],
-    "sources": [],
-    "methodNote": "Entrée de test technique."
+    "eyebrow": "Point de situation",
+    "periodLabel": "Point de situation · 20 juillet 2026",
+    "publishedAt": "2026-07-20T18:00:00.000Z",
+    "readingTime": "3 min de lecture",
+    "title": "Flux médiatique et tendances mondiales : une vue d'ensemble",
+    "standfirst": "Premier point de situation du Pouls du Monde, analysant les signaux médiatiques collectés via les sources RSS internationales et enrichis par les tendances GDELT Web N-Grams.",
+    "lead": "Ce point de situation s'appuie sur l'analyse de 888 articles provenant de 41 médias publics. Cette approche permet de visualiser la diversité des sources médiatiques actives à travers le monde, en distinguant la localisation des médias de celle des événements rapportés.",
+    "metrics": [
+      {
+        "value": "888",
+        "label": "articles reçus",
+        "detail": "Articles normalisés issus des flux RSS"
+      },
+      {
+        "value": "41",
+        "label": "médias actifs",
+        "detail": "Sources RSS internationales vérifiées"
+      },
+      {
+        "value": "1822",
+        "label": "documents N-Grams",
+        "detail": "Tendances GDELT Web N-Grams enrichies"
+      }
+    ],
+    "sections": [
+      {
+        "title": "Diversité et couverture géographique",
+        "paragraphs": [
+          "La cartographie actuelle montre une couverture médiatique globale étendue, avec 41 médias actifs couvrant 29 pays d'origine. Les flux RSS offrent une vue immédiate et dédupliquée, permettant de suivre les signaux en temps réel.",
+          "Les articles sont présentés en deux niveaux : les repères médias (origine de l'information) et les particules d'articles (représentation du volume). Cette distinction est essentielle pour ne pas confondre le pays du média et le lieu des événements rapportés."
+        ]
+      },
+      {
+        "title": "Tendances et classification",
+        "paragraphs": [
+          "L'intégration des Web N-Grams de GDELT permet d'identifier les thèmes dominants tout en conservant une lecture prudente des données brutes. Les articles restants sont conservés comme 'Non déterminé' pour garantir l'intégrité des données affichées.",
+          "La taxonomie déterministe assure une classification rigoureuse des signaux par catégories (conflit, technologie, etc.), minimisant le recours à la catégorie 'Autre'."
+        ]
+      },
+      {
+        "title": "Santé du système",
+        "paragraphs": [
+          "Le système est robuste grâce à un cache serveur partagé de 15 minutes et un mécanisme de secours en cas d'indisponibilité temporaire. La page Santé des sources est lue en mémoire pour garantir l'absence de requêtes externes lors de sa consultation."
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "label": "Carte vivante — instantané du flux RSS public",
+        "url": "/#carte",
+        "note": "Base chiffrée de cette édition"
+      },
+      {
+        "label": "Méthode de localisation",
+        "url": "/methode-localisation-actualite",
+        "note": "Règles et limites de placement des signaux"
+      },
+      {
+        "label": "Sources RSS internationales",
+        "url": "/sources-rss-internationales",
+        "note": "Médias consultés et principes de sélection"
+      },
+      {
+        "label": "Données sources GDELT",
+        "url": "https://blog.gdeltproject.org/using-the-new-web-ngrams-dataset-to-find-relevant-coverage/",
+        "note": "Documentation officielle"
+      }
+    ],
+    "methodNote": "Ce point de situation reflète une analyse automatique des flux RSS publics reçus le 20 juillet 2026. Il ne constitue pas un bilan exhaustif ni une mesure de gravité, mais un instantané de la couverture médiatique actuelle."
   }
 ]
