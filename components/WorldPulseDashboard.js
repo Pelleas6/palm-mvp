@@ -850,74 +850,6 @@ function SourceHealth({ items }) {
   );
 }
 
-function trendExamplesLabel(examples) {
-  const titles = Array.isArray(examples) ? examples.map((item) => item.title).filter(Boolean).slice(0, 2) : [];
-  return titles.length > 0 ? titles.join(" · ") : "contexte source indisponible";
-}
-
-function hasTrendContext(item) {
-  return Array.isArray(item?.examples) && item.examples.some((example) => String(example?.title || "").trim().length > 12);
-}
-
-const GENERIC_TREND_CHIP_TERMS = new Set([
-  "after",
-  "and",
-  "avec",
-  "dans",
-  "from",
-  "man",
-  "new",
-  "pour",
-  "said",
-  "says",
-  "the",
-  "une",
-  "with",
-  "world",
-]);
-
-function isDisplayableTrendChip(item) {
-  const term = String(item?.term || "").trim().toLocaleLowerCase("fr-FR");
-  return Boolean(term)
-    && term.length >= 4
-    && /\p{L}/u.test(term)
-    && !GENERIC_TREND_CHIP_TERMS.has(term)
-    && !/^\d+$/.test(term)
-    && hasTrendContext(item);
-}
-
-function MomentTrendsPanel({ trends, loading = false }) {
-  const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
-  const fallbackTrends = Array.isArray(trends?.emergingTrends) ? trends.emergingTrends : [];
-  const sourceTrends = rawTrends.length > 0 ? rawTrends : fallbackTrends;
-  const momentTrends = sourceTrends.filter(isDisplayableTrendChip).slice(0, 3);
-  const discardedTrendCount = Math.max(0, sourceTrends.length - momentTrends.length);
-  return (
-    <section className="panel moment-trends-panel" aria-label="Tendances du moment contextualisées au-dessus des filtres">
-      <div className="panel-heading">
-        <div>
-          <p>Lecture contextuelle</p>
-          <h2>Tendances du moment</h2>
-        </div>
-        <span>Top {momentTrends.length}{discardedTrendCount > 0 ? ` · ${discardedTrendCount} écarté(s)` : ""}</span>
-      </div>
-      {loading ? <p className="muted">Les tendances se préparent avec les sources en cours de lecture.</p> : null}
-      {!loading && sourceTrends.length === 0 ? <p className="muted">Aucun terme contextuel disponible sur ce cycle.</p> : null}
-      {!loading && sourceTrends.length > 0 && momentTrends.length === 0 ? <p className="muted">Les termes reçus sont trop génériques ou sans contexte source fiable pour être affichés.</p> : null}
-      {!loading && momentTrends.length > 0 ? (
-        <div className="moment-trend-chips">
-          {momentTrends.map((item) => (
-            <span key={item.term}>
-              <strong>{item.classified ? `${item.term} · ${item.label}` : item.term}</strong>
-              <small>Volume {item.volume} · contexte : {trendExamplesLabel(item.examples)}</small>
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function GlobalTrends({ trends }) {
   const titles = Array.isArray(trends?.topTitles) ? trends.topTitles : [];
   const rawTrends = Array.isArray(trends?.rawTrends) ? trends.rawTrends : [];
@@ -1184,8 +1116,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         {exploration.selection ? <ReadingPanel selection={exploration.selection} /> : null}
       </section>
 
-      <section className="insight-grid" aria-label="Tendances et articles reçus">
-        <MomentTrendsPanel trends={globalTrends} loading={loading} />
+      <section className="stream-section" aria-label="Articles reçus">
         <ArticleStream articles={articles} state={payload.state} sourceName={sourceName} loading={loading} />
       </section>
 
@@ -1431,8 +1362,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
 
         .top-categories-row,
         .filter-panel,
-        .temporal-panel,
-        .moment-trends-panel {
+        .temporal-panel {
           margin-bottom: 18px;
         }
         .top-categories-row .mini-panel { min-height: auto; }
@@ -1656,14 +1586,10 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .analysis-grid-single {
           grid-template-columns: minmax(0, 1fr);
         }
-        .insight-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-          gap: 18px;
-          align-items: start;
+        .stream-section {
           margin-bottom: 18px;
         }
-        .map-experience > *, .analysis-grid > *, .insight-grid > *, .map-panel, .reading-panel, .stream-panel {
+        .map-experience > *, .analysis-grid > *, .map-panel, .reading-panel, .stream-panel {
           min-width: 0;
         }
         .map-panel {
@@ -2336,40 +2262,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           box-shadow: 0 0 20px color-mix(in srgb, var(--count-row-color, var(--accent)) 45%, transparent);
         }
 
-        .moment-trends-panel {
-          margin: -4px 0 18px;
-          border-color: color-mix(in srgb, var(--accent) 32%, var(--line));
-          background:
-            linear-gradient(135deg, rgba(62, 214, 195, 0.09), rgba(255, 255, 255, 0.025)),
-            var(--panel);
-          box-shadow: 0 18px 58px rgba(0, 0, 0, 0.22);
-        }
-        .moment-trends-panel .panel-heading { margin-bottom: 12px; }
-        .moment-trends-panel .panel-heading > span {
-          color: var(--accent);
-          font-size: 0.68rem;
-          border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
-          padding: 7px 10px;
-          border-radius: 999px;
-          white-space: nowrap;
-        }
-        .moment-trend-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        .moment-trend-chips > span {
-          display: grid;
-          gap: 3px;
-          max-width: 260px;
-          padding: 9px 11px;
-          border: 1px solid var(--line);
-          border-radius: 18px;
-          background: rgba(255, 255, 255, 0.035);
-        }
-        .moment-trend-chips strong { color: var(--ink); font-size: 0.83rem; line-height: 1.25; overflow-wrap: anywhere; }
-        .moment-trend-chips small { color: var(--muted); font-size: 0.65rem; line-height: 1.35; overflow-wrap: anywhere; }
-
         .trace-panel dl { display: grid; gap: 10px; margin: 18px 0; }
         .trace-panel dl div { display: grid; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
         .trace-panel dt { color: var(--subtle); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; }
@@ -2521,7 +2413,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 1080px) {
-          .top-strip, .analysis-grid, .insight-grid { grid-template-columns: 1fr; }
+          .top-strip, .analysis-grid { grid-template-columns: 1fr; }
           .metric-grid, .bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .top-categories-row .count-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2551,7 +2443,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .location-filter { align-items: flex-start; flex-direction: column; gap: 7px; }
           .location-filter > div { width: 100%; }
           .location-filter button { flex: 1 1 30%; padding-inline: 6px; }
-          .top-strip, .metric-grid, .bottom-grid, .map-experience, .analysis-grid, .insight-grid { gap: 10px; margin-bottom: 10px; }
+          .top-strip, .metric-grid, .bottom-grid, .map-experience, .analysis-grid { gap: 10px; margin-bottom: 10px; }
           .title-block { min-height: 0; padding: 18px; }
           .status-panel { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
           .status-panel > a { grid-column: 2; justify-self: start; }
