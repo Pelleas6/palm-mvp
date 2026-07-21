@@ -454,30 +454,6 @@ export default function WorldMap() {
           </div>
         </header>
 
-        {payload ? (
-          <div className="world-map__legend" aria-label="Légende des couleurs des bulles">
-            <span>Couleurs des bulles</span>
-            <div>
-              {WORLD_PULSE_SIGNAL_LEGEND
-                .filter((category) => payload.filters?.categories?.includes(category.label))
-                .map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    className={filters.category === category.label ? "is-active" : ""}
-                    style={{ "--legend-color": category.color }}
-                    onClick={() => updateFilter("category", filters.category === category.label ? "" : category.label)}
-                    aria-pressed={filters.category === category.label}
-                    title={`Filtrer : ${category.thematic === false ? "À qualifier" : category.label}`}
-                  >
-                    <i aria-hidden="true" />
-                    {category.thematic === false ? "À qualifier" : category.label}
-                  </button>
-                ))}
-            </div>
-          </div>
-        ) : null}
-
         <div ref={shellRef} className={`map-shell${fullscreen ? " is-fullscreen" : ""}`}>
           <div ref={canvasRef} className="map-canvas" aria-label="Carte mondiale interactive des actualités" />
 
@@ -550,6 +526,31 @@ export default function WorldMap() {
 
           <div className="map-hint"><i aria-hidden="true" />Une bulle regroupe plusieurs actualités proches</div>
         </div>
+
+        {payload ? (
+          <div className="world-map__legend" aria-label="Légende des couleurs des bulles">
+            <span>Légende des couleurs</span>
+            <div>
+              {WORLD_PULSE_SIGNAL_LEGEND
+                .filter((category) => payload.filters?.categories?.includes(category.label))
+                .map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={filters.category === category.label ? "is-active" : ""}
+                    style={{ "--legend-color": category.color }}
+                    onClick={() => updateFilter("category", filters.category === category.label ? "" : category.label)}
+                    aria-pressed={filters.category === category.label}
+                    title={`Filtrer : ${category.thematic === false ? "À qualifier" : category.label}`}
+                  >
+                    <i aria-hidden="true" />
+                    {category.thematic === false ? "À qualifier" : category.label}
+                  </button>
+                ))}
+            </div>
+          </div>
+        ) : null}
+
       </div>
 
       <style jsx>{`
@@ -559,11 +560,12 @@ export default function WorldMap() {
         .world-map__eyebrow { margin: 0 0 8px; color: #68d8c9; font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
         h1 { max-width: 850px; margin: 0; font-size: clamp(1.7rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -.045em; }
         .world-map__intro { max-width: 760px; margin: 12px 0 0; color: #a9c4c7; font-size: clamp(.86rem, 1.35vw, 1rem); line-height: 1.55; }
-        .world-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 0 4px 16px; }
+        .world-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 4px 0; }
         .world-map__legend > span { color: #67d9c9; font-size: .62rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; white-space: nowrap; }
-        .world-map__legend > div { display: flex; flex: 1 1 680px; flex-wrap: wrap; gap: 6px 8px; }
-        .world-map__legend button { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; border: 1px solid color-mix(in srgb, var(--legend-color) 30%, rgba(137,194,195,.18)); border-radius: 999px; background: color-mix(in srgb, var(--legend-color) 7%, transparent); color: color-mix(in srgb, var(--legend-color) 36%, #effafa); padding: 3px 8px; font: inherit; font-size: .66rem; line-height: 1.15; cursor: pointer; }
-        .world-map__legend button:hover, .world-map__legend button:focus-visible, .world-map__legend button.is-active { border-color: color-mix(in srgb, var(--legend-color) 78%, #effafa); background: color-mix(in srgb, var(--legend-color) 20%, transparent); color: #effafa; outline: none; }
+        .world-map__legend > div { display: flex; flex: 1 1 700px; flex-wrap: wrap; gap: 5px 15px; }
+        .world-map__legend button { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; border: 0; background: transparent; color: #a9c4c7; padding: 2px 0; font: inherit; font-size: .68rem; line-height: 1.2; cursor: pointer; }
+        .world-map__legend button:hover, .world-map__legend button:focus-visible, .world-map__legend button.is-active { color: #effafa; outline: none; }
+        .world-map__legend button.is-active { text-decoration: underline; text-decoration-color: var(--legend-color); text-decoration-thickness: 2px; text-underline-offset: 4px; }
         .world-map__legend i { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--legend-color); box-shadow: 0 0 10px color-mix(in srgb, var(--legend-color) 82%, transparent); }
         .map-shell { position: relative; width: 100%; max-width: 100%; height: clamp(520px, 72dvh, 790px); min-width: 0; overflow: hidden; border: 1px solid rgba(137,194,195,.24); border-radius: 22px; background: #06141b; box-shadow: 0 24px 70px rgba(0,0,0,.28); contain: layout paint; }
         .map-shell.is-fullscreen { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
@@ -601,9 +603,9 @@ export default function WorldMap() {
           .world-map__header { padding: 14px 16px 10px; }
           h1 { font-size: clamp(1.65rem, 8.5vw, 2.35rem); }
           .world-map__intro { margin-top: 9px; font-size: .82rem; line-height: 1.45; }
-          .world-map__legend { display: grid; gap: 8px; padding: 0 16px 12px; }
-          .world-map__legend > div { gap: 6px; }
-          .world-map__legend button { min-height: 25px; padding: 3px 7px; font-size: .62rem; }
+          .world-map__legend { display: grid; gap: 8px; padding: 12px 2px 0; }
+          .world-map__legend > div { gap: 5px 12px; }
+          .world-map__legend button { font-size: .64rem; }
           .map-shell { height: clamp(390px, 66dvh, 620px); border-right: 0; border-left: 0; border-radius: 0; }
           .map-toolbar { top: 8px; left: 8px; max-width: calc(100% - 60px); }
           .map-toolbar button, .map-controls button { min-height: 44px; width: auto; }
