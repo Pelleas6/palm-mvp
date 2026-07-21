@@ -527,12 +527,14 @@ export default function WorldMap() {
           <div className="map-hint"><i aria-hidden="true" />Une bulle regroupe plusieurs actualités proches</div>
         </div>
 
-        {payload ? (
           <div className="world-map__legend" aria-label="Légende des couleurs des bulles">
             <span>Légende des couleurs</span>
             <div>
               {WORLD_PULSE_SIGNAL_LEGEND
-                .filter((category) => payload.filters?.categories?.includes(category.label))
+                .filter((category) => {
+                  const categories = payload?.filters?.categories;
+                  return !Array.isArray(categories) || categories.length === 0 || categories.includes(category.label);
+                })
                 .map((category) => (
                   <button
                     key={category.id}
@@ -549,7 +551,6 @@ export default function WorldMap() {
                 ))}
             </div>
           </div>
-        ) : null}
 
       </div>
 
