@@ -371,35 +371,36 @@ function Metric({ label, value, hint }) {
   );
 }
 
-function SignalLegend() {
+function SignalLegend({ activeCategory, onSelectCategory }) {
   return (
     <div className="signal-legend" aria-label="Légende des signaux">
-      <span className="signal-legend-title">Thèmes</span>
+      <div className="signal-legend-heading">
+        <span className="signal-legend-title">Couleurs des bulles</span>
+        <small>Choisir un thème pour filtrer</small>
+      </div>
       <ul>
         {WORLD_PULSE_SIGNAL_LEGEND.map((item) => (
           <li key={item.label}>
-            <i aria-hidden="true" style={{ "--legend-color": item.color }} />
-            <span>{item.thematic === false ? "À qualifier" : item.label}</span>
+            <button
+              type="button"
+              className={activeCategory === item.label ? "active-legend-item" : ""}
+              style={{ "--legend-color": item.color }}
+              onClick={() => onSelectCategory(item.label)}
+              aria-pressed={activeCategory === item.label}
+              title={`Filtrer : ${item.thematic === false ? "À qualifier" : item.label}`}
+            >
+              <i aria-hidden="true" />
+              <span>{item.thematic === false ? "À qualifier" : item.label}</span>
+            </button>
           </li>
         ))}
       </ul>
-      <small>Point = un article · bulle = plusieurs articles proches du même thème</small>
+      <p>Point = un article · bulle = plusieurs articles proches du même thème</p>
     </div>
   );
 }
 
-function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry, showMediaMarkers }) {
-  const markers = useMemo(() => (
-    showMediaMarkers ? mediaMarkers.map((point, index) => ({
-      ...point,
-      kind: "media",
-      left: clamp(point.x, MAP_POINT_BOUNDS.left, MAP_POINT_BOUNDS.right),
-      top: clamp(point.y, MAP_POINT_BOUNDS.top, MAP_POINT_BOUNDS.bottom),
-      size: point.size || 8,
-      color: colorForLabel(point.label),
-      delay: `${(index % 12) * 0.08}s`,
-    })) : []
-  ), [mediaMarkers, showMediaMarkers]);
+function SignalField({ articleParticles, articleClusters, unlocalized, state, loading, availableCountryCodes, selectedPoint, onSelectPoint, onSelectCountry }) {
   const particles = useMemo(() => (
     articleParticles.filter((point) => !point.clusterId).map((point, index) => ({
       ...point,
@@ -423,7 +424,7 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
       delay: `${((index + 8) % 18) * 0.06}s`,
     }))
   ), [articleClusters]);
-  const hasVisiblePoints = markers.length > 0 || particles.length > 0 || clusters.length > 0;
+  const hasVisiblePoints = particles.length > 0 || clusters.length > 0;
 
   function renderPoint(point, className) {
     const safeOffset = Math.ceil((point.size || 8) / 2 + 10);
@@ -506,7 +507,6 @@ function SignalField({ mediaMarkers, articleParticles, articleClusters, unlocali
         <div className="particle-layer">
           {particles.map((particle) => renderPoint(particle, "article-particle"))}
           {clusters.map((cluster) => renderPoint(cluster, "article-cluster"))}
-          {markers.map((marker) => renderPoint(marker, "media-marker"))}
         </div>
       </div>
     </div>
@@ -992,7 +992,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
     location: WORLD_PULSE_LOCALIZATION_FILTERS.ALL,
   });
   const [selectedPoint, setSelectedPoint] = useState(null);
-  const [showMediaProvenance, setShowMediaProvenance] = useState(false);
   const rawArticles = Array.isArray(payload.articles) ? payload.articles : [];
   const exploration = useMemo(() => deriveWorldPulseExploration(payload, filters, selectedPoint), [payload, filters, selectedPoint]);
   const articles = exploration.articles;
@@ -1129,13 +1128,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
                     <span>à traiter</span>
                   </button>
                 ) : null}
-                <button type="button" className="layer-toggle" onClick={() => setShowMediaProvenance((current) => !current)}>
-                  {showMediaProvenance ? "Masquer les médias" : "Voir les médias"}
-                </button>
               </div>
             </div>
             <SignalField
-              mediaMarkers={mediaMarkers}
               articleParticles={articleParticles}
               articleClusters={articleClusters}
               unlocalized={unlocalizedCount}
@@ -1145,9 +1140,14 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               selectedPoint={selectedPoint}
               onSelectPoint={setSelectedPoint}
               onSelectCountry={setSelectedPoint}
-              showMediaMarkers={showMediaProvenance}
             />
-            <SignalLegend />
+            <SignalLegend
+              activeCategory={exploration.filters.category}
+              onSelectCategory={(category) => updateFilter(
+                "category",
+                exploration.filters.category === category ? WORLD_PULSE_FILTER_ALL : category,
+              )}
+            />
             <p className="map-note">
               Survolez un repère sur ordinateur ou touchez-le sur mobile pour lire son détail. Les bulles regroupent seulement les articles proches du même thème.
             </p>
@@ -2044,9 +2044,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .article-particle {
           z-index: 3;
-          opacity: 0.82;
-          background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--particle-color) 80%, #e7fffa), color-mix(in srgb, var(--particle-color) 48%, #09201c) 58%, rgba(7, 18, 16, 0.18));
-          box-shadow: 0 0 7px color-mix(in srgb, var(--particle-color) 58%, transparent), 0 0 16px color-mix(in srgb, var(--particle-color) 18%, transparent);
+          opacity: 0.9;
+          background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--particle-color) 88%, #f1fffb), color-mix(in srgb, var(--particle-color) 61%, #09201c) 58%, rgba(7, 18, 16, 0.14));
+          box-shadow: 0 0 8px color-mix(in srgb, var(--particle-color) 72%, transparent), 0 0 18px color-mix(in srgb, var(--particle-color) 26%, transparent);
           animation: none;
         }
         /* Une poignée de points reste vivante sur ordinateur, sans imposer des
@@ -2061,9 +2061,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           z-index: 4;
           display: grid;
           place-items: center;
-          border: 1px solid color-mix(in srgb, var(--particle-color) 82%, transparent);
-          background: radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--particle-color) 68%, rgba(238, 255, 249, 0.28)), color-mix(in srgb, var(--particle-color) 40%, #0a211d) 62%, rgba(7, 18, 16, 0.34));
-          box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 18%, transparent), 0 0 22px color-mix(in srgb, var(--particle-color) 46%, transparent), 0 8px 18px rgba(0, 0, 0, 0.22);
+          border: 1px solid color-mix(in srgb, var(--particle-color) 94%, transparent);
+          background: radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--particle-color) 82%, rgba(244, 255, 251, 0.38)), color-mix(in srgb, var(--particle-color) 54%, #0a211d) 62%, rgba(7, 18, 16, 0.28));
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 24%, transparent), 0 0 25px color-mix(in srgb, var(--particle-color) 62%, transparent), 0 8px 18px rgba(0, 0, 0, 0.22);
         }
         .media-marker {
           z-index: 4;
@@ -2380,18 +2380,29 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         .signal-legend {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px 14px;
-          align-items: center;
+          gap: 10px 14px;
+          align-items: flex-start;
           margin-top: 14px;
-          padding: 12px 0 0;
-          border-top: 1px solid var(--line);
+          padding: 12px;
+          border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
+          background: linear-gradient(105deg, rgba(95, 218, 201, 0.07), rgba(255, 255, 255, 0.022));
+        }
+        .signal-legend-heading {
+          display: grid;
+          gap: 4px;
+          min-width: 126px;
         }
         .signal-legend-title {
-          color: var(--subtle);
+          color: var(--accent);
           font-size: 0.62rem;
           font-weight: 780;
           letter-spacing: 0.1em;
           text-transform: uppercase;
+        }
+        .signal-legend-heading small {
+          color: var(--subtle);
+          font-size: 0.62rem;
+          line-height: 1.25;
         }
         .signal-legend ul {
           list-style: none;
@@ -2404,24 +2415,42 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           padding: 0;
         }
         .signal-legend li {
-          display: flex;
+          min-width: 0;
+        }
+        .signal-legend button {
+          display: inline-flex;
           align-items: center;
           gap: 6px;
-          min-height: 18px;
-          padding: 0;
+          min-height: 23px;
+          border: 1px solid transparent;
+          border-radius: 999px;
+          background: transparent;
           color: var(--muted);
+          padding: 2px 6px;
+          font: inherit;
           font-size: 0.67rem;
           line-height: 1.2;
+          cursor: pointer;
+        }
+        .signal-legend button:hover,
+        .signal-legend button:focus-visible,
+        .signal-legend .active-legend-item {
+          border-color: color-mix(in srgb, var(--legend-color) 66%, var(--line));
+          background: color-mix(in srgb, var(--legend-color) 15%, transparent);
+          color: var(--ink);
+          outline: none;
         }
         .signal-legend i {
-          width: 8px;
-          height: 8px;
+          width: 9px;
+          height: 9px;
+          flex: 0 0 auto;
           border-radius: 999px;
           background: var(--legend-color);
-          box-shadow: 0 0 8px color-mix(in srgb, var(--legend-color) 48%, transparent);
+          box-shadow: 0 0 10px color-mix(in srgb, var(--legend-color) 68%, transparent);
         }
-        .signal-legend > small {
+        .signal-legend > p {
           flex: 1 0 100%;
+          margin: 0;
           color: var(--subtle);
           font-size: 0.67rem;
           line-height: 1.35;
@@ -2527,7 +2556,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .hero-proof { margin-top: 10px; }
           .top-categories-row .count-list { grid-template-columns: 1fr; }
           .map-heading-actions { justify-content: flex-start; width: 100%; }
-          .map-status-chip, .off-map-chip, .layer-toggle { max-width: none; text-align: left; border-radius: 14px; width: 100%; }
+          .map-status-chip, .off-map-chip { max-width: none; text-align: left; border-radius: 14px; width: 100%; }
           .panel { padding: 16px; }
           .signal-field { padding: 5px; }
           .map-viewport { border-radius: 11px; }
@@ -2537,7 +2566,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           .particle:focus-visible { transform: translate(-50%, -50%) scale(var(--particle-mobile-active-scale, 0.7)); }
           .cluster-count { font-size: var(--cluster-mobile-font-size, var(--cluster-font-size, 0.7rem)); }
           .brief-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-          .signal-legend { display: flex; gap: 9px 12px; }
+          .signal-legend { display: flex; gap: 9px 12px; padding: 11px; }
+          .signal-legend-heading { min-width: 0; }
           .signal-legend ul { display: flex; flex: 1 0 100%; gap: 7px 12px; }
           .signal-legend li { min-width: 0; }
           .panel-heading { flex-direction: column; }
