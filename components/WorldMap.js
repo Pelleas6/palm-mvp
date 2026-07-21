@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
 import { SOURCE_COUNTRY_REGISTRY } from "../lib/world-pulse-geography.js";
+import { WORLD_PULSE_SIGNAL_LEGEND } from "../lib/world-pulse-signals.js";
 
 const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 const WORLD_BOUNDS = [[-174, -58], [178, 80]];
@@ -35,18 +36,7 @@ const countryByCode = new Map(
 
 const categoryColors = [
   "match", ["get", "c"],
-  "Conflit/tension", "#d77a72",
-  "Politique/élections", "#7f9bd0",
-  "Économie/marchés", "#c59a59",
-  "Climat/environnement", "#55a99f",
-  "Santé", "#76aa7d",
-  "Science/technologie", "#639db5",
-  "Sécurité/défense", "#9a7fba",
-  "Justice/société", "#c47d98",
-  "Culture/médias", "#a78b5b",
-  "Sport", "#5ea681",
-  "Catastrophes/météo", "#c4876e",
-  "Énergie/transport", "#69a7af",
+  ...WORLD_PULSE_SIGNAL_LEGEND.flatMap((category) => [category.label, category.color]),
   "#aab9b5",
 ];
 
@@ -157,7 +147,7 @@ export default function WorldMap() {
 
   const [payload, setPayload] = useState(null);
   const [filters, setFilters] = useState(blankFilters);
-  const [status, setStatus] = useState("map");
+  const [, setStatus] = useState("map");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTitle, setPanelTitle] = useState("Actualités");
@@ -310,7 +300,7 @@ export default function WorldMap() {
             filter: ["has", "point_count"],
             paint: {
               "circle-color": "#5fdac9",
-              "circle-opacity": 0.13,
+              "circle-opacity": 0.27,
               "circle-radius": ["step", ["get", "point_count"], 16, 12, 20, 35, 25, 90, 31],
             },
           });
@@ -321,10 +311,10 @@ export default function WorldMap() {
             filter: ["has", "point_count"],
             paint: {
               "circle-color": "#51cbbb",
-              "circle-opacity": 0.84,
+              "circle-opacity": 0.94,
               "circle-radius": ["step", ["get", "point_count"], 8, 12, 11, 35, 15, 90, 20],
-              "circle-stroke-color": "rgba(224,255,250,0.76)",
-              "circle-stroke-width": 1,
+              "circle-stroke-color": "rgba(5,20,27,0.56)",
+              "circle-stroke-width": 0.7,
             },
           });
           map.addLayer({
@@ -335,9 +325,9 @@ export default function WorldMap() {
             paint: {
               "circle-color": categoryColors,
               "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 3.2, 6, 6.2],
-              "circle-opacity": 0.94,
-              "circle-stroke-color": "rgba(238,255,252,0.84)",
-              "circle-stroke-width": 0.8,
+              "circle-opacity": 0.98,
+              "circle-stroke-color": "rgba(5,20,27,0.5)",
+              "circle-stroke-width": 0.55,
             },
           });
 
@@ -451,14 +441,6 @@ export default function WorldMap() {
     }
   };
 
-  const statusText = status === "map"
-    ? "Initialisation WebGL"
-    : status === "signals"
-      ? "Chargement des signaux"
-      : status === "error"
-        ? "Carte temporairement indisponible"
-        : `${filtered.features.length.toLocaleString("fr-FR")} signaux visibles`;
-
   return (
     <section className="world-map" aria-labelledby="world-map-title">
       <div className="world-map__wrap">
@@ -470,12 +452,31 @@ export default function WorldMap() {
               Déplacez la carte, zoomez sur une bulle ou touchez un pays. Les articles détaillés sont chargés uniquement lors de leur ouverture.
             </p>
           </div>
-          <div className={`world-map__status is-${status}`}>
-            <i aria-hidden="true" />
-            <strong>{statusText}</strong>
-            {payload?.generatedAt ? <small>Actualisé {formatDate(payload.generatedAt)}</small> : null}
-          </div>
         </header>
+
+        {payload ? (
+          <div className="world-map__legend" aria-label="Légende des couleurs des bulles">
+            <span>Couleurs des bulles</span>
+            <div>
+              {WORLD_PULSE_SIGNAL_LEGEND
+                .filter((category) => payload.filters?.categories?.includes(category.label))
+                .map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={filters.category === category.label ? "is-active" : ""}
+                    style={{ "--legend-color": category.color }}
+                    onClick={() => updateFilter("category", filters.category === category.label ? "" : category.label)}
+                    aria-pressed={filters.category === category.label}
+                    title={`Filtrer : ${category.thematic === false ? "À qualifier" : category.label}`}
+                  >
+                    <i aria-hidden="true" />
+                    {category.thematic === false ? "À qualifier" : category.label}
+                  </button>
+                ))}
+            </div>
+          </div>
+        ) : null}
 
         <div ref={shellRef} className={`map-shell${fullscreen ? " is-fullscreen" : ""}`}>
           <div ref={canvasRef} className="map-canvas" aria-label="Carte mondiale interactive des actualités" />
@@ -484,7 +485,6 @@ export default function WorldMap() {
             <button type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
               Filtres{filterCount ? ` · ${filterCount}` : ""}
             </button>
-            <span>{selectionLabel(filters, payload)}</span>
           </div>
 
           <div className="map-controls" aria-label="Commandes de la carte">
@@ -555,21 +555,21 @@ export default function WorldMap() {
       <style jsx>{`
         .world-map { width: 100%; max-width: 100vw; overflow: clip; padding: 18px 0 8px; }
         .world-map__wrap { width: min(1440px, calc(100% - 28px)); min-width: 0; margin: 0 auto; }
-        .world-map__header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; padding: 18px 4px 20px; }
+        .world-map__header { display: block; padding: 18px 4px 14px; }
         .world-map__eyebrow { margin: 0 0 8px; color: #68d8c9; font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
         h1 { max-width: 850px; margin: 0; font-size: clamp(1.7rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -.045em; }
         .world-map__intro { max-width: 760px; margin: 12px 0 0; color: #a9c4c7; font-size: clamp(.86rem, 1.35vw, 1rem); line-height: 1.55; }
-        .world-map__status { display: grid; grid-template-columns: auto 1fr; gap: 2px 9px; min-width: 210px; padding: 11px 14px; border: 1px solid rgba(124,188,190,.22); border-radius: 14px; background: rgba(7,25,32,.78); backdrop-filter: blur(12px); }
-        .world-map__status i { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: #67d9c9; box-shadow: 0 0 12px rgba(95,218,201,.65); }
-        .world-map__status.is-error i { background: #d88a79; }
-        .world-map__status strong { font-size: .78rem; }
-        .world-map__status small { grid-column: 2; color: #86a6aa; font-size: .65rem; }
+        .world-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 0 4px 16px; }
+        .world-map__legend > span { color: #67d9c9; font-size: .62rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; white-space: nowrap; }
+        .world-map__legend > div { display: flex; flex: 1 1 680px; flex-wrap: wrap; gap: 6px 8px; }
+        .world-map__legend button { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; border: 1px solid color-mix(in srgb, var(--legend-color) 30%, rgba(137,194,195,.18)); border-radius: 999px; background: color-mix(in srgb, var(--legend-color) 7%, transparent); color: color-mix(in srgb, var(--legend-color) 36%, #effafa); padding: 3px 8px; font: inherit; font-size: .66rem; line-height: 1.15; cursor: pointer; }
+        .world-map__legend button:hover, .world-map__legend button:focus-visible, .world-map__legend button.is-active { border-color: color-mix(in srgb, var(--legend-color) 78%, #effafa); background: color-mix(in srgb, var(--legend-color) 20%, transparent); color: #effafa; outline: none; }
+        .world-map__legend i { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--legend-color); box-shadow: 0 0 10px color-mix(in srgb, var(--legend-color) 82%, transparent); }
         .map-shell { position: relative; width: 100%; max-width: 100%; height: clamp(520px, 72dvh, 790px); min-width: 0; overflow: hidden; border: 1px solid rgba(137,194,195,.24); border-radius: 22px; background: #06141b; box-shadow: 0 24px 70px rgba(0,0,0,.28); contain: layout paint; }
         .map-shell.is-fullscreen { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
         .map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; touch-action: none; }
-        .map-toolbar { position: absolute; z-index: 5; top: 12px; left: 12px; display: flex; align-items: center; gap: 9px; max-width: calc(100% - 80px); pointer-events: none; }
+        .map-toolbar { position: absolute; z-index: 5; top: 12px; left: 12px; max-width: calc(100% - 80px); pointer-events: none; }
         .map-toolbar button { min-height: 40px; padding: 0 14px; border: 1px solid rgba(115,216,201,.42); border-radius: 11px; background: rgba(8,34,40,.92); color: #e9fffb; font: inherit; font-size: .76rem; font-weight: 800; cursor: pointer; pointer-events: auto; }
-        .map-toolbar span { overflow: hidden; padding: 9px 12px; border: 1px solid rgba(154,205,205,.18); border-radius: 11px; background: rgba(5,20,27,.8); color: #b7ced0; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; backdrop-filter: blur(10px); }
         .map-controls { position: absolute; z-index: 6; top: 12px; right: 12px; display: grid; gap: 6px; }
         .map-controls button, .panel-heading > button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(148,199,201,.22); border-radius: 11px; background: rgba(5,20,27,.9); color: #eafffb; font: inherit; font-size: 1.1rem; cursor: pointer; backdrop-filter: blur(10px); }
         .filter-panel { position: absolute; z-index: 9; top: 62px; left: 12px; display: grid; gap: 13px; width: min(340px, calc(100% - 88px)); max-height: calc(100% - 112px); overflow: auto; padding: 16px; border: 1px solid rgba(129,206,198,.3); border-radius: 16px; background: rgba(5,23,30,.97); box-shadow: 0 20px 60px rgba(0,0,0,.38); backdrop-filter: blur(16px); }
@@ -598,13 +598,14 @@ export default function WorldMap() {
         @media (max-width: 760px) {
           .world-map { padding-top: 4px; }
           .world-map__wrap { width: 100%; }
-          .world-map__header { grid-template-columns: 1fr; gap: 12px; padding: 14px 16px 16px; }
+          .world-map__header { padding: 14px 16px 10px; }
           h1 { font-size: clamp(1.65rem, 8.5vw, 2.35rem); }
           .world-map__intro { margin-top: 9px; font-size: .82rem; line-height: 1.45; }
-          .world-map__status { width: fit-content; min-width: 0; padding: 8px 11px; }
+          .world-map__legend { display: grid; gap: 8px; padding: 0 16px 12px; }
+          .world-map__legend > div { gap: 6px; }
+          .world-map__legend button { min-height: 25px; padding: 3px 7px; font-size: .62rem; }
           .map-shell { height: clamp(390px, 66dvh, 620px); border-right: 0; border-left: 0; border-radius: 0; }
           .map-toolbar { top: 8px; left: 8px; max-width: calc(100% - 60px); }
-          .map-toolbar span { display: none; }
           .map-toolbar button, .map-controls button { min-height: 44px; width: auto; }
           .map-controls { top: 8px; right: 8px; gap: 5px; }
           .map-controls button { width: 44px; height: 44px; }
