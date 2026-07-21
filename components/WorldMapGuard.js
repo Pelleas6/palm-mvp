@@ -144,7 +144,7 @@ function patchMapLibre(maplibregl) {
         paint: {
           ...(layer.paint || {}),
           "circle-color": CLUSTER_COLOR,
-          ...(layer.id === "cluster-halo" ? { "circle-opacity": 0.2 } : {}),
+          ...(layer.id === "cluster-halo" ? { "circle-opacity": 0.28 } : {}),
         },
       };
       return originalAddLayer.call(this, patchedLayer, beforeId);
