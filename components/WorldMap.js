@@ -300,7 +300,7 @@ export default function WorldMap() {
             filter: ["has", "point_count"],
             paint: {
               "circle-color": "#5fdac9",
-              "circle-opacity": 0.27,
+              "circle-opacity": 0.28,
               "circle-radius": ["step", ["get", "point_count"], 16, 12, 20, 35, 25, 90, 31],
             },
           });
