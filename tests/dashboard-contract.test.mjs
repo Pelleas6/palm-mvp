@@ -73,7 +73,7 @@ test("dashboard payload contract keeps the deferred dashboard and map entry poin
   );
   assert.match(componentSource, /className="map-viewport"/);
   assert.match(componentSource, /aspect-ratio: 2 \/ 1/);
-  assert.match(componentSource, /<section className="insight-grid"/);
+  assert.match(componentSource, /<section className="stream-section" aria-label="Articles reçus">/);
   assert.match(componentSource, /<SituationBrief/);
   assert.match(componentSource, /Exporter les données CSV/);
   assert.match(componentSource, /Points vérifiés/);
@@ -96,10 +96,9 @@ test("dashboard payload contract keeps the deferred dashboard and map entry poin
   assert.doesNotMatch(headerSource, /site-brand-mark/);
   assert.match(nextConfigSource, /Content-Security-Policy/);
   assert.match(nextConfigSource, /poweredByHeader: false/);
-  assert.match(componentSource, /momentTrends = sourceTrends\.filter\(isDisplayableTrendChip\)\.slice\(0, 3\)/);
-  assert.match(componentSource, /Tendances du moment/);
-  assert.match(componentSource, /hasTrendContext/);
-  assert.match(componentSource, /GENERIC_TREND_CHIP_TERMS/);
+  assert.doesNotMatch(componentSource, /Lecture contextuelle/);
+  assert.doesNotMatch(componentSource, /Tendances du moment/);
+  assert.doesNotMatch(componentSource, /MomentTrendsPanel/);
   assert.doesNotMatch(componentSource, /Tendances brutes GDELT/);
   assert.doesNotMatch(componentSource, /Tendances émergentes/);
   assert.doesNotMatch(componentSource, /générique\(s\) en trace/);
