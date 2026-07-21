@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import {
   createPulseCache,
+  DEFAULT_RSS_FEEDS,
   getWorldPulse,
   getWorldPulseSourceHealthSnapshot,
   responseHeadersForPayload,
@@ -91,6 +92,22 @@ test("world pulse legend exposes the deterministic taxonomy plus explicit unclas
   assert.equal(WORLD_PULSE_SIGNAL_LEGEND.at(-1).thematic, false);
   for (const item of WORLD_PULSE_SIGNAL_LEGEND) {
     assert.equal(colorForWorldPulseSignalLabel(item.label), item.color);
+  }
+});
+
+test("French RSS catalog stays directly editable, complete and safe to activate", async () => {
+  const catalog = JSON.parse(await readFile(new URL("../content/rss-feeds-france.json", import.meta.url), "utf8"));
+  assert.ok(Array.isArray(catalog));
+  assert.ok(catalog.length >= 60);
+  assert.ok(catalog.some((feed) => feed.enabled === true));
+  assert.equal(new Set(catalog.map((feed) => feed.url)).size, catalog.length, "no duplicate URL in the catalog");
+  for (const feed of catalog) {
+    assert.match(feed.theme, /^(national|international|opinion-investigation|economie|region|tech-science)$/);
+    assert.ok(feed.media && feed.feed);
+    assert.doesNotThrow(() => new URL(feed.url));
+    assert.equal(feed.sourceCountry, "France");
+    assert.equal(feed.region, "Europe");
+    assert.ok(Number.isInteger(feed.maxItems) && feed.maxItems >= 1 && feed.maxItems <= 60);
   }
 });
 
@@ -204,53 +221,9 @@ test("getWorldPulse uses public RSS as the operational source, dedupes canonical
   assert.equal(ngramsHealth.state, "OK");
 });
 
-test("default RSS coverage keeps 43 verified public feeds while filling under-covered regions", async () => {
+test("default RSS coverage keeps the configured public feeds while filling under-covered regions", async () => {
   const cache = createPulseCache();
-  const expectedFeeds = [
-    ["BBC News World", "https://feeds.bbci.co.uk/news/world/rss.xml", "United Kingdom"],
-    ["BBC News Africa", "https://feeds.bbci.co.uk/news/world/africa/rss.xml", "United Kingdom"],
-    ["BBC News Asia", "https://feeds.bbci.co.uk/news/world/asia/rss.xml", "United Kingdom"],
-    ["BBC News India", "https://feeds.bbci.co.uk/news/world/asia/india/rss.xml", "United Kingdom"],
-    ["BBC News Latin America", "https://feeds.bbci.co.uk/news/world/latin_america/rss.xml", "United Kingdom"],
-    ["BBC News Middle East", "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml", "United Kingdom"],
-    ["France 24 Monde", "https://www.france24.com/fr/rss", "France"],
-    ["France 24 Middle East", "https://www.france24.com/en/middle-east/rss", "France"],
-    ["Deutsche Welle Top Stories", "https://rss.dw.com/rdf/rss-en-all", "Germany"],
-    ["Ukrainska Pravda English", "https://www.pravda.com.ua/eng/rss/", "Ukraine"],
-    ["Daily Sabah World", "https://www.dailysabah.com/rss/world", "Turkey"],
-    ["Africanews", "https://www.africanews.com/feed/rss", "Republic of Congo"],
-    ["Premium Times", "https://www.premiumtimesng.com/feed", "Nigeria"],
-    ["RSF — Afrique", "https://rsf.org/fr/rss/afrique/feed.xml", "France"],
-    ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml", "Qatar"],
-    ["Arab News", "https://www.arabnews.com/rss.xml", "Saudi Arabia"],
-    ["RSF — Maghreb / Moyen-Orient", "https://rsf.org/fr/rss/maghreb-moyen-orient/feed.xml", "France"],
-    ["The Daily Star", "https://www.thedailystar.net/rss.xml", "Bangladesh"],
-    ["Kathmandu Post", "https://kathmandupost.com/rss", "Nepal"],
-    ["Bangkok Post", "https://www.bangkokpost.com/rss/data/topstories.xml", "Thailand"],
-    ["Laotian Times", "https://laotiantimes.com/feed/", "Laos"],
-    ["VNExpress", "https://vnexpress.net/rss/tin-moi-nhat.rss", "Vietnam"],
-    ["Rappler", "https://www.rappler.com/feed/", "Philippines"],
-    ["CNA", "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "Singapore"],
-    ["NHK World", "https://www3.nhk.or.jp/rss/news/cat0.xml", "Japan"],
-    ["RSF — Asie-Pacifique", "https://rsf.org/fr/rss/asie-pacifique/feed.xml", "France"],
-    ["ABC Australia World", "https://www.abc.net.au/news/feed/51120/rss.xml", "Australia"],
-    ["NPR World", "https://feeds.npr.org/1004/rss.xml", "United States"],
-    ["CBC World", "https://www.cbc.ca/cmlink/rss-world", "Canada"],
-    ["Mexico News Daily", "https://mexiconewsdaily.com/feed/", "Mexico"],
-    ["Prensa Libre", "https://www.prensalibre.com/feed/", "Guatemala"],
-    ["Agência Brasil", "https://agenciabrasil.ebc.com.br/rss.xml", "Brazil"],
-    ["El Tiempo Mundo", "https://www.eltiempo.com/rss/mundo.xml", "Colombia"],
-    ["Agencia Andina", "https://andina.pe/agencia/rss.aspx", "Peru"],
-    ["Cooperativa", "https://www.cooperativa.cl/noticias/site/tax/port/all/rss____1.xml", "Chile"],
-    ["RSF — Argentine", "https://rsf.org/fr/rss/am%C3%A9riques/argentine/feed.xml", "France"],
-    ["RSF — Haïti", "https://rsf.org/fr/rss/am%C3%A9riques/ha%C3%AFti/feed.xml", "France"],
-    ["RSF — Venezuela", "https://rsf.org/fr/rss/am%C3%A9riques/venezuela/feed.xml", "France"],
-    ["Antara", "https://www.antaranews.com/rss/terkini.xml", "Indonesia"],
-    ["El País", "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", "Spain"],
-    ["RNZ", "https://www.rnz.co.nz/rss/national.xml", "New Zealand"],
-    ["FBC News", "https://www.fbcnews.com.fj/rss/", "Fiji"],
-    ["SABC News", "https://www.sabcnews.com/sabcnews/feed/", "South Africa"],
-  ];
+  const expectedFeeds = DEFAULT_RSS_FEEDS.map(({ name, url, sourceCountry }) => [name, url, sourceCountry]);
   const countriesByUrl = new Map(expectedFeeds.map(([, url, country]) => [url, country]));
   const namesByUrl = new Map(expectedFeeds.map(([name, url]) => [url, name]));
   const calls = [];
@@ -273,11 +246,11 @@ test("default RSS coverage keeps 43 verified public feeds while filling under-co
   const payload = await getWorldPulse({ cache, fetchImpl, now: () => new Date(FIXED_NOW) });
 
   assert.equal(payload.state, "ok");
-  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, 43);
-  assert.equal(payload.source.feeds.length, 43);
-  assert.equal(payload.counts.rssArticlesFetched, 43);
-  assert.equal(payload.counts.rssMediaSources, 43);
-  assert.equal(payload.counts.rssActiveSources, 43);
+  assert.equal(calls.filter((href) => countriesByUrl.has(href)).length, expectedFeeds.length);
+  assert.equal(payload.source.feeds.length, expectedFeeds.length);
+  assert.equal(payload.counts.rssArticlesFetched, expectedFeeds.length);
+  assert.equal(payload.counts.rssMediaSources, expectedFeeds.length);
+  assert.equal(payload.counts.rssActiveSources, expectedFeeds.length);
   assert.equal(payload.counts.rssKnownMediaCountries, 31);
   assert.ok(payload.counts.sourceRegions >= 6);
   for (const [name, url, country] of expectedFeeds) {
