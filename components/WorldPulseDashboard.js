@@ -1130,6 +1130,13 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
                 ) : null}
               </div>
             </div>
+            <SignalLegend
+              activeCategory={exploration.filters.category}
+              onSelectCategory={(category) => updateFilter(
+                "category",
+                exploration.filters.category === category ? WORLD_PULSE_FILTER_ALL : category,
+              )}
+            />
             <SignalField
               articleParticles={articleParticles}
               articleClusters={articleClusters}
@@ -1140,13 +1147,6 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
               selectedPoint={selectedPoint}
               onSelectPoint={setSelectedPoint}
               onSelectCountry={setSelectedPoint}
-            />
-            <SignalLegend
-              activeCategory={exploration.filters.category}
-              onSelectCategory={(category) => updateFilter(
-                "category",
-                exploration.filters.category === category ? WORLD_PULSE_FILTER_ALL : category,
-              )}
             />
             <p className="map-note">
               Survolez un repère sur ordinateur ou touchez-le sur mobile pour lire son détail. Les bulles regroupent seulement les articles proches du même thème.
@@ -1172,7 +1172,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         <Metric label="Fraîcheur" value={loading ? "—" : freshness} hint={payload.source?.cached ? "lecture servie depuis le cache vérifié" : `${sourceMetric} actualisé maintenant`} />
       </section>
 
-      <section className="analysis-grid" aria-label="Analyse vérifiable des articles actuellement filtrés">
+      <section className={`analysis-grid${exploration.selection ? "" : " analysis-grid-single"}`} aria-label="Analyse vérifiable des articles actuellement filtrés">
         <SituationBrief
           brief={exploration.brief}
           generatedAt={payload.generatedAt}
@@ -1181,7 +1181,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           auditedSources={rssAuditedSourceCount}
           loading={loading}
         />
-        <ReadingPanel selection={exploration.selection} />
+        {exploration.selection ? <ReadingPanel selection={exploration.selection} /> : null}
       </section>
 
       <section className="insight-grid" aria-label="Tendances et articles reçus">
@@ -1653,6 +1653,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           align-items: start;
           margin-bottom: 18px;
         }
+        .analysis-grid-single {
+          grid-template-columns: minmax(0, 1fr);
+        }
         .insight-grid {
           display: grid;
           grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
@@ -2032,7 +2035,7 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           pointer-events: auto;
           touch-action: manipulation;
           transform: translate(-50%, -50%) scale(var(--particle-visual-scale));
-          background: color-mix(in srgb, var(--particle-color) 60%, #0d1e1d);
+          background: color-mix(in srgb, var(--particle-color) 74%, #0d1e1d);
           transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
         }
         button.particle { appearance: none; }
@@ -2044,9 +2047,9 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
         }
         .article-particle {
           z-index: 3;
-          opacity: 0.9;
-          background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--particle-color) 88%, #f1fffb), color-mix(in srgb, var(--particle-color) 61%, #09201c) 58%, rgba(7, 18, 16, 0.14));
-          box-shadow: 0 0 8px color-mix(in srgb, var(--particle-color) 72%, transparent), 0 0 18px color-mix(in srgb, var(--particle-color) 26%, transparent);
+          opacity: 0.96;
+          background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--particle-color) 92%, #f1fffb), color-mix(in srgb, var(--particle-color) 70%, #09201c) 58%, rgba(7, 18, 16, 0.1));
+          box-shadow: 0 0 9px color-mix(in srgb, var(--particle-color) 82%, transparent), 0 0 22px color-mix(in srgb, var(--particle-color) 40%, transparent);
           animation: none;
         }
         /* Une poignée de points reste vivante sur ordinateur, sans imposer des
@@ -2062,8 +2065,8 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           display: grid;
           place-items: center;
           border: 1px solid color-mix(in srgb, var(--particle-color) 94%, transparent);
-          background: radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--particle-color) 82%, rgba(244, 255, 251, 0.38)), color-mix(in srgb, var(--particle-color) 54%, #0a211d) 62%, rgba(7, 18, 16, 0.28));
-          box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 24%, transparent), 0 0 25px color-mix(in srgb, var(--particle-color) 62%, transparent), 0 8px 18px rgba(0, 0, 0, 0.22);
+          background: radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--particle-color) 88%, rgba(244, 255, 251, 0.44)), color-mix(in srgb, var(--particle-color) 66%, #0a211d) 62%, rgba(7, 18, 16, 0.2));
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--particle-color) 32%, transparent), 0 0 28px color-mix(in srgb, var(--particle-color) 74%, transparent), 0 8px 18px rgba(0, 0, 0, 0.22);
         }
         .media-marker {
           z-index: 4;
@@ -2382,10 +2385,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           flex-wrap: wrap;
           gap: 10px 14px;
           align-items: flex-start;
-          margin-top: 14px;
+          margin: 0 0 12px;
           padding: 12px;
-          border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line));
-          background: linear-gradient(105deg, rgba(95, 218, 201, 0.07), rgba(255, 255, 255, 0.022));
+          border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+          border-radius: 14px;
+          background: linear-gradient(105deg, rgba(95, 218, 201, 0.12), rgba(255, 255, 255, 0.035));
         }
         .signal-legend-heading {
           display: grid;
@@ -2422,11 +2426,11 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           align-items: center;
           gap: 6px;
           min-height: 23px;
-          border: 1px solid transparent;
+          border: 1px solid color-mix(in srgb, var(--legend-color) 25%, transparent);
           border-radius: 999px;
-          background: transparent;
-          color: var(--muted);
-          padding: 2px 6px;
+          background: color-mix(in srgb, var(--legend-color) 7%, transparent);
+          color: color-mix(in srgb, var(--legend-color) 34%, var(--ink));
+          padding: 3px 7px;
           font: inherit;
           font-size: 0.67rem;
           line-height: 1.2;
@@ -2441,12 +2445,12 @@ export default function WorldPulseDashboard({ initialPayload = null }) {
           outline: none;
         }
         .signal-legend i {
-          width: 9px;
-          height: 9px;
+          width: 10px;
+          height: 10px;
           flex: 0 0 auto;
           border-radius: 999px;
           background: var(--legend-color);
-          box-shadow: 0 0 10px color-mix(in srgb, var(--legend-color) 68%, transparent);
+          box-shadow: 0 0 12px color-mix(in srgb, var(--legend-color) 82%, transparent);
         }
         .signal-legend > p {
           flex: 1 0 100%;
