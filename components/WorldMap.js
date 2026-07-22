@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { geoCentroid } from "d3-geo";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
 import { SOURCE_COUNTRY_REGISTRY } from "../lib/world-pulse-geography.js";
@@ -47,7 +48,7 @@ const baseStyle = {
 };
 
 function blankFilters() {
-  return { category: "", country: "", source: "" };
+  return { category: "", country: "", region: "", source: "" };
 }
 
 function filterCollection(payload, filters) {
@@ -58,6 +59,7 @@ function filterCollection(payload, filters) {
       const properties = item?.properties || {};
       return (!filters.category || properties.c === filters.category)
         && (!filters.country || properties.k === filters.country)
+        && (!filters.region || properties.r === filters.region)
         && (!filters.source || properties.s === filters.source);
     }),
   };
@@ -144,6 +146,8 @@ export default function WorldMap() {
   const filtersRef = useRef(blankFilters());
   const openCountryRef = useRef(null);
   const openArticleRef = useRef(null);
+  const markerCtorRef = useRef(null);
+  const countryLabelMarkersRef = useRef([]);
 
   const [payload, setPayload] = useState(null);
   const [filters, setFilters] = useState(blankFilters);
@@ -239,6 +243,7 @@ export default function WorldMap() {
         const imported = await import("maplibre-gl");
         if (stopped || !canvasRef.current) return;
         const maplibregl = imported.default;
+        markerCtorRef.current = maplibregl.Marker;
         const mobile = isMobile();
 
         map = new maplibregl.Map({
@@ -283,6 +288,18 @@ export default function WorldMap() {
               "line-color": "#789ca5",
               "line-opacity": 0.56,
               "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 1.15],
+            },
+          });
+          map.addSource("unavailable-countries", { type: "geojson", data: EMPTY_COLLECTION });
+          map.addLayer({
+            id: "unavailable-country-lines",
+            type: "line",
+            source: "unavailable-countries",
+            paint: {
+              "line-color": "#d8a265",
+              "line-opacity": 0.9,
+              "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.9, 5, 2.1],
+              "line-dasharray": [1.2, 1.2],
             },
           });
 
@@ -388,12 +405,42 @@ export default function WorldMap() {
 
   useEffect(() => {
     const map = mapRef.current;
+    const Marker = markerCtorRef.current;
+    if (!map || !Marker || !payload) return undefined;
+    countryLabelMarkersRef.current.forEach((marker) => marker.remove());
+    const unavailable = new Set((payload.unavailableCountries || []).map((country) => country.code));
+    countryLabelMarkersRef.current = (payload.filters?.countries || []).slice(0, 70).flatMap((country) => {
+      const shape = countryByCode.get(country.code);
+      if (!shape) return [];
+      const position = geoCentroid(shape);
+      if (!position.every(Number.isFinite)) return [];
+      const element = document.createElement("span");
+      element.className = `map-country-label${unavailable.has(country.code) ? " is-unavailable" : ""}`;
+      element.textContent = country.label;
+      element.setAttribute("aria-hidden", "true");
+      return [new Marker({ element, anchor: "center" }).setLngLat(position).addTo(map)];
+    });
+    return () => countryLabelMarkersRef.current.forEach((marker) => marker.remove());
+  }, [payload]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     const source = map?.getSource("signals");
     if (source?.setData) source.setData(filtered);
     if (map?.getLayer("selected-country")) {
       map.setFilter("selected-country", ["==", ["get", "code"], filters.country || "__none__"]);
     }
   }, [filtered, filters.country]);
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource("unavailable-countries");
+    if (!source?.setData) return;
+    const unavailable = new Set((payload?.unavailableCountries || []).map((country) => country.code));
+    source.setData({
+      type: "FeatureCollection",
+      features: countryCollection.features.filter((country) => unavailable.has(country.properties.code)),
+    });
+  }, [payload]);
 
   useEffect(() => {
     const resize = () => mapRef.current?.resize();
@@ -484,10 +531,34 @@ export default function WorldMap() {
                 </select>
               </label>
               <label>
+                Recherche d’un pays
+                <input
+                  type="search"
+                  list="map-country-search"
+                  value={(payload?.filters?.countries || []).find((country) => country.code === filters.country)?.label || ""}
+                  placeholder="Ex. France, Japon…"
+                  onChange={(event) => {
+                    const country = (payload?.filters?.countries || []).find((item) => item.label.toLocaleLowerCase("fr").includes(event.target.value.toLocaleLowerCase("fr")));
+                    if (country && event.target.value === country.label) updateFilter("country", country.code);
+                    if (!event.target.value) updateFilter("country", "");
+                  }}
+                />
+                <datalist id="map-country-search">
+                  {(payload?.filters?.countries || []).map((country) => <option key={country.code} value={country.label} />)}
+                </datalist>
+              </label>
+              <label>
                 Pays
                 <select value={filters.country} onChange={(event) => updateFilter("country", event.target.value)}>
                   <option value="">Tous les pays</option>
                   {(payload?.filters?.countries || []).map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
+                </select>
+              </label>
+              <label>
+                Région
+                <select value={filters.region} onChange={(event) => updateFilter("region", event.target.value)}>
+                  <option value="">Toutes les régions</option>
+                  {(payload?.filters?.regions || []).map((value) => <option key={value} value={value}>{value}</option>)}
                 </select>
               </label>
               <label>
@@ -552,6 +623,12 @@ export default function WorldMap() {
             </div>
           </div>
 
+        <p className="world-map__freshness" aria-live="polite">
+          <span>Dernière mise à jour : {formatDate(payload?.generatedAt) || "en cours"}</span>
+          <span>{payload?.sources?.active ?? 0}/{payload?.sources?.audited ?? 0} sources actives</span>
+          {(payload?.unavailableCountries || []).length ? <span className="is-warning">Contour ocre : flux du pays indisponibles</span> : null}
+        </p>
+
       </div>
 
       <style jsx>{`
@@ -562,6 +639,9 @@ export default function WorldMap() {
         h1 { max-width: 850px; margin: 0; font-size: clamp(1.7rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -.045em; }
         .world-map__intro { max-width: 760px; margin: 12px 0 0; color: #a9c4c7; font-size: clamp(.86rem, 1.35vw, 1rem); line-height: 1.55; }
         .world-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 4px 0; }
+        .world-map__freshness { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 11px 4px 0; color: #86a9ac; font-size: .68rem; }
+        .world-map__freshness span + span::before { content: "•"; margin-right: 14px; color: #527276; }
+        .world-map__freshness .is-warning { color: #d6a76e; }
         .world-map__legend > span { color: #67d9c9; font-size: .62rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; white-space: nowrap; }
         .world-map__legend > div { display: flex; flex: 1 1 700px; flex-wrap: wrap; gap: 5px 15px; }
         .world-map__legend button { display: inline-flex; align-items: center; gap: 6px; min-height: 22px; border: 0; background: transparent; color: #a9c4c7; padding: 2px 0; font: inherit; font-size: .68rem; line-height: 1.2; cursor: pointer; }
@@ -580,6 +660,9 @@ export default function WorldMap() {
         .panel-heading > button { width: 34px; height: 34px; background: rgba(255,255,255,.04); }
         .filter-panel label { display: grid; gap: 6px; color: #a9c5c7; font-size: .7rem; font-weight: 700; }
         .filter-panel select { width: 100%; min-height: 42px; padding: 0 34px 0 11px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: #0a2630; color: #effafa; font: inherit; font-size: .78rem; }
+        .filter-panel input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: #0a2630; color: #effafa; font: inherit; font-size: .78rem; }
+        :global(.map-country-label) { pointer-events: none; color: rgba(215,239,237,.62); font: 700 10px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .025em; text-shadow: 0 1px 4px rgba(0,0,0,.92); white-space: nowrap; transform: translateY(9px); opacity: .72; }
+        :global(.map-country-label.is-unavailable) { color: #e0a664; opacity: .96; }
         .filter-actions { display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; }
         .filter-actions button { min-height: 42px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: rgba(255,255,255,.04); color: #d9efee; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
         .filter-actions .primary { border-color: rgba(95,218,201,.5); background: #1b675f; color: white; }
