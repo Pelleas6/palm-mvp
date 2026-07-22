@@ -811,8 +811,8 @@ export default function WorldMap() {
         .map-controls > button, .share-trigger, .panel-heading > button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(148,199,201,.22); border-radius: 11px; background: rgba(5,20,27,.9); color: #eafffb; font: inherit; font-size: 1.1rem; cursor: pointer; backdrop-filter: blur(10px); }
         .map-controls > button:hover, .share-trigger:hover, .map-controls > button:focus-visible, .share-trigger:focus-visible { border-color: rgba(105,224,207,.72); color: #72dfcf; outline: none; }
         .share-control { position: relative; }
-        .share-trigger { color: #75ded0; }
-        .share-trigger svg { width: 19px; height: 19px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .share-trigger { color: #ffffff; }
+        .share-trigger svg { width: 19px; height: 19px; overflow: visible; fill: none; stroke: #ffffff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
         .share-menu { position: absolute; right: 48px; bottom: 0; display: grid; width: max-content; min-width: 174px; overflow: hidden; padding: 7px; border: 1px solid rgba(110,221,206,.34); border-radius: 13px; background: rgba(4,21,27,.97); box-shadow: 0 18px 46px rgba(0,0,0,.42); backdrop-filter: blur(16px); }
         .share-menu > span { padding: 6px 8px 7px; color: #73daca; font-size: .6rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
         .share-menu button { min-height: 34px; padding: 0 9px; border: 0; border-radius: 8px; background: transparent; color: #d8eeee; font: inherit; font-size: .73rem; font-weight: 700; text-align: left; cursor: pointer; }
