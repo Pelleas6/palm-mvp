@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
-import { SOURCE_COUNTRY_REGISTRY } from "../lib/world-pulse-geography.js";
+import {
+  SOURCE_COUNTRY_REGISTRY,
+  WORLD_ADMIN1_BOUNDARY_COLLECTION,
+} from "../lib/world-pulse-geography.js";
 import { WORLD_PULSE_SIGNAL_LEGEND } from "../lib/world-pulse-signals.js";
 
 const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
@@ -366,6 +369,20 @@ export default function WorldMap() {
               "line-color": "#789ca5",
               "line-opacity": 0.56,
               "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.45, 5, 1.15],
+            },
+          });
+          map.addSource("admin-1-boundaries", {
+            type: "geojson",
+            data: WORLD_ADMIN1_BOUNDARY_COLLECTION,
+          });
+          map.addLayer({
+            id: "admin-1-boundaries",
+            type: "line",
+            source: "admin-1-boundaries",
+            paint: {
+              "line-color": "#78a6aa",
+              "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.13, 1.2, 0.2, 3.2, 0.34, 6, 0.52],
+              "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.22, 3.2, 0.52, 6, 0.86],
             },
           });
           map.addSource("unavailable-countries", { type: "geojson", data: EMPTY_COLLECTION });

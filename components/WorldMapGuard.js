@@ -113,7 +113,7 @@ function patchMapLibre(maplibregl) {
   });
 
   prototype.addSource = function addSourceWithMapFixes(id, source) {
-    if (id === "countries" && source?.type === "geojson") {
+    if (["countries", "admin-1-boundaries"].includes(id) && source?.type === "geojson") {
       return originalAddSource.call(this, id, {
         ...source,
         data: normalizeCountryCollection(source.data),

@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 
 import { resolveEventCountryFromArticle } from "../lib/world-pulse-event-geolocation.js";
 import { createPulseCache, getWorldPulse } from "../lib/world-pulse.js";
-import { isCoordinateInsideCountry } from "../lib/world-pulse-geography.js";
+import {
+  isCoordinateInsideAdministrativeArea,
+  isCoordinateInsideCountry,
+} from "../lib/world-pulse-geography.js";
 
 const FIXED_NOW = "2026-07-15T12:00:00.000Z";
 
@@ -86,6 +89,23 @@ test("event geolocation can use an explicit country from the RSS content lede", 
   assert.equal(result.matchType, "capital_city");
   assert.equal(result.evidence?.field, "content");
   assert.ok(result.confidence >= 0.8);
+});
+
+test("event geolocation refines a verified country with its mentioned state, region or province", () => {
+  const fixtures = [
+    { title: "Texas lawmakers announce a new climate package", iso: "US", area: "Texas", code: "US-TX", type: "administrative_area" },
+    { title: "France: Normandie adopts a coastal plan", iso: "FR", area: "Normandie", code: "FR-NOR", type: "country_name" },
+    { title: "Officials in Guangdong, China announce an energy plan", iso: "CN", area: "Guangdong", code: "CN-GD", type: "country_name" },
+  ];
+
+  for (const fixture of fixtures) {
+    const result = resolveEventCountryFromArticle({ title: fixture.title, summary: "" });
+    assert.equal(result.eventCountryIso, fixture.iso, fixture.title);
+    assert.equal(result.eventAdministrativeArea, fixture.area, fixture.title);
+    assert.equal(result.eventAdministrativeAreaCode, fixture.code, fixture.title);
+    assert.equal(result.matchType, fixture.type, fixture.title);
+    assert.equal(result.administrativeEvidence?.field, "title", fixture.title);
+  }
 });
 
 test("RSS parsing keeps an explicit country found in namespaced content as auditable evidence", async () => {
@@ -179,8 +199,10 @@ test("getWorldPulse renders event-country particles inside the detected country 
   assert.equal(particle.location.code, "IR");
   assert.equal(particle.eventCountryIso, "IR");
   assert.equal(particle.sourceCountry, "Canada");
-  assert.equal(particle.positioning.basis, "verified_event_country_geometry");
+  assert.equal(particle.eventAdministrativeAreaCode, "IR-07");
+  assert.equal(particle.positioning.basis, "verified_event_administrative_area_geometry");
   assert.equal(isCoordinateInsideCountry("IR", particle.coordinates.longitude, particle.coordinates.latitude), true);
+  assert.equal(isCoordinateInsideAdministrativeArea("IR", "IR-07", particle.coordinates.longitude, particle.coordinates.latitude), true);
 
   assert.equal(payload.offMapArticles[0].reason, "event_country_not_detected");
   assert.match(payload.offMapArticles[0].detail, /titre\/résumé/i);
