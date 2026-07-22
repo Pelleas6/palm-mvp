@@ -108,9 +108,9 @@ function buildSharedMapUrl(map, filters) {
 
 function ShareIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="3.5" y="5.5" width="17" height="13" rx="2.2" />
-      <path d="m4.8 7.2 7.2 5.5 7.2-5.5M4.8 16.8l5.6-4.4m4.1 0 4.7 4.4" />
+    <svg className="share-envelope-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.2" fill="none" stroke="#ffffff" strokeWidth="1.9" vectorEffect="non-scaling-stroke" />
+      <path d="m4.8 7.2 7.2 5.5 7.2-5.5M4.8 16.8l5.6-4.4m4.1 0 4.7 4.4" fill="none" stroke="#ffffff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -812,7 +812,6 @@ export default function WorldMap() {
         .map-controls > button:hover, .share-trigger:hover, .map-controls > button:focus-visible, .share-trigger:focus-visible { border-color: rgba(105,224,207,.72); color: #72dfcf; outline: none; }
         .share-control { position: relative; }
         .share-trigger { color: #ffffff; }
-        .share-trigger svg { width: 19px; height: 19px; overflow: visible; fill: none; stroke: #ffffff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
         .share-menu { position: absolute; right: 48px; bottom: 0; display: grid; width: max-content; min-width: 174px; overflow: hidden; padding: 7px; border: 1px solid rgba(110,221,206,.34); border-radius: 13px; background: rgba(4,21,27,.97); box-shadow: 0 18px 46px rgba(0,0,0,.42); backdrop-filter: blur(16px); }
         .share-menu > span { padding: 6px 8px 7px; color: #73daca; font-size: .6rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
         .share-menu button { min-height: 34px; padding: 0 9px; border: 0; border-radius: 8px; background: transparent; color: #d8eeee; font: inherit; font-size: .73rem; font-weight: 700; text-align: left; cursor: pointer; }
