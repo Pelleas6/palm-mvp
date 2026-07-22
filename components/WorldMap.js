@@ -409,6 +409,12 @@ export default function WorldMap() {
     if (!map || !Marker || !payload) return undefined;
     countryLabelMarkersRef.current.forEach((marker) => marker.remove());
     const unavailable = new Set((payload.unavailableCountries || []).map((country) => country.code));
+    const updateVisibility = () => {
+      const visible = map.getZoom() >= 2.45;
+      countryLabelMarkersRef.current.forEach((marker) => {
+        marker.getElement().classList.toggle("is-visible", visible);
+      });
+    };
     countryLabelMarkersRef.current = (payload.filters?.countries || []).slice(0, 70).flatMap((country) => {
       const shape = countryByCode.get(country.code);
       if (!shape) return [];
@@ -420,7 +426,12 @@ export default function WorldMap() {
       element.setAttribute("aria-hidden", "true");
       return [new Marker({ element, anchor: "center" }).setLngLat(position).addTo(map)];
     });
-    return () => countryLabelMarkersRef.current.forEach((marker) => marker.remove());
+    updateVisibility();
+    map.on("zoom", updateVisibility);
+    return () => {
+      map.off("zoom", updateVisibility);
+      countryLabelMarkersRef.current.forEach((marker) => marker.remove());
+    };
   }, [payload]);
 
   useEffect(() => {
@@ -661,8 +672,9 @@ export default function WorldMap() {
         .filter-panel label { display: grid; gap: 6px; color: #a9c5c7; font-size: .7rem; font-weight: 700; }
         .filter-panel select { width: 100%; min-height: 42px; padding: 0 34px 0 11px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: #0a2630; color: #effafa; font: inherit; font-size: .78rem; }
         .filter-panel input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: #0a2630; color: #effafa; font: inherit; font-size: .78rem; }
-        :global(.map-country-label) { pointer-events: none; color: rgba(215,239,237,.62); font: 700 10px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .025em; text-shadow: 0 1px 4px rgba(0,0,0,.92); white-space: nowrap; transform: translateY(9px); opacity: .72; }
-        :global(.map-country-label.is-unavailable) { color: #e0a664; opacity: .96; }
+        :global(.map-country-label) { pointer-events: none; color: rgba(194,218,216,.45); font: 700 7px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .02em; text-shadow: 0 1px 3px rgba(0,0,0,.9); white-space: nowrap; transform: translateY(14px); opacity: 0; transition: opacity 160ms ease; }
+        :global(.map-country-label.is-visible) { opacity: .58; }
+        :global(.map-country-label.is-unavailable.is-visible) { color: #c99359; opacity: .7; }
         .filter-actions { display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; }
         .filter-actions button { min-height: 42px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: rgba(255,255,255,.04); color: #d9efee; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
         .filter-actions .primary { border-color: rgba(95,218,201,.5); background: #1b675f; color: white; }
