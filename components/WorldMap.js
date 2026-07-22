@@ -46,8 +46,75 @@ const baseStyle = {
   layers: [{ id: "background", type: "background", paint: { "background-color": "#06141b" } }],
 };
 
+const MAP_SHARE_QUERY_KEYS = ["mapLon", "mapLat", "mapZoom", "mapCategory", "mapCountry", "mapRegion", "mapSource"];
+
 function blankFilters() {
   return { category: "", country: "", region: "", source: "" };
+}
+
+function readSharedMapState() {
+  if (typeof window === "undefined") return { filters: blankFilters(), view: null };
+  const params = new URLSearchParams(window.location.search);
+  const longitude = Number(params.get("mapLon"));
+  const latitude = Number(params.get("mapLat"));
+  const zoom = Number(params.get("mapZoom"));
+  const view = (
+    Number.isFinite(longitude)
+    && Number.isFinite(latitude)
+    && Number.isFinite(zoom)
+    && longitude >= -180
+    && longitude <= 180
+    && latitude >= -85
+    && latitude <= 85
+    && zoom >= 0.25
+    && zoom <= 7
+  ) ? { center: [longitude, latitude], zoom } : null;
+
+  return {
+    filters: {
+      category: params.get("mapCategory") || "",
+      country: params.get("mapCountry") || "",
+      region: params.get("mapRegion") || "",
+      source: params.get("mapSource") || "",
+    },
+    view,
+  };
+}
+
+function buildSharedMapUrl(map, filters) {
+  const url = new URL(window.location.href);
+  MAP_SHARE_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
+
+  const center = map?.getCenter?.();
+  const zoom = map?.getZoom?.();
+  if (center && Number.isFinite(center.lng) && Number.isFinite(center.lat) && Number.isFinite(zoom)) {
+    url.searchParams.set("mapLon", center.lng.toFixed(4));
+    url.searchParams.set("mapLat", center.lat.toFixed(4));
+    url.searchParams.set("mapZoom", zoom.toFixed(2));
+  }
+
+  const encodedFilters = {
+    mapCategory: filters.category,
+    mapCountry: filters.country,
+    mapRegion: filters.region,
+    mapSource: filters.source,
+  };
+  Object.entries(encodedFilters).forEach(([key, value]) => {
+    if (value) url.searchParams.set(key, value);
+  });
+  url.hash = "carte";
+  return url.toString();
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="18" cy="5" r="2.4" />
+      <circle cx="6" cy="12" r="2.4" />
+      <circle cx="18" cy="19" r="2.4" />
+      <path d="m8.2 10.8 7.5-4.5M8.2 13.2l7.5 4.5" />
+    </svg>
+  );
 }
 
 function filterCollection(payload, filters) {
@@ -155,6 +222,9 @@ export default function WorldMap() {
   const [articles, setArticles] = useState([]);
   const [articlesStatus, setArticlesStatus] = useState("idle");
   const [fullscreen, setFullscreen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState("");
+  const shareFeedbackTimerRef = useRef(null);
 
   payloadRef.current = payload;
   filtersRef.current = filters;
@@ -261,6 +331,12 @@ export default function WorldMap() {
 
         map.once("load", () => {
           if (stopped) return;
+
+          const sharedState = readSharedMapState();
+          if (Object.values(sharedState.filters).some(Boolean)) {
+            filtersRef.current = sharedState.filters;
+            setFilters(sharedState.filters);
+          }
 
           map.addSource("countries", { type: "geojson", data: countryCollection });
           map.addLayer({
@@ -399,7 +475,8 @@ export default function WorldMap() {
             map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
           });
 
-          fitWorld(map, false);
+          if (sharedState.view) map.jumpTo({ ...sharedState.view });
+          else fitWorld(map, false);
           refreshSignals();
           timer = window.setInterval(refreshSignals, 30_000);
         });
@@ -465,6 +542,10 @@ export default function WorldMap() {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
+  useEffect(() => () => {
+    if (shareFeedbackTimerRef.current) window.clearTimeout(shareFeedbackTimerRef.current);
+  }, []);
+
   useEffect(() => {
     const changed = () => {
       setFullscreen(document.fullscreenElement === shellRef.current);
@@ -505,6 +586,47 @@ export default function WorldMap() {
     }
   };
 
+  const publishShare = (network) => {
+    const link = buildSharedMapUrl(mapRef.current, filtersRef.current);
+    const message = "Découvrez cette vue du Pouls du Monde.";
+    const encodedLink = encodeURIComponent(link);
+    const encodedMessage = encodeURIComponent(message);
+    const destinations = {
+      telegram: `https://t.me/share/url?url=${encodedLink}&text=${encodedMessage}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedLink}`,
+      x: `https://twitter.com/intent/tweet?text=${encodeURIComponent(`${message} ${link}`)}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(`${message} ${link}`)}`,
+    };
+    const destination = destinations[network];
+    if (!destination) return;
+    window.open(destination, "_blank", "noopener,noreferrer");
+    setShareOpen(false);
+  };
+
+  const copyShareLink = async () => {
+    const link = buildSharedMapUrl(mapRef.current, filtersRef.current);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const field = document.createElement("textarea");
+        field.value = link;
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        document.execCommand("copy");
+        field.remove();
+      }
+      setShareFeedback("Lien copié");
+    } catch (error) {
+      console.error("Map link copy failed:", error);
+      setShareFeedback("Copie indisponible");
+    }
+    if (shareFeedbackTimerRef.current) window.clearTimeout(shareFeedbackTimerRef.current);
+    shareFeedbackTimerRef.current = window.setTimeout(() => setShareFeedback(""), 2600);
+  };
+
   return (
     <section className="world-map" aria-labelledby="world-map-title">
       <div className="world-map__wrap">
@@ -532,6 +654,29 @@ export default function WorldMap() {
             <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Dézoomer">−</button>
             <button type="button" onClick={() => fitWorld(mapRef.current)} aria-label="Recentrer la carte">◎</button>
             <button type="button" onClick={toggleFullscreen} aria-label="Plein écran">{fullscreen ? "↙" : "↗"}</button>
+            <div className="share-control">
+              <button
+                type="button"
+                className="share-trigger"
+                aria-label="Partager cette vue de la carte"
+                aria-expanded={shareOpen}
+                aria-haspopup="menu"
+                onClick={() => setShareOpen((open) => !open)}
+              >
+                <ShareIcon />
+              </button>
+              {shareOpen ? (
+                <div className="share-menu" role="menu" aria-label="Partager cette vue de la carte">
+                  <span>Partager cette vue</span>
+                  <button type="button" role="menuitem" onClick={() => publishShare("telegram")}>Telegram</button>
+                  <button type="button" role="menuitem" onClick={() => publishShare("linkedin")}>LinkedIn</button>
+                  <button type="button" role="menuitem" onClick={() => publishShare("x")}>X</button>
+                  <button type="button" role="menuitem" onClick={() => publishShare("whatsapp")}>WhatsApp</button>
+                  <button type="button" role="menuitem" className="copy-share-link" onClick={copyShareLink}>Copier le lien</button>
+                </div>
+              ) : null}
+              {shareFeedback ? <span className="share-feedback" role="status">{shareFeedback}</span> : null}
+            </div>
           </div>
 
           {filtersOpen ? (
@@ -563,13 +708,6 @@ export default function WorldMap() {
                 <datalist id="map-country-search">
                   {(payload?.filters?.countries || []).map((country) => <option key={country.code} value={country.label} />)}
                 </datalist>
-              </label>
-              <label>
-                Pays
-                <select value={filters.country} onChange={(event) => updateFilter("country", event.target.value)}>
-                  <option value="">Tous les pays</option>
-                  {(payload?.filters?.countries || []).map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
-                </select>
               </label>
               <label>
                 Région
@@ -671,7 +809,16 @@ export default function WorldMap() {
         .map-toolbar { position: absolute; z-index: 5; top: 12px; left: 12px; max-width: calc(100% - 80px); pointer-events: none; }
         .map-toolbar button { min-height: 40px; padding: 0 14px; border: 1px solid rgba(115,216,201,.42); border-radius: 11px; background: rgba(8,34,40,.92); color: #e9fffb; font: inherit; font-size: .76rem; font-weight: 800; cursor: pointer; pointer-events: auto; }
         .map-controls { position: absolute; z-index: 6; top: 12px; right: 12px; display: grid; gap: 6px; }
-        .map-controls button, .panel-heading > button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(148,199,201,.22); border-radius: 11px; background: rgba(5,20,27,.9); color: #eafffb; font: inherit; font-size: 1.1rem; cursor: pointer; backdrop-filter: blur(10px); }
+        .map-controls > button, .share-trigger, .panel-heading > button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(148,199,201,.22); border-radius: 11px; background: rgba(5,20,27,.9); color: #eafffb; font: inherit; font-size: 1.1rem; cursor: pointer; backdrop-filter: blur(10px); }
+        .map-controls > button:hover, .share-trigger:hover, .map-controls > button:focus-visible, .share-trigger:focus-visible { border-color: rgba(105,224,207,.72); color: #72dfcf; outline: none; }
+        .share-control { position: relative; }
+        .share-trigger svg { width: 18px; height: 18px; overflow: visible; fill: #72dfcf; stroke: #72dfcf; stroke-width: 1.8; }
+        .share-menu { position: absolute; right: 48px; bottom: 0; display: grid; width: max-content; min-width: 174px; overflow: hidden; padding: 7px; border: 1px solid rgba(110,221,206,.34); border-radius: 13px; background: rgba(4,21,27,.97); box-shadow: 0 18px 46px rgba(0,0,0,.42); backdrop-filter: blur(16px); }
+        .share-menu > span { padding: 6px 8px 7px; color: #73daca; font-size: .6rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+        .share-menu button { min-height: 34px; padding: 0 9px; border: 0; border-radius: 8px; background: transparent; color: #d8eeee; font: inherit; font-size: .73rem; font-weight: 700; text-align: left; cursor: pointer; }
+        .share-menu button:hover, .share-menu button:focus-visible { background: rgba(95,218,201,.14); color: #ffffff; outline: none; }
+        .share-menu .copy-share-link { margin-top: 4px; border-top: 1px solid rgba(161,210,210,.16); border-radius: 0 0 8px 8px; color: #8ce5d7; }
+        .share-feedback { position: absolute; right: 48px; bottom: 0; width: max-content; padding: 8px 10px; border: 1px solid rgba(110,221,206,.34); border-radius: 9px; background: rgba(4,21,27,.97); color: #dffffa; font-size: .68rem; font-weight: 700; white-space: nowrap; box-shadow: 0 12px 32px rgba(0,0,0,.36); }
         .filter-panel { position: absolute; z-index: 9; top: 62px; left: 12px; display: grid; gap: 13px; width: min(340px, calc(100% - 88px)); max-height: calc(100% - 112px); overflow: auto; padding: 16px; border: 1px solid rgba(129,206,198,.3); border-radius: 16px; background: rgba(5,23,30,.97); box-shadow: 0 20px 60px rgba(0,0,0,.38); backdrop-filter: blur(16px); }
         .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .panel-heading > button { width: 34px; height: 34px; background: rgba(255,255,255,.04); }
@@ -707,9 +854,10 @@ export default function WorldMap() {
           .world-map__legend button { font-size: .64rem; }
           .map-shell { height: clamp(390px, 66dvh, 620px); border-right: 0; border-left: 0; border-radius: 0; }
           .map-toolbar { top: 8px; left: 8px; max-width: calc(100% - 60px); }
-          .map-toolbar button, .map-controls button { min-height: 44px; width: auto; }
+          .map-toolbar button, .map-controls > button, .share-trigger { min-height: 44px; width: auto; }
           .map-controls { top: 8px; right: 8px; gap: 5px; }
-          .map-controls button { width: 44px; height: 44px; }
+          .map-controls > button, .share-trigger { width: 44px; height: 44px; }
+          .share-menu { right: 50px; min-width: 168px; }
           .filter-panel { top: 60px; right: 8px; left: 8px; width: auto; max-height: calc(100% - 68px); padding: 14px; }
           .filter-panel select, .filter-actions button { min-height: 46px; }
           .article-panel { top: auto; right: 8px; bottom: 8px; left: 8px; width: auto; max-height: 52%; border-radius: 16px; transform: translateY(calc(100% + 20px)); }
