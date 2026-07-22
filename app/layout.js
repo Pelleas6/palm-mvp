@@ -39,11 +39,13 @@ export const metadata = {
     type: "website",
     locale: "fr_FR",
     siteName: SITE_NAME,
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Le Pouls du Monde" }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Le Pouls du Monde | Carte de l’actualité mondiale",
     description: SITE_DESCRIPTION,
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
