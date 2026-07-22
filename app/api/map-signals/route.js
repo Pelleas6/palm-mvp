@@ -3,7 +3,7 @@ import {
   getWorldPulseDashboardPayload,
   responseHeadersForPayload,
 } from "../../../lib/world-pulse.js";
-import { WORLD_MAP_VIEWBOX } from "../../../lib/world-pulse-geography.js";
+import { resolveVerifiedSourceCountry, WORLD_MAP_VIEWBOX } from "../../../lib/world-pulse-geography.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +74,7 @@ export async function GET() {
           i: articleId,
           c: cleanText(particle?.label, "Non classé"),
           s: cleanText(particle?.mediaName, "Source"),
+          r: cleanText(particle?.sourceRegion, "Non précisée"),
           k: cleanText(particle?.location?.code),
           n: cleanText(
             particle?.eventCountry || particle?.location?.label,
@@ -96,18 +97,38 @@ export async function GET() {
       if (code && !countriesByCode.has(code)) countriesByCode.set(code, label);
     }
 
+    // A country is marked only when every configured media feed from that
+    // country failed during the latest verified server refresh. It prevents a
+    // blank area from being mistaken for an absence of news.
+    const healthByCountry = new Map();
+    for (const entry of Array.isArray(payload?.sourceHealth) ? payload.sourceHealth : []) {
+      const country = resolveVerifiedSourceCountry(entry?.sourceCountry || "");
+      if (!country) continue;
+      const current = healthByCountry.get(country.code) || { code: country.code, label: country.label, total: 0, active: 0 };
+      current.total += 1;
+      if (entry?.state === "OK") current.active += 1;
+      healthByCountry.set(country.code, current);
+    }
+
     const body = {
       state: payload?.state || "ready",
       stateLabel: payload?.stateLabel || "En direct",
       generatedAt: payload?.generatedAt || new Date().toISOString(),
       count: features.length,
+      sources: {
+        active: Number(payload?.counts?.rssActiveSources || 0),
+        audited: Number(payload?.counts?.rssAuditedSources || 0),
+      },
       filters: {
         categories,
         sources,
+        regions: uniqueSorted(features.map((entry) => entry.properties.r)),
         countries: [...countriesByCode.entries()]
           .map(([code, label]) => ({ code, label }))
           .sort((left, right) => left.label.localeCompare(right.label, "fr")),
       },
+      unavailableCountries: [...healthByCountry.values()]
+        .filter((entry) => entry.total > 0 && entry.active === 0),
       geojson: {
         type: "FeatureCollection",
         features,
