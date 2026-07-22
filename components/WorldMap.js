@@ -115,6 +115,14 @@ function ShareIcon() {
   );
 }
 
+function ResetFiltersIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M19 8.5V4.8m0 0h-3.7M19 4.8a8 8 0 1 0 1.1 9.7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 function filterCollection(payload, filters) {
   const features = Array.isArray(payload?.geojson?.features) ? payload.geojson.features : [];
   return {
@@ -569,6 +577,12 @@ export default function WorldMap() {
     fitWorld(mapRef.current);
   };
 
+  const resetFiltersOnly = () => {
+    const next = blankFilters();
+    filtersRef.current = next;
+    setFilters(next);
+  };
+
   const showSelection = () => {
     setPanelTitle(selectionLabel(filters, payload));
     setFiltersOpen(false);
@@ -644,6 +658,16 @@ export default function WorldMap() {
           <div className="map-toolbar">
             <button type="button" onClick={() => setFiltersOpen((open) => !open)} aria-expanded={filtersOpen}>
               Filtres{filterCount ? ` · ${filterCount}` : ""}
+            </button>
+            <button
+              type="button"
+              className="quick-filter-reset"
+              onClick={resetFiltersOnly}
+              disabled={!filterCount}
+              aria-label="Réinitialiser les filtres"
+              title={filterCount ? "Réinitialiser les filtres" : "Aucun filtre actif"}
+            >
+              <ResetFiltersIcon />
             </button>
           </div>
 
@@ -805,8 +829,11 @@ export default function WorldMap() {
         .map-shell { position: relative; width: 100%; max-width: 100%; height: clamp(520px, 72dvh, 790px); min-width: 0; overflow: hidden; border: 1px solid rgba(137,194,195,.24); border-radius: 22px; background: #06141b; box-shadow: 0 24px 70px rgba(0,0,0,.28); contain: layout paint; }
         .map-shell.is-fullscreen { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
         .map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; touch-action: none; }
-        .map-toolbar { position: absolute; z-index: 5; top: 12px; left: 12px; max-width: calc(100% - 80px); pointer-events: none; }
+        .map-toolbar { position: absolute; z-index: 5; top: 12px; left: 12px; display: flex; gap: 6px; max-width: calc(100% - 80px); pointer-events: none; }
         .map-toolbar button { min-height: 40px; padding: 0 14px; border: 1px solid rgba(115,216,201,.42); border-radius: 11px; background: rgba(8,34,40,.92); color: #e9fffb; font: inherit; font-size: .76rem; font-weight: 800; cursor: pointer; pointer-events: auto; }
+        .map-toolbar .quick-filter-reset { display: grid; width: 40px; min-width: 40px; padding: 0; place-items: center; color: #c8f6ef; }
+        .map-toolbar .quick-filter-reset:not(:disabled):hover, .map-toolbar .quick-filter-reset:not(:disabled):focus-visible { border-color: rgba(105,224,207,.8); background: rgba(13,62,65,.96); color: #ffffff; outline: none; }
+        .map-toolbar .quick-filter-reset:disabled { border-color: rgba(148,199,201,.17); color: rgba(211,239,235,.34); cursor: default; }
         .map-controls { position: absolute; z-index: 6; top: 12px; right: 12px; display: grid; gap: 6px; }
         .map-controls > button, .share-trigger, .panel-heading > button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(148,199,201,.22); border-radius: 11px; background: rgba(5,20,27,.9); color: #eafffb; font: inherit; font-size: 1.1rem; cursor: pointer; backdrop-filter: blur(10px); }
         .map-controls > button:hover, .share-trigger:hover, .map-controls > button:focus-visible, .share-trigger:focus-visible { border-color: rgba(105,224,207,.72); color: #72dfcf; outline: none; }
