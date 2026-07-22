@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { geoCentroid } from "d3-geo";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
 import { SOURCE_COUNTRY_REGISTRY } from "../lib/world-pulse-geography.js";
@@ -146,8 +145,6 @@ export default function WorldMap() {
   const filtersRef = useRef(blankFilters());
   const openCountryRef = useRef(null);
   const openArticleRef = useRef(null);
-  const markerCtorRef = useRef(null);
-  const countryLabelMarkersRef = useRef([]);
 
   const [payload, setPayload] = useState(null);
   const [filters, setFilters] = useState(blankFilters);
@@ -243,7 +240,6 @@ export default function WorldMap() {
         const imported = await import("maplibre-gl");
         if (stopped || !canvasRef.current) return;
         const maplibregl = imported.default;
-        markerCtorRef.current = maplibregl.Marker;
         const mobile = isMobile();
 
         map = new maplibregl.Map({
@@ -300,6 +296,32 @@ export default function WorldMap() {
               "line-opacity": 0.9,
               "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.9, 5, 2.1],
               "line-dasharray": [1.2, 1.2],
+            },
+          });
+
+          // Country names are deliberately part of the map itself, not HTML overlays.
+          // They only exist after a deliberate close zoom and collision rules keep them
+          // from piling up; because this layer is inserted first, signals stay above it.
+          map.addSource("country-labels", { type: "geojson", data: EMPTY_COLLECTION });
+          map.addLayer({
+            id: "country-labels",
+            type: "symbol",
+            source: "country-labels",
+            minzoom: 3.4,
+            layout: {
+              "text-field": ["get", "label"],
+              "text-font": ["Open Sans Regular"],
+              "text-size": ["interpolate", ["linear"], ["zoom"], 3.4, 8, 6, 10],
+              "text-max-width": 8,
+              "text-padding": 14,
+              "text-allow-overlap": false,
+              "text-ignore-placement": false,
+              "text-optional": true,
+            },
+            paint: {
+              "text-color": "rgba(187, 215, 214, 0.58)",
+              "text-halo-color": "rgba(6, 20, 27, 0.86)",
+              "text-halo-width": 1,
             },
           });
 
@@ -404,34 +426,18 @@ export default function WorldMap() {
   }, []);
 
   useEffect(() => {
-    const map = mapRef.current;
-    const Marker = markerCtorRef.current;
-    if (!map || !Marker || !payload) return undefined;
-    countryLabelMarkersRef.current.forEach((marker) => marker.remove());
-    const unavailable = new Set((payload.unavailableCountries || []).map((country) => country.code));
-    const updateVisibility = () => {
-      const visible = map.getZoom() >= 2.45;
-      countryLabelMarkersRef.current.forEach((marker) => {
-        marker.getElement().classList.toggle("is-visible", visible);
-      });
-    };
-    countryLabelMarkersRef.current = (payload.filters?.countries || []).slice(0, 70).flatMap((country) => {
-      const shape = countryByCode.get(country.code);
-      if (!shape) return [];
-      const position = geoCentroid(shape);
-      if (!position.every(Number.isFinite)) return [];
-      const element = document.createElement("span");
-      element.className = `map-country-label${unavailable.has(country.code) ? " is-unavailable" : ""}`;
-      element.textContent = country.label;
-      element.setAttribute("aria-hidden", "true");
-      return [new Marker({ element, anchor: "center" }).setLngLat(position).addTo(map)];
+    const source = mapRef.current?.getSource("country-labels");
+    if (!source?.setData) return;
+    const availableCodes = new Set((payload?.filters?.countries || []).map((country) => country.code));
+    source.setData({
+      type: "FeatureCollection",
+      features: countryCollection.features
+        .filter((country) => availableCodes.has(country.properties.code))
+        .map((country) => ({
+          ...country,
+          properties: { label: country.properties.label },
+        })),
     });
-    updateVisibility();
-    map.on("zoom", updateVisibility);
-    return () => {
-      map.off("zoom", updateVisibility);
-      countryLabelMarkersRef.current.forEach((marker) => marker.remove());
-    };
   }, [payload]);
 
   useEffect(() => {
@@ -672,9 +678,6 @@ export default function WorldMap() {
         .filter-panel label { display: grid; gap: 6px; color: #a9c5c7; font-size: .7rem; font-weight: 700; }
         .filter-panel select { width: 100%; min-height: 42px; padding: 0 34px 0 11px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: #0a2630; color: #effafa; font: inherit; font-size: .78rem; }
         .filter-panel input { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: #0a2630; color: #effafa; font: inherit; font-size: .78rem; }
-        :global(.map-country-label) { pointer-events: none; color: rgba(194,218,216,.45); font: 700 7px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .02em; text-shadow: 0 1px 3px rgba(0,0,0,.9); white-space: nowrap; transform: translateY(14px); opacity: 0; transition: opacity 160ms ease; }
-        :global(.map-country-label.is-visible) { opacity: .58; }
-        :global(.map-country-label.is-unavailable.is-visible) { color: #c99359; opacity: .7; }
         .filter-actions { display: grid; grid-template-columns: 1fr 1.2fr; gap: 8px; }
         .filter-actions button { min-height: 42px; border: 1px solid rgba(149,199,201,.2); border-radius: 10px; background: rgba(255,255,255,.04); color: #d9efee; font: inherit; font-size: .72rem; font-weight: 800; cursor: pointer; }
         .filter-actions .primary { border-color: rgba(95,218,201,.5); background: #1b675f; color: white; }
