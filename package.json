@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "test": "node --test tests/*.test.mjs",
+    "generate:world-map-boundaries": "node scripts/build-world-pulse-map-boundaries.mjs",
     "build": "next build",
     "start": "next start"
   },

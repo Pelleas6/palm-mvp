@@ -3,17 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { feature } from "topojson-client";
 import worldAtlas from "world-atlas/countries-110m.json";
-import {
-  SOURCE_COUNTRY_REGISTRY,
-  WORLD_ADMIN1_BOUNDARY_COLLECTION,
-} from "../lib/world-pulse-geography.js";
+import mapCountries from "../data/world-pulse-map-countries.json";
+import { WORLD_ADMIN1_BOUNDARY_COLLECTION } from "../lib/world-pulse-map-boundaries.js";
 import { WORLD_PULSE_SIGNAL_LEGEND } from "../lib/world-pulse-signals.js";
 
 const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 const WORLD_BOUNDS = [[-174, -58], [178, 80]];
 
 const registryByNumeric = new Map(
-  SOURCE_COUNTRY_REGISTRY.map((entry) => [String(entry.isoNumeric).padStart(3, "0"), entry]),
+  mapCountries.map((entry) => [String(entry.isoNumeric).padStart(3, "0"), entry]),
 );
 
 const rawCountries = feature(worldAtlas, worldAtlas.objects.countries);
@@ -381,8 +379,8 @@ export default function WorldMap() {
             source: "admin-1-boundaries",
             paint: {
               "line-color": "#78a6aa",
-              "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.13, 1.2, 0.2, 3.2, 0.34, 6, 0.52],
-              "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.22, 3.2, 0.52, 6, 0.86],
+              "line-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.08, 1.2, 0.13, 3.2, 0.23, 6, 0.36],
+              "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.18, 3.2, 0.38, 6, 0.68],
             },
           });
           map.addSource("unavailable-countries", { type: "geojson", data: EMPTY_COLLECTION });
@@ -552,7 +550,14 @@ export default function WorldMap() {
   useEffect(() => {
     const source = mapRef.current?.getSource("unavailable-countries");
     if (!source?.setData) return;
-    const unavailable = new Set((payload?.unavailableCountries || []).map((country) => country.code));
+    // Antarctica's clipped world-atlas outline becomes a dashed line across the
+    // whole map. It is not a country source, so it must never be drawn as a
+    // "feed unavailable" contour.
+    const unavailable = new Set(
+      (payload?.unavailableCountries || [])
+        .map((country) => country.code)
+        .filter((code) => code && code !== "AQ"),
+    );
     source.setData({
       type: "FeatureCollection",
       features: countryCollection.features.filter((country) => unavailable.has(country.properties.code)),

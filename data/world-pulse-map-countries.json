@@ -1,0 +1,532 @@
+[
+  {
+    "code": "US",
+    "isoNumeric": "840",
+    "label": "États-Unis"
+  },
+  {
+    "code": "GB",
+    "isoNumeric": "826",
+    "label": "Royaume-Uni"
+  },
+  {
+    "code": "FR",
+    "isoNumeric": "250",
+    "label": "France"
+  },
+  {
+    "code": "DE",
+    "isoNumeric": "276",
+    "label": "Allemagne"
+  },
+  {
+    "code": "IT",
+    "isoNumeric": "380",
+    "label": "Italie"
+  },
+  {
+    "code": "ES",
+    "isoNumeric": "724",
+    "label": "Espagne"
+  },
+  {
+    "code": "CA",
+    "isoNumeric": "124",
+    "label": "Canada"
+  },
+  {
+    "code": "BR",
+    "isoNumeric": "076",
+    "label": "Brésil"
+  },
+  {
+    "code": "PK",
+    "isoNumeric": "586",
+    "label": "Pakistan"
+  },
+  {
+    "code": "MX",
+    "isoNumeric": "484",
+    "label": "Mexique"
+  },
+  {
+    "code": "AR",
+    "isoNumeric": "032",
+    "label": "Argentine"
+  },
+  {
+    "code": "CL",
+    "isoNumeric": "152",
+    "label": "Chili"
+  },
+  {
+    "code": "CO",
+    "isoNumeric": "170",
+    "label": "Colombie"
+  },
+  {
+    "code": "ZA",
+    "isoNumeric": "710",
+    "label": "Afrique du Sud"
+  },
+  {
+    "code": "NG",
+    "isoNumeric": "566",
+    "label": "Nigeria"
+  },
+  {
+    "code": "CG",
+    "isoNumeric": "178",
+    "label": "République du Congo"
+  },
+  {
+    "code": "DZ",
+    "isoNumeric": "012",
+    "label": "Algérie"
+  },
+  {
+    "code": "EG",
+    "isoNumeric": "818",
+    "label": "Égypte"
+  },
+  {
+    "code": "KE",
+    "isoNumeric": "404",
+    "label": "Kenya"
+  },
+  {
+    "code": "TR",
+    "isoNumeric": "792",
+    "label": "Turquie"
+  },
+  {
+    "code": "UA",
+    "isoNumeric": "804",
+    "label": "Ukraine"
+  },
+  {
+    "code": "RU",
+    "isoNumeric": "643",
+    "label": "Russie"
+  },
+  {
+    "code": "CN",
+    "isoNumeric": "156",
+    "label": "Chine"
+  },
+  {
+    "code": "BD",
+    "isoNumeric": "050",
+    "label": "Bangladesh"
+  },
+  {
+    "code": "NP",
+    "isoNumeric": "524",
+    "label": "Népal"
+  },
+  {
+    "code": "TH",
+    "isoNumeric": "764",
+    "label": "Thaïlande"
+  },
+  {
+    "code": "VN",
+    "isoNumeric": "704",
+    "label": "Viêt Nam"
+  },
+  {
+    "code": "PH",
+    "isoNumeric": "608",
+    "label": "Philippines"
+  },
+  {
+    "code": "IN",
+    "isoNumeric": "356",
+    "label": "Inde"
+  },
+  {
+    "code": "JP",
+    "isoNumeric": "392",
+    "label": "Japon"
+  },
+  {
+    "code": "KR",
+    "isoNumeric": "410",
+    "label": "Corée du Sud"
+  },
+  {
+    "code": "AU",
+    "isoNumeric": "036",
+    "label": "Australie"
+  },
+  {
+    "code": "NZ",
+    "isoNumeric": "554",
+    "label": "Nouvelle-Zélande"
+  },
+  {
+    "code": "ID",
+    "isoNumeric": "360",
+    "label": "Indonésie"
+  },
+  {
+    "code": "SG",
+    "isoNumeric": "702",
+    "label": "Singapour"
+  },
+  {
+    "code": "AE",
+    "isoNumeric": "784",
+    "label": "Émirats arabes unis"
+  },
+  {
+    "code": "QA",
+    "isoNumeric": "634",
+    "label": "Qatar"
+  },
+  {
+    "code": "SA",
+    "isoNumeric": "682",
+    "label": "Arabie saoudite"
+  },
+  {
+    "code": "IL",
+    "isoNumeric": "376",
+    "label": "Israël"
+  },
+  {
+    "code": "IR",
+    "isoNumeric": "364",
+    "label": "Iran"
+  },
+  {
+    "code": "AT",
+    "isoNumeric": "040",
+    "label": "Autriche"
+  },
+  {
+    "code": "BE",
+    "isoNumeric": "056",
+    "label": "Belgique"
+  },
+  {
+    "code": "NL",
+    "isoNumeric": "528",
+    "label": "Pays-Bas"
+  },
+  {
+    "code": "PL",
+    "isoNumeric": "616",
+    "label": "Pologne"
+  },
+  {
+    "code": "PT",
+    "isoNumeric": "620",
+    "label": "Portugal"
+  },
+  {
+    "code": "RO",
+    "isoNumeric": "642",
+    "label": "Roumanie"
+  },
+  {
+    "code": "CH",
+    "isoNumeric": "756",
+    "label": "Suisse"
+  },
+  {
+    "code": "SE",
+    "isoNumeric": "752",
+    "label": "Suède"
+  },
+  {
+    "code": "NO",
+    "isoNumeric": "578",
+    "label": "Norvège"
+  },
+  {
+    "code": "DK",
+    "isoNumeric": "208",
+    "label": "Danemark"
+  },
+  {
+    "code": "FI",
+    "isoNumeric": "246",
+    "label": "Finlande"
+  },
+  {
+    "code": "IE",
+    "isoNumeric": "372",
+    "label": "Irlande"
+  },
+  {
+    "code": "GR",
+    "isoNumeric": "300",
+    "label": "Grèce"
+  },
+  {
+    "code": "CZ",
+    "isoNumeric": "203",
+    "label": "Tchéquie"
+  },
+  {
+    "code": "HU",
+    "isoNumeric": "348",
+    "label": "Hongrie"
+  },
+  {
+    "code": "CD",
+    "isoNumeric": "180",
+    "label": "République démocratique du Congo"
+  },
+  {
+    "code": "GH",
+    "isoNumeric": "288",
+    "label": "Ghana"
+  },
+  {
+    "code": "ET",
+    "isoNumeric": "231",
+    "label": "Éthiopie"
+  },
+  {
+    "code": "SD",
+    "isoNumeric": "729",
+    "label": "Soudan"
+  },
+  {
+    "code": "MA",
+    "isoNumeric": "504",
+    "label": "Maroc"
+  },
+  {
+    "code": "TN",
+    "isoNumeric": "788",
+    "label": "Tunisie"
+  },
+  {
+    "code": "UG",
+    "isoNumeric": "800",
+    "label": "Ouganda"
+  },
+  {
+    "code": "TZ",
+    "isoNumeric": "834",
+    "label": "Tanzanie"
+  },
+  {
+    "code": "RW",
+    "isoNumeric": "646",
+    "label": "Rwanda"
+  },
+  {
+    "code": "SN",
+    "isoNumeric": "686",
+    "label": "Sénégal"
+  },
+  {
+    "code": "CI",
+    "isoNumeric": "384",
+    "label": "Côte d’Ivoire"
+  },
+  {
+    "code": "CM",
+    "isoNumeric": "120",
+    "label": "Cameroun"
+  },
+  {
+    "code": "ML",
+    "isoNumeric": "466",
+    "label": "Mali"
+  },
+  {
+    "code": "MZ",
+    "isoNumeric": "508",
+    "label": "Mozambique"
+  },
+  {
+    "code": "LY",
+    "isoNumeric": "434",
+    "label": "Libye"
+  },
+  {
+    "code": "SO",
+    "isoNumeric": "706",
+    "label": "Somalie"
+  },
+  {
+    "code": "SS",
+    "isoNumeric": "728",
+    "label": "Soudan du Sud"
+  },
+  {
+    "code": "IQ",
+    "isoNumeric": "368",
+    "label": "Irak"
+  },
+  {
+    "code": "JO",
+    "isoNumeric": "400",
+    "label": "Jordanie"
+  },
+  {
+    "code": "LB",
+    "isoNumeric": "422",
+    "label": "Liban"
+  },
+  {
+    "code": "SY",
+    "isoNumeric": "760",
+    "label": "Syrie"
+  },
+  {
+    "code": "YE",
+    "isoNumeric": "887",
+    "label": "Yémen"
+  },
+  {
+    "code": "OM",
+    "isoNumeric": "512",
+    "label": "Oman"
+  },
+  {
+    "code": "KW",
+    "isoNumeric": "414",
+    "label": "Koweït"
+  },
+  {
+    "code": "BH",
+    "isoNumeric": "048",
+    "label": "Bahreïn"
+  },
+  {
+    "code": "PS",
+    "isoNumeric": "275",
+    "label": "Palestine"
+  },
+  {
+    "code": "AF",
+    "isoNumeric": "004",
+    "label": "Afghanistan"
+  },
+  {
+    "code": "MY",
+    "isoNumeric": "458",
+    "label": "Malaisie"
+  },
+  {
+    "code": "KH",
+    "isoNumeric": "116",
+    "label": "Cambodge"
+  },
+  {
+    "code": "MM",
+    "isoNumeric": "104",
+    "label": "Myanmar"
+  },
+  {
+    "code": "LK",
+    "isoNumeric": "144",
+    "label": "Sri Lanka"
+  },
+  {
+    "code": "KZ",
+    "isoNumeric": "398",
+    "label": "Kazakhstan"
+  },
+  {
+    "code": "UZ",
+    "isoNumeric": "860",
+    "label": "Ouzbékistan"
+  },
+  {
+    "code": "KP",
+    "isoNumeric": "408",
+    "label": "Corée du Nord"
+  },
+  {
+    "code": "TW",
+    "isoNumeric": "158",
+    "label": "Taïwan"
+  },
+  {
+    "code": "LA",
+    "isoNumeric": "418",
+    "label": "Laos"
+  },
+  {
+    "code": "MN",
+    "isoNumeric": "496",
+    "label": "Mongolie"
+  },
+  {
+    "code": "PE",
+    "isoNumeric": "604",
+    "label": "Pérou"
+  },
+  {
+    "code": "VE",
+    "isoNumeric": "862",
+    "label": "Venezuela"
+  },
+  {
+    "code": "EC",
+    "isoNumeric": "218",
+    "label": "Équateur"
+  },
+  {
+    "code": "BO",
+    "isoNumeric": "068",
+    "label": "Bolivie"
+  },
+  {
+    "code": "UY",
+    "isoNumeric": "858",
+    "label": "Uruguay"
+  },
+  {
+    "code": "PY",
+    "isoNumeric": "600",
+    "label": "Paraguay"
+  },
+  {
+    "code": "CR",
+    "isoNumeric": "188",
+    "label": "Costa Rica"
+  },
+  {
+    "code": "CU",
+    "isoNumeric": "192",
+    "label": "Cuba"
+  },
+  {
+    "code": "GT",
+    "isoNumeric": "320",
+    "label": "Guatemala"
+  },
+  {
+    "code": "PA",
+    "isoNumeric": "591",
+    "label": "Panama"
+  },
+  {
+    "code": "PG",
+    "isoNumeric": "598",
+    "label": "Papouasie-Nouvelle-Guinée"
+  },
+  {
+    "code": "FJ",
+    "isoNumeric": "242",
+    "label": "Fidji"
+  },
+  {
+    "code": "SB",
+    "isoNumeric": "090",
+    "label": "Îles Salomon"
+  },
+  {
+    "code": "AQ",
+    "isoNumeric": "010",
+    "label": "Antarctique"
+  }
+]
